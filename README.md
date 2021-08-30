@@ -10,8 +10,10 @@ to set up your development environment. Then replace the directories in the sdk 
 Finally import the PicoMite project
 
 
-/***********************************************************************************************************************
+***********************************************************************************************************************
+
 PicoMite MMBasic
+
 
 <COPYRIGHT HOLDERS>  Geoff Graham, Peter Mather
 Copyright (c) 2021, <COPYRIGHT HOLDERS> All rights reserved. 
