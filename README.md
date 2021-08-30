@@ -6,5 +6,5 @@ This also requires changes in the SDK directories src/rp2_common/pico_stdio_usb 
 The amended versions of these is included in the files provided
 
 To build the application follow the instructions in the manual "Getting started with the Raspberry Pi Pico"
-to set up your development environment. Then replace the directories in the sdk with the files provided
+to set up your development environment. Then replace the directories in the sdk with the files provided. 
 Finally import the PicoMite project
