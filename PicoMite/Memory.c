@@ -152,49 +152,33 @@ void cmd_memory(void) {
     	if((p = checkstring(tp, "SHORT"))) {
         	getargs(&p,5,","); //assume byte
         	if(argc!=5)error("Syntax");
-         	char *to=(char *)GetPokeAddr(argv[0]);
+         	short *to=(short *)GetPokeAddr(argv[0]);
         	if((uint32_t)to % 2)error("Address not divisible by 2");
-        	char *q=(char *)to;
-        	union {
-        		uint8_t c[4];
-    			uint16_t a[2];
-    			uint32_t b;
-    		}data;
-    		data.a[0]=getint(argv[2],0,65535);
-    		data.a[1]=data.a[0];
+        	short *q=to;
+   		    short data=getint(argv[2],0,65535);
         	int n=getinteger(argv[4]);
         	if(n<=0)return;
-        	if(((uint32_t)to & 3) && 2){ //get to word boundary
-        		*q++=data.c[0];
-        		*q++=data.c[1];
-        		n--;
+        	while(n>0){
+                *q++=data;
+                n--;  
         	}
-        	while(n>ASMMAX/2){
-        		memset(q,data.b,ASMMAX);
-        		n-=ASMMAX/2;
-        		q+=ASMMAX;
-        	}
-        	if(n)memset(q,data.b,n);
     		return;
     	}
     	if((p = checkstring(tp, "WORD"))) {
-        	getargs(&p,5,",");
+        	getargs(&p,5,","); //assume byte
         	if(argc!=5)error("Syntax");
-         	char *to=(char *)GetPokeAddr(argv[0]);
+         	unsigned int *to=(unsigned int *)GetPokeAddr(argv[0]);
         	if((uint32_t)to % 4)error("Address not divisible by 4");
-        	char *q=(char *)to;
-        	uint32_t data;
-    		data=getinteger(argv[2]) & 0xFFFFFFFF;
+        	unsigned int *q=to;
+   		    unsigned int data=getint(argv[2],0,0xFFFFFFFF);
         	int n=getinteger(argv[4]);
         	if(n<=0)return;
-        	while(n>ASMMAX/4){
-        		memset(q,data,ASMMAX);
-        		n-=ASMMAX/4;
-        		q+=ASMMAX;
+        	while(n>0){
+                *q++=data;
+                n--;  
         	}
-        	if(n)memset(q,data,n);
     		return;
-    	}
+     	}
     	if((p = checkstring(tp, "INTEGER"))) {
     		int stepin=1;
         	getargs(&p,7,",");

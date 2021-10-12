@@ -97,15 +97,15 @@ extern int EdBuffSize;                    // size of the buffer in characters
 #define DOWN      0x81
 #define LEFT      0x82
 #define RIGHT     0x83
-#define INSERT        0x84
-#define DEL   0x7f
+#define INSERT    0x84
+#define DEL       0x7f
 #define HOME      0x86
-#define END   0x87
-#define PUP   0x88
+#define END       0x87
+#define PUP       0x88
 #define PDOWN     0x89
 #define NUM_ENT   ENTER
 #define SLOCK     0x8c
-#define ALT   0x8b
+#define ALT       0x8b
 
 
 // definitions related to setting the tab spacing

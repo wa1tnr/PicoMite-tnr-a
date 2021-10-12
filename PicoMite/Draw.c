@@ -180,13 +180,17 @@ void cmd_guiMX170(void) {
         } else {
             if(CurrentLinePtr) error("Invalid in a program");
         }
-
+        calibrate=1;
         GetCalibration(TARGET_OFFSET, TARGET_OFFSET, &tlx, &tly);
         GetCalibration(HRes - TARGET_OFFSET, TARGET_OFFSET, &trx, &try);
-        if(abs(trx - tlx) < CAL_ERROR_MARGIN && abs(tly - try) < CAL_ERROR_MARGIN) error("Touch hardware failure");
+        if(abs(trx - tlx) < CAL_ERROR_MARGIN && abs(tly - try) < CAL_ERROR_MARGIN) {
+            calibrate=0;
+            error("Touch hardware failure");
+        }
 
         GetCalibration(TARGET_OFFSET, VRes - TARGET_OFFSET, &blx, &bly);
         GetCalibration(HRes - TARGET_OFFSET, VRes - TARGET_OFFSET, &brx, &bry);
+        calibrate=0;
         midy = max(max(tly, try), max(bly, bry)) / 2;
         Option.TOUCH_SWAPXY = ((tly < midy && try > midy) || (tly > midy && try < midy));
 
@@ -217,7 +221,6 @@ void cmd_guiMX170(void) {
             GUIPrintString(0, 0, 0x11, JUSTIFY_LEFT, JUSTIFY_TOP, ORIENT_NORMAL, WHITE, BLACK, s);
             GUIPrintString(0, 36, 0x11, JUSTIFY_LEFT, JUSTIFY_TOP, ORIENT_NORMAL, WHITE, BLACK, inpbuf);
         }
-
         return;
     }
 
@@ -1984,12 +1987,16 @@ void cmd_blit(void) {
         FileClose(fnbr);
         if(xlen==-1)xlen=BmpDec.lWidth;
         if(ylen==-1)ylen=BmpDec.lHeight;
-        if(xlen+xOrigin>=BmpDec.lWidth || ylen+yOrigin>=BmpDec.lHeight)error("Coordinates");
-        blitbuffptr[bnbr] = GetMemory(xlen * ylen * 3);
-        memset(blitbuffptr[bnbr],0xFF,xlen * ylen * 3);
+        if(xlen+xOrigin>BmpDec.lWidth || ylen+yOrigin>BmpDec.lHeight)error("Coordinates");
+        blitbuffptr[bnbr] = GetMemory(xlen * ylen * 3 +4 );
+        memset(blitbuffptr[bnbr],0xFF,xlen * ylen * 3 +4 );
         fnbr = FindFreeFileNbr();
         if(!BasicFileOpen(p, fnbr, FA_READ)) return;
-        BMP_bDecode_memory(xOrigin, yOrigin, xlen, ylen, fnbr, blitbuffptr[bnbr]);
+        BMP_bDecode_memory(xOrigin, yOrigin, xlen, ylen, fnbr, &blitbuffptr[bnbr][4]);
+        short *bw=(short *)&blitbuffptr[bnbr][0];
+        short *bh=(short *)&blitbuffptr[bnbr][2];
+        *bw=xlen;
+        *bh=ylen;
         FileClose(fnbr);
         return;
     }
@@ -2009,18 +2016,26 @@ void cmd_blit(void) {
         if(y1 + h > VRes) h = VRes - y1;
         if(w < 1 || h < 1 || x1 < 0 || x1 + w > HRes || y1 < 0 || y1 + h > VRes ) return;
         if(blitbuffptr[bnbr] == NULL){
-            blitbuffptr[bnbr] = GetMemory(w * h * 3);
-            ReadBuffer(x1, y1, x1 + w - 1, y1 + h - 1, blitbuffptr[bnbr]);
+            blitbuffptr[bnbr] = GetMemory(w * h * 3 + 4);
+            ReadBuffer(x1, y1, x1 + w - 1, y1 + h - 1, &blitbuffptr[bnbr][4]);
+            short *bw=(short *)&blitbuffptr[bnbr][0];
+            short *bh=(short *)&blitbuffptr[bnbr][2];
+            *bw=w;
+            *bh=h;
         } else error("Buffer in use");
     } else if((p = checkstring(cmdline, "WRITE"))) {
         getargs(&p, 9, ",");
-        if(argc != 9) error("Syntax");
+        if(!(argc == 9 || argc==5)) error("Syntax");
         if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
         bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
         x1 = getinteger(argv[2]);
         y1 = getinteger(argv[4]);
-        w = getinteger(argv[6]);
-        h = getinteger(argv[8]);
+        short *bw=(short *)&blitbuffptr[bnbr][0];
+        short *bh=(short *)&blitbuffptr[bnbr][2];
+        w=*bw;
+        h=*bh;
+        if(argc >= 7 && *argv[6])w = getinteger(argv[6]);
+        if(argc >= 9 && *argv[8])h = getinteger(argv[8]);
         if(w < 1 || h < 1) return;
         if(x1 < 0) { x2 -= x1; w += x1; x1 = 0; }
         if(y1 < 0) { y2 -= y1; h += y1; y1 = 0; }
@@ -2028,7 +2043,7 @@ void cmd_blit(void) {
         if(y1 + h > VRes) h = VRes - y1;
         if(w < 1 || h < 1 || x1 < 0 || x1 + w > HRes || y1 < 0 || y1 + h > VRes ) return;
         if(blitbuffptr[bnbr] != NULL){
-            DrawBuffer(x1, y1, x1 + w - 1, y1 + h - 1, blitbuffptr[bnbr]);
+            DrawBuffer(x1, y1, x1 + w - 1, y1 + h - 1, &blitbuffptr[bnbr][4]);
         } else error("Buffer not in use");
     } else if((p = checkstring(cmdline, "CLOSE"))) {
         getargs(&p, 1, ",");
@@ -2078,8 +2093,8 @@ void cmd_blit(void) {
             int start_x1, start_x2;
             max_x = 1;
             buff = GetMemory(max_x * h * 3);
-            start_x1 = x1 + w - 1  -max_x;
-            start_x2 = x2 + w - 1 - max_x;
+            start_x1 = x1 + w - max_x;
+            start_x2 = x2 + w - max_x;
             while(w > max_x){
                 ReadBuffer(start_x1, y1, start_x1 + max_x - 1, y1 + h - 1, buff);
                 DrawBuffer(start_x2, y2, start_x2 + max_x - 1, y2 + h - 1, buff);

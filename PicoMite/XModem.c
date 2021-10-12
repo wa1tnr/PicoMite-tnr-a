@@ -111,9 +111,9 @@ int _inbyte(int timeout) {
 
 
 // for the MX470 we don't want any XModem data echoed to the LCD panel
-#if defined(MX470)
-#define putConsole(c) SerUSBPutC(c)
-#endif
+//#if defined(MX470)
+//#define putConsole(c) SerUSBPutC(c)
+//#endif
 
 
 /***********************************************************************************************
@@ -179,14 +179,14 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
         // first establish communication with the remote
     while(1) {
         for( retry = 0; retry < 32; ++retry) {
-            if(trychar) putConsole(trychar);
+            if(trychar) MMputchar(trychar,1);
             if ((c = _inbyte((DLY_1S)<<1)) >= 0) {
                 switch (c) {
                 case SOH:
                     goto start_recv;
                 case EOT:
                     flushinput();
-                    putConsole(ACK);
+                    MMputchar(ACK,1);;
                     if(sp != NULL) {
                         if(maxbytes <= 0) error("Not enough memory");
                         *sp++ = 0;                                  // terminate the data
@@ -194,7 +194,7 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
                     return;                                         // no more data
                 case CAN:
                     flushinput();
-                    putConsole(ACK);
+                    MMputchar(ACK,1);;
                     error("Cancelled by remote");
                     break;
                 default:
@@ -203,9 +203,9 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
             }
         }
         flushinput();
-        putConsole(CAN);
-        putConsole(CAN);
-        putConsole(CAN);
+        MMputchar(CAN,1);;
+        MMputchar(CAN,1);;
+        MMputchar(CAN,1);;
         error("Remote did not respond");                            // no sync
 
     start_recv:
@@ -242,17 +242,17 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
             }
             if (--retrans <= 0) {
                 flushinput();
-                putConsole(CAN);
-                putConsole(CAN);
-                putConsole(CAN);
+                MMputchar(CAN,1);;
+                MMputchar(CAN,1);;
+                MMputchar(CAN,1);;
                 error("Too many errors");
             }
-            putConsole(ACK);
+            MMputchar(ACK,1);;
             continue;
         }
     reject:
         flushinput();
-        putConsole(NAK);
+        MMputchar(NAK,1);;
     }
 }
 
@@ -276,7 +276,7 @@ void xmodemTransmit(char *p, int fnbr) {
                   goto start_trans;
               case CAN:
                   if ((c = _inbyte(DLY_1S)) == CAN) {
-                      putConsole(ACK);
+                      MMputchar(ACK,1);;
                       flushinput();
                       error("Cancelled by remote");
                   }
@@ -286,9 +286,9 @@ void xmodemTransmit(char *p, int fnbr) {
               }
           }
       }
-      putConsole(CAN);
-      putConsole(CAN);
-      putConsole(CAN);
+      MMputchar(CAN,1);;
+      MMputchar(CAN,1);;
+      MMputchar(CAN,1);;
       flushinput();
       error("Remote did not respond");                              // no sync
 
@@ -326,7 +326,7 @@ void xmodemTransmit(char *p, int fnbr) {
               for (retry = 0; retry < MAXRETRANS && !MMAbort; ++retry) {
                   // send the block
                   for (i = 0; i < X_BLOCK_SIZE+4 && !MMAbort; ++i) {
-                      putConsole(xbuff[i]);
+                      MMputchar(xbuff[i],1);
                   }
                   // check the response
                   if ((c = _inbyte(DLY_1S)) >= 0 ) {
@@ -335,7 +335,7 @@ void xmodemTransmit(char *p, int fnbr) {
                           ++packetno;
                           goto start_trans;
                       case CAN:                                     // cancelled by remote
-                          putConsole(ACK);
+                          MMputchar(ACK,1);;
                           flushinput();
                           error("Cancelled by remote");
                           break;
@@ -346,9 +346,9 @@ void xmodemTransmit(char *p, int fnbr) {
                   }
               }
               // too many retrys... give up
-              putConsole(CAN);
-              putConsole(CAN);
-              putConsole(CAN);
+              MMputchar(CAN,1);;
+              MMputchar(CAN,1);;
+              MMputchar(CAN,1);;
               flushinput();
               error("Too many errors");
           }
@@ -356,7 +356,7 @@ void xmodemTransmit(char *p, int fnbr) {
           // finished sending - send end of text
           else {
               for (retry = 0; retry < 10; ++retry) {
-                  putConsole(EOT);
+                  MMputchar(EOT,1);
                   if ((c = _inbyte((DLY_1S)<<1)) == ACK) break;
               }
               flushinput();

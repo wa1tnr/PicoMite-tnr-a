@@ -97,8 +97,8 @@ void fun_mmcharheight(void);
 	{ (unsigned char *)"RGB(",           T_FUN | T_INT,		0, fun_rgb	        },
 	{ (unsigned char *)"MM.HRes",	    T_FNA | T_INT,		0, fun_mmhres 	    },
 	{ (unsigned char *)"MM.VRes",	    T_FNA | T_INT,		0, fun_mmvres 	    },
-	{ (unsigned char *)"MM.FontWidth",   T_FNA | T_INT,		0, fun_mmcharwidth 	},
-	{ (unsigned char *)"MM.FontHeight",  T_FNA | T_INT,		0, fun_mmcharheight },
+//	{ (unsigned char *)"MM.FontWidth",   T_FNA | T_INT,		0, fun_mmcharwidth 	},
+//	{ (unsigned char *)"MM.FontHeight",  T_FNA | T_INT,		0, fun_mmcharheight },
 // the format is:
 //    TEXT      	TYPE                P  FUNCTION TO CALL
 // where type is T_NA, T_FUN, T_FNA or T_OPER augmented by the types T_STR and/or T_NBR

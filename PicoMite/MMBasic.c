@@ -122,6 +122,7 @@ int autoOn, autoNext = 10, autoIncr = 10;                           // use by th
 //unsigned char *ModuleTable[MAXMODULES];                                      // list of pointers to libraries a(also called modules) loaded in memory;
 //int NbrModules;                                                     // the number of libraries/modules currently loaded
 //#endif
+    int  PrepareProgramExt(unsigned char *, int, unsigned char **, int);
 
 #if defined(MMFAMILY)
 unsigned char FunKey[NBRPROGKEYS][MAXKEYLEN + 1];                            // data storage for the programmable function keys
@@ -155,6 +156,7 @@ unsigned char *ContinuePoint;                                                // 
 extern int TraceOn;
 extern unsigned char *TraceBuff[TRACE_BUFF_SIZE];
 extern int TraceBuffIndex;                                          // used for listing the contents of the trace buffer
+extern long long int CallCFunction(unsigned char *CmdPtr, unsigned char *ArgList, unsigned char *DefP, unsigned char *CallersLinePtr);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Functions only used within MMBasic.c
@@ -215,6 +217,7 @@ void  InitBasic(void) {
     cmdFOR=  GetCommandValue( (unsigned char *)"For");
     cmdNEXT= GetCommandValue( (unsigned char *)"Next");
 	cmdIRET = GetCommandValue( (unsigned char *)"IReturn");
+    cmdCSUB = GetCommandValue( (unsigned char *)"CSub");
     m_alloc(M_VAR);
 //        PInt(CommandTableSize);
 //        PIntComma(TokenTableSize);
@@ -298,7 +301,6 @@ void __not_in_flash_func(ExecuteProgram)(unsigned char *p) {
 // This pre processing speeds up the program when using defined subroutines and functions
 // this routine also looks for embedded fonts and adds them to the font table
 void  PrepareProgram(int ErrAbort) {
-    int  PrepareProgramExt(unsigned char *, int, unsigned char **, int);
     int i, j, NbrFuncts;
     unsigned char *p1, *p2;
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
@@ -342,7 +344,7 @@ int  PrepareProgramExt(unsigned char *p, int i, unsigned char **CFunPtr, int Err
     while(*p != 0xff) {
         p = GetNextCommand(p, &CurrentLinePtr, NULL);
         if(*p == 0) break;                                          // end of the program or module
-        if(*p == cmdSUB || *p == cmdFUN /*|| *p == cmdCFUN || *p == cmdCSUB*/) {         // found a SUB, FUN, CFUNCTION or CSUB token
+        if(*p == cmdSUB || *p == cmdFUN /*|| *p == cmdCFUN*/ || *p == cmdCSUB) {         // found a SUB, FUN, CFUNCTION or CSUB token
             if(i >= MAXSUBFUN) {
                 if(ErrAbort) error("Too many subroutines and functions");
                 continue;
@@ -385,7 +387,7 @@ int __not_in_flash_func(FindSubFun)(unsigned char *p, int type) {
     for(i = 0;  i < MAXSUBFUN && subfun[i] != NULL; i++) {
         p2 = subfun[i];                                             // point to the command token
         if(type == 0) {                                             // if it is a sub and we want a fun or vice versa skip this one
-            if(!(*p2 == cmdSUB /*|| *p2 == cmdCSUB*/)) continue;
+            if(!(*p2 == cmdSUB || *p2 == cmdCSUB)) continue;
         } else {
             if(!(*p2 == cmdFUN /*|| *p2 == cmdCFUN*/)) continue;
         }
@@ -477,7 +479,13 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
     // p   = the argument list for the definition
     skipspace(tp); skipspace(p);
 
-    // from now on we have a user defined sub or function (not a C routine)
+     // similar if this is a CSUB
+    if(*SubLinePtr == cmdCSUB) {
+        CallCFunction(SubLinePtr, tp, p, CallersLinePtr);           // run the CSUB
+        TempMemoryIsChanged = true;                                 // signal that temporary memory should be checked
+        return;
+    }
+   // from now on we have a user defined sub or function (not a C routine)
     
     if(gosubindex >= MAXGOSUB) error("Too many nested SUB/FUN");
     errorstack[gosubindex] = CallersLinePtr;
@@ -670,6 +678,95 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
 	gosubindex--;
 }
 
+char *strcasechr(const char *p, int ch)
+{
+	char c;
+
+	c = toupper(ch);
+	for (;; ++p) {
+		if (toupper(*p) == c)
+			return ((char *)p);
+		if (*p == '\0')
+			return (NULL);
+	}
+	/* NOTREACHED */
+}
+
+char *fstrstr (const char *s1, const char *s2)
+{
+  const char *p = s1;
+  const size_t len = strlen (s2);
+
+  for (; (p = strcasechr (p, *s2)) != 0; p++)
+    {
+      if (strncasecmp (p, s2, len) == 0)
+	return (char *)p;
+    }
+  return (0);
+}
+
+void str_replace(char *target, const char *needle, const char *replacement)
+{
+    char buffer[288] = { 0 };
+    char *insert_point = &buffer[0];
+    const char *tmp = target;
+    size_t needle_len = strlen(needle);
+    size_t repl_len = strlen(replacement);
+
+    while (1) {
+        const char *p = fstrstr(tmp, needle);
+
+        // walked past last occurrence of needle; copy remaining part
+        if (p == NULL) {
+            strcpy(insert_point, tmp);
+            break;
+        }
+
+        // copy part before needle
+        memcpy(insert_point, tmp, p - tmp);
+        insert_point += p - tmp;
+
+        // copy replacement string
+        memcpy(insert_point, replacement, repl_len);
+        insert_point += repl_len;
+
+        // adjust pointers, move on
+        tmp = p + needle_len;
+    }
+
+    // write altered string back to target
+    strcpy(target, buffer);
+}
+
+void STR_REPLACE(char *target, const char *needle, const char *replacement){
+	char *ip=target;
+	int toggle=0;
+	while(*ip){
+		if(*ip==34){
+			if(toggle==0)toggle=1;
+			else toggle=0;
+		}
+		if(toggle && *ip==' '){
+			*ip=0xFF;
+		}
+		if(toggle && *ip=='.'){
+			*ip=0xFE;
+		}
+		if(toggle && *ip=='='){
+			*ip=0xFD;
+		}
+		ip++;
+	}
+	str_replace(target, needle, replacement);
+	ip=target;
+	while(*ip){
+		if(*ip==0xFF)*ip=' ';
+		if(*ip==0xFE)*ip='.';
+		if(*ip==0xFD)*ip='=';
+		ip++;
+	}
+
+}
 
 
 /********************************************************************************************************************************************
@@ -697,6 +794,11 @@ void  tokenise(int console) {
         if(*p < ' ' || *p == 0x7f)  *p = ' ';
         p++;
     }
+    STR_REPLACE(inpbuf,"MM.INFO$","MM.INFO");
+    STR_REPLACE(inpbuf,"=>",">=");
+    STR_REPLACE(inpbuf,"=<","<=");
+    STR_REPLACE(inpbuf,"MM.FONTHEIGHT","MM.INFO(FONTHEIGHT)");
+    STR_REPLACE(inpbuf,"MM.FONTWIDTH","MM.INFO(FONTWIDTH)");
 
     // setup the input and output buffers
     p = inpbuf;
@@ -786,9 +888,9 @@ void  tokenise(int console) {
                 if(*++p == ' ') p++;                                // eat a trailing space
                 match_p = p;
              // translate US spelling of COLOUR and therefor save a token slot
-//            } else if((tp2 = checkstring(p, "COLOR")) != NULL) {
-//                    match_i = GetCommandValue("Colour") - C_BASETOKEN;
-//                    match_p = p = tp2;
+            } else if((tp2 = checkstring(p, "COLOR")) != NULL) {
+                    match_i = GetCommandValue("Colour") - C_BASETOKEN;
+                    match_p = p = tp2;
             } else if((tp2 = checkstring(p, "ELSE IF")) != NULL) {
                     match_i = GetCommandValue("ElseIf") - C_BASETOKEN;
                     match_p = p = tp2;
@@ -800,9 +902,6 @@ void  tokenise(int console) {
                     match_p = p = tp2;
             } else if((tp2 = checkstring(p, "CAT")) != NULL) {
                     match_i = GetCommandValue("Inc") - C_BASETOKEN;
-                    match_p = p = tp2;
-            } else if((tp2 = checkstring(p, "COLOUR")) != NULL) {
-                    match_i = GetCommandValue("Colour") - C_BASETOKEN;
                     match_p = p = tp2;
             } else {
                 // now try for a command in the command table
@@ -1342,7 +1441,7 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
 
 // search through program memory looking for a line number. Stops when it has a matching or larger number
 // returns a pointer to the T_NEWLINE token or a pointer to the two zero characters representing the end of the program
-unsigned char __not_in_flash_func(*findline)(int nbr, int mustfind) {
+unsigned char *findline(int nbr, int mustfind) {
     unsigned char *p;
     int i;
 
@@ -1385,7 +1484,7 @@ unsigned char __not_in_flash_func(*findline)(int nbr, int mustfind) {
 // search through program memory looking for a label.
 // returns a pointer to the T_NEWLINE token or throws an error if not found
 // non cached version
-unsigned char __not_in_flash_func(*findlabel)(unsigned char *labelptr) {
+unsigned char *findlabel(unsigned char *labelptr) {
     unsigned char *p, *lastp = ProgMemory + 1;
     int i;
     unsigned char label[MAXVARLEN + 1];

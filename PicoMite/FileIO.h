@@ -52,6 +52,8 @@ void ResetAllFlash(void);
 void disable_interrupts(void);
 void enable_interrupts(void);
 void ErrorCheck(int fnbr);
+void SaveProg(void);
+void RestoreProg(void);
 extern int OptionFileErrorAbort;
 struct option_s {
     char Autorun;

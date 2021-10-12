@@ -120,6 +120,7 @@ extern struct s_ctrl *Ctrl;             // list of the controls
 
 
 #define MRoundUp(a)     (((a) + (PAGESIZE - 1)) & (~(PAGESIZE - 1)))// round up to the nearest page size      [position 131:9]	
+#define MRoundUpK2(a)     (((a) + (PAGESIZE*8 - 1)) & (~(PAGESIZE*8 - 1)))// round up to the nearest page size      [position 131:9]	
 #endif
 #endif
 

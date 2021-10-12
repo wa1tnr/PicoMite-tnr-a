@@ -27,6 +27,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "hardware/flash.h"
 #include <math.h>
 extern struct s_vartbl {                               // structure of the variable table
 	unsigned char name[MAXVARLEN];                       // variable's name
@@ -47,7 +48,7 @@ void flist(int, int, int);
 //void clearprog(void);
 void execute_one_command(unsigned char *p);
 extern void STR_REPLACE(unsigned char *target, const unsigned char *needle, const unsigned char *replacement);
-
+void ListNewLine(int *ListCnt, int all);
 char MMErrMsg[MAXERRMSG];                                           // the error message
 char *KeyInterrupt=NULL;
 volatile int Keycomplete=0;
@@ -84,17 +85,6 @@ const unsigned int CaseOption = 0xffffffff;	// used to store the case of the lis
 
 void cmd_null(void) {
 	// do nothing (this is just a placeholder for commands that have no action)
-}
-void cmd_dump(void){
-	unsigned char *p=ProgMemory;
-	int i,j;
-	for(i=0; i<50; i++){
-		PInt(*p++);
-		for(j=0; j<20; j++){
-			PIntComma(*p++);
-		}
-		PRet();
-	}
 }
 
 void cmd_inc(void){
@@ -304,6 +294,27 @@ void sortStrings(char **arr, int n)
         }
     }
 }
+void ListFile(char *pp, int all) {
+	char buff[STRINGSIZE];
+    FRESULT fr;
+    FILINFO fno;
+    int fnbr;
+    int i,ListCnt = 1;
+    fr = f_stat(pp, &fno);
+    if(fr == FR_OK  && !(fno.fattrib & AM_DIR)){
+    	fnbr = FindFreeFileNbr();
+    	if(!BasicFileOpen(pp, fnbr, FA_READ)) return;
+    	while(!FileEOF(fnbr)) {                                     // while waiting for the end of file
+    		memset(buff,0,256);
+    		MMgetline(fnbr, (char *)buff);									    // get the input line
+    		for(i=0;i<strlen(buff);i++)if(buff[i] == TAB) buff[i] = ' ';
+    		MMPrintString(buff);
+    		ListCnt+=strlen(buff)/Option.Width;
+            ListNewLine(&ListCnt, all);
+    	}
+    	FileClose(fnbr);
+    } else error("File not found");
+}
 
 void cmd_list(void) {
 	char *p;
@@ -330,7 +341,7 @@ void cmd_list(void) {
     		for(k=0;k<step;k++){
         		if(i+k<m){
         			MMPrintString(c[i+k]);
-        			if(k!=(step-1))for(j=strlen(c[i+k]);j<15;j++)putConsole(' ');
+        			if(k!=(step-1))for(j=strlen(c[i+k]);j<15;j++)MMputchar(' ',1);
         		}
     		}
     		MMPrintString("\r\n");
@@ -339,18 +350,18 @@ void cmd_list(void) {
     } else if((p = checkstring(cmdline, "FUNCTIONS"))) {
     	m=0;
     	step=5;
-		char** c=GetTempMemory((TokenTableSize/*+8*/)*sizeof(*c)+(TokenTableSize/*+8*/)*18);
-		for(i=0;i<TokenTableSize/*+8*/;i++){
-				c[m]= (char *)((int)c + sizeof(char *) * (TokenTableSize/*+8*/) + m*18);
+		char** c=GetTempMemory((TokenTableSize+5)*sizeof(*c)+(TokenTableSize+5)*18);
+		for(i=0;i<TokenTableSize+5;i++){
+				c[m]= (char *)((int)c + sizeof(char *) * (TokenTableSize+5) + m*18);
 				if(m<TokenTableSize)strcpy(c[m],tokentbl[i].name);
-/*    			else if(m==TokenTableSize)strcpy(c[m],"MM.Errno");
-    			else if(m==TokenTableSize+1)strcpy(c[m],"MM.Onewire");
-    			else if(m==TokenTableSize+2)strcpy(c[m],"OCT$(");
+	   			else if(m==TokenTableSize)strcpy(c[m],"=>");
+    			else if(m==TokenTableSize+1)strcpy(c[m],"=<");
+/*    			else if(m==TokenTableSize+2)strcpy(c[m],"OCT$(");
     			else if(m==TokenTableSize+3)strcpy(c[m],"HEX$(");
     			else if(m==TokenTableSize+4)strcpy(c[m],"MM.I2C");
-    			else if(m==TokenTableSize+5)strcpy(c[m],"MM.FONTHEIGHT");
-    			else if(m==TokenTableSize+6)strcpy(c[m],"MM.FONTWIDTH");
-    			else strcpy(c[m],"MM.Errmsg$");*/
+*/    			else if(m==TokenTableSize+2)strcpy(c[m],"MM.Fontheight");
+    			else if(m==TokenTableSize+3)strcpy(c[m],"MM.Fontwidth");
+    			else strcpy(c[m],"MM.Info$(");
 				m++;
 		}
     	sortStrings(c,m);
@@ -358,15 +369,23 @@ void cmd_list(void) {
     		for(k=0;k<step;k++){
         		if(i+k<m){
         			MMPrintString(c[i+k]);
-        			if(k!=(step-1))for(j=strlen(c[i+k]);j<15;j++)putConsole(' ');
+        			if(k!=(step-1))for(j=strlen(c[i+k]);j<15;j++)MMputchar(' ',1);
         		}
     		}
     		MMPrintString("\r\n");
     	}
 		MMPrintString("Total of ");PInt(m-1);MMPrintString(" functions and operators\r\n");
     } else {
-        ListProgram(ProgMemory, false);
-        checkend(cmdline);
+        if(!(*cmdline == 0 || *cmdline == '\'')) {
+        	getargs(&cmdline,1,",");
+        	char *buff=GetTempMemory(STRINGSIZE);
+        	strcpy(buff,getCstring(argv[0]));
+    		if(strchr(buff, '.') == NULL) strcat(buff, ".BAS");
+			ListFile(buff, false);
+        } else {
+			ListProgram(ProgMemory, false);
+			checkend(cmdline);
+		}
     }
 }
 
@@ -445,6 +464,11 @@ void cmd_new(void) {
 	ClearProgram();
 	FlashLoad=0;
 	*LastFile = 0;
+	uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
+	uSec(250000);
+	disable_interrupts();
+	flash_range_erase(j, MAX_PROG_SIZE);
+	enable_interrupts();
 	longjmp(mark, 1);							                    // jump back to the input prompt
 }
 
@@ -1590,8 +1614,6 @@ void cmd_lineinput(void) {
 }
 
 
-
-
 void cmd_on(void) {
 	int r;
 	unsigned char ss[4];													    // this will be used to split up the argument line
@@ -2045,51 +2067,6 @@ void flist(int fnbr, int fromnbr, int tonbr) {
 		if(fromp[0] == 0) break;
 	}
 	if(fnbr != 0) FileClose(fnbr);
-}
-
-void cmd_delete(void) {
-	unsigned char ss[2];
-	unsigned char *p1 = NULL, *p2 = NULL;
-	if(CurrentLinePtr) error("Invalid in a program");
-	ss[0] = GetTokenValue( (unsigned char *)"-");										// this will be used to split up the argument line
-	ss[1] = 0;														// blame Microsoft for a poor choice of syntax
-	{																// start a new block
-		getargs(&cmdline, 4, ss);									// getargs macro must be the first executable stmt in a block
-
-		if(argc == 1) {
-			p2 = p1 = findline(getinteger(argv[0]), true);			// this is a single line number eg: DELETE 340
-			p2 += 3;
-			skipline(p2);
-		}
-		else if(argc == 2) {
-			if(*argv[0] == *ss) {
-				p1 = ProgMemory + 1;
-				p2 = findline(getinteger(argv[1]), true);			// this is DELETE -340
-				p2 += 3;
-				skipline(p2);
-			}
-			else if(*argv[1] == *ss) {
-				p1 = findline(getinteger(argv[0]), true);			// this is DELETE 230-
-				p2 = ProgMemory + PSize;
-			}
-			else
-				error("Invalid syntax");
-		}
-		else if(argc == 3) {										// this is DELETE 230-340
-			p1 = findline(getinteger(argv[0]), true);
-			p2 = findline(getinteger(argv[2]), true);
-			p2 += 3;
-			skipline(p2);
-		}
-		else
-			error("Invalid syntax");
-
-		// delete the lines and update the program size counter
-		memmove(p1, p2, PSize - (p2 - ProgMemory));
-		PSize -= (p2 - p1);
-		ProgMemory[PSize] = ProgMemory[PSize + 1] = ProgMemory[PSize + 2] = ProgMemory[PSize + 3] = 0;// ensure that the last four are zero
-    	longjmp(mark, 1);							// jump back to the input prompt
-	}
 }
 
 

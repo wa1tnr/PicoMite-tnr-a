@@ -82,7 +82,8 @@ void cmd_case(void);
 void cmd_option(void);
 void cmd_dump(void);
 void cmd_call(void);
-
+void cmd_execute(void);
+void cmd_mid(void);
 #endif
 
 
@@ -98,7 +99,6 @@ void cmd_call(void);
 	{ (unsigned char *)"Clear",		T_CMD,				0, cmd_clear	},
 	{ (unsigned char *)"Continue",           T_CMD,                          0, cmd_continue	},
 	{ (unsigned char *)"Data",		T_CMD,				0, cmd_null	},
-	{ (unsigned char *)"Delete",		T_CMD,				0, cmd_delete	},
 	{ (unsigned char *)"Dim",		T_CMD,				0, cmd_dim	},
 	{ (unsigned char *)"Do",			T_CMD,				0, cmd_do	},
 	{ (unsigned char *)"ElseIf",		T_CMD,				0, cmd_else	},
@@ -149,10 +149,11 @@ void cmd_call(void);
 //	{ (unsigned char *)"TROFF",		T_CMD,				0, cmd_troff	},
 //	{ (unsigned char *)"TRON",		T_CMD,				0, cmd_tron	},
 	{ (unsigned char *)"Trace",		T_CMD,				0, cmd_trace	},
-	{ (unsigned char *)"Wend",		T_CMD,				0, cmd_loop	},
+//	{ (unsigned char *)"Wend",		T_CMD,				0, cmd_loop	},
 	{ (unsigned char *)"While",		T_CMD,				0, cmd_do	},
 	{ (unsigned char *)"Const",		T_CMD,				0, cmd_const	},
-	{ (unsigned char *)"Dump",		T_CMD,				0, cmd_dump	},
+//	{ (unsigned char *)"Execute",	T_CMD,				0, cmd_execute	},
+	{ (unsigned char *)"MID$(",		T_CMD | T_FUN,		0, cmd_mid      },
 
 #endif
 

@@ -2013,7 +2013,7 @@ static void put_lfn (
 /* FAT-LFN: Create a Numbered SFN                                        */
 /*-----------------------------------------------------------------------*/
 
-static void gen_numname (
+static void __attribute__ ((optimize(1)))gen_numname (
 	BYTE* dst,			/* Pointer to the buffer to store numbered SFN */
 	const BYTE* src,	/* Pointer to SFN */
 	const WCHAR* lfn,	/* Pointer to LFN */

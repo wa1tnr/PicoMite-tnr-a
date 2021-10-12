@@ -85,7 +85,7 @@ void fun_ternary(void);
 void fun_field(void);
 void fun_max(void);
 void fun_min(void);
-
+void fun_call(void);
 #define RADCONV   (MMFLOAT)57.2957795130823229	  // Used when converting degrees -> radians and vice versa
 #define PI_VALUE  (MMFLOAT)3.14159265358979323
 #define Rad(a)  (((MMFLOAT)a) / RADCONV)
@@ -169,4 +169,5 @@ void fun_min(void);
 	{ (unsigned char *)"Min(",		T_FUN  | T_NBR,			0, fun_min		},
 	{ (unsigned char *)"Bin2str$(",  T_FUN  | T_STR,			0, fun_bin2str  },
 	{ (unsigned char *)"Str2bin(",	T_FUN  | T_NBR | T_INT,	0, fun_str2bin	},
+	{ (unsigned char *)"Call(",		T_FUN | T_STR | T_INT | T_NBR,		0, fun_call	},
 #endif

@@ -49,7 +49,7 @@ void SPI2Close(void);
 #ifdef INCLUDE_COMMAND_TABLE
 
 	{ "SPI",	T_CMD,				0, cmd_spi	},
-	{ "SPI1",	T_CMD,					0, cmd_spi2	},
+	{ "SPI2",	T_CMD,					0, cmd_spi2	},
 
 #endif
 
@@ -60,6 +60,6 @@ void SPI2Close(void);
 #ifdef INCLUDE_TOKEN_TABLE
 
 	{ "SPI(",	T_FUN | T_INT,		0, fun_spi,	},
-	{ "SPI1(",	T_FUN | T_INT,		0, fun_spi2,	},
+	{ "SPI2(",	T_FUN | T_INT,		0, fun_spi2,	},
 
 #endif

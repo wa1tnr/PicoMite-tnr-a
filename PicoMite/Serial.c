@@ -165,7 +165,7 @@ void setupuart(int uart, int s2,int parity, int b7, int baud){
 Initialise the serial function including the timer and interrupts.
 ****************************************************************************************************/
 void SerialOpen(unsigned char *spec) {
-	int baud, i, s2, parity, b7, bufsize, ilevel;
+	int baud, i, s2, parity, b7, bufsize, ilevel=1;
 	char *interrupt, *TXinterrupt;
 
 	getargs(&spec, 21, ":,");										// this is a macro and must be the first executable stmt
@@ -191,7 +191,7 @@ void SerialOpen(unsigned char *spec) {
     	if(str_equal(argv[argc - 1], "7BIT")) { b7 = 7; argc -= 2; }	// set the 7 bit byte option
     }
 
-	if(argc < 1 || argc > 7) error("COM specification");
+	if(argc < 1 || argc > 9) error("COM specification");
 
 	if(argc >= 3 && *argv[2]) {
 		baud = getinteger(argv[2]);									// get the baud rate as a number
@@ -211,31 +211,31 @@ void SerialOpen(unsigned char *spec) {
 	} else
 		interrupt = NULL;
 
-	if(argc >= 9) {
+	if(argc == 9) {
 		ilevel = getinteger(argv[8]);								// get the buffer level for interrupt as a number
 		if(ilevel < 1 || ilevel > bufsize) error("COM specification");
 	} else
 		ilevel = 1;
 
-	if(argc >= 11) {
+/*	if(argc >= 11) {
     	InterruptUsed = true;
     	argv[6]=strupr(argv[10]);
 		TXinterrupt = GetIntAddress(argv[10]);							// get the interrupt location
 	} else
 		TXinterrupt = NULL;
+*/
 
-
-	if(spec[3] == '0') {
+	if(spec[3] == '1') {
 	///////////////////////////////// this is COM1 ////////////////////////////////////
 
 		if(com1) error("Already open");
-		if(UART0TXpin==99 || UART0RXpin==99)error("Pins not set for UART0");
+		if(UART0TXpin==99 || UART0RXpin==99)error("Pins not set for COM1");
 
  		com1_buf_size = bufsize;									// extracted from the comspec above
 		com1_interrupt = interrupt;
 		com1_ilevel	= ilevel;
-		com1_TX_interrupt = TXinterrupt;
-		com1_TX_complete = false;
+//		com1_TX_interrupt = TXinterrupt;
+//		com1_TX_complete = false;
 
 		// setup for receive
 		com1Rx_buf = GetMemory(com1_buf_size);						// setup the buffer
@@ -255,17 +255,17 @@ void SerialOpen(unsigned char *spec) {
 		com1Tx_head = com1Tx_tail = 0;
 
 	}
-	else if (spec[3] == '1') {
+	else if (spec[3] == '2') {
 	///////////////////////////////// this is COM2 ////////////////////////////////////
 
 		if(com2) error("Already open");
-		if(UART1TXpin==99 || UART1RXpin==99)error("Pins not set for UART0");
+		if(UART1TXpin==99 || UART1RXpin==99)error("Pins not set for COM2");
 
  		com2_buf_size = bufsize;									// extracted from the comspec above
 		com2_interrupt = interrupt;
 		com2_ilevel	= ilevel;
-		com2_TX_interrupt = TXinterrupt;
-		com2_TX_complete = false;
+//		com2_TX_interrupt = TXinterrupt;
+//		com2_TX_complete = false;
 
 		// setup for receive
 		com2Rx_buf = GetMemory(com2_buf_size);						// setup the buffer

@@ -255,14 +255,16 @@ extern void set_cs(void);
 #define ST7789          9
 #define ILI9481         10
 #define ILI9488         11
-#define N5110			12
+#define ST7789A         12
+#define ST7789B         13
+#define N5110			14
 #define BufferedPanel	N5110
-#define SSD1306SPI      13
-#define ST7920			14
-#define GDEH029A1		15
-#define DISP_USER       16
-#define TOUCH           17
-#define ILI9488Read     18
+#define SSD1306SPI      15
+#define ST7920			16
+#define GDEH029A1		17
+#define TOUCH           18
+#define ILI9488Read     19
+#define DISP_USER       25
 #define TFT_NOP 0x00
 #define TFT_SWRST 0x01
 

@@ -457,7 +457,8 @@ void cmd_pio(void){
     }
     tp = checkstring(cmdline, "INIT MACHINE");
     if(tp){
-        getargs(&tp,11,",");
+        int start=0;
+        getargs(&tp,13,",");
         if(argc<5)error("Syntax");
         pio_sm_config mypio=pio_get_default_sm_config();
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
@@ -467,10 +468,11 @@ void cmd_pio(void){
         clock=(float)Option.CPU_Speed*1000.0/clock;
         if(argc>5 && *argv[6])mypio.pinctrl = getint(argv[6],0,0xFFFFFFFF);
         if(argc>7 && *argv[8])mypio.execctrl= getint(argv[8],0,0xFFFFFFFF);
-        if(argc>9)mypio.shiftctrl= getint(argv[10],0,0xFFFFFFFF);
+        if(argc>9 && *argv[10])mypio.shiftctrl= getint(argv[10],0,0xFFFFFFFF);
+        if(argc>11) start=getint(argv[12],0,31);
         mypio.clkdiv = (uint32_t) (clock * (1 << 16));
-//        pio_sm_set_config(pio, sm, &mypio);
-        pio_sm_init(pio, sm, 0, &mypio);
+        pio_sm_set_config(pio, sm, &mypio);
+        pio_sm_init(pio, sm, start, &mypio);
         return;
     }
     error("Syntax");
@@ -484,10 +486,34 @@ void fun_pio(void){
         iret=(getint(argv[0],0,5)<<29); // no of side set pins
         if(argc>1 && *argv[2])iret|=(getint(argv[2],0,5)<<26); // no of set pins
         if(argc>3 && *argv[4])iret|=(getint(argv[4],0,29)<<20); // no of OUT pins
-        if(argc>5 && *argv[6])iret|=(getint(argv[6],0,29)<<15); // IN base
-        if(argc>7 && *argv[8])iret|=(getint(argv[8],0,29)<<10); // SIDE SET base
-        if(argc>9 && *argv[10])iret|=(getint(argv[10],0,29)<<5); // SET base
-        if(argc==13)iret|=getint(argv[12],0,29); //OUT base
+        if(argc>5 && *argv[6]){
+            if(!toupper(*argv[6])=='G')error("Syntax");
+            argv[6]++;
+            if(!toupper(*argv[6])=='P')error("Syntax");
+            argv[6]++;
+            iret|=(getint(argv[6],0,29)<<15); // IN base
+        }
+        if(argc>7 && *argv[8]){
+            if(!toupper(*argv[8])=='G')error("Syntax");
+            argv[8]++;
+            if(!toupper(*argv[8])=='P')error("Syntax");
+            argv[8]++;
+            iret|=(getint(argv[8],0,29)<<10); // SIDE SET base
+        }
+        if(argc>9 && *argv[10]){
+            if(!toupper(*argv[10])=='G')error("Syntax");
+            argv[10]++;
+            if(!toupper(*argv[10])=='P')error("Syntax");
+            argv[10]++;
+            iret|=(getint(argv[10],0,29)<<5); // SET base
+        }
+        if(argc==13){
+            if(!toupper(*argv[12])=='G')error("Syntax");
+            argv[12]++;
+            if(!toupper(*argv[12])=='P')error("Syntax");
+            argv[12]++;
+            iret|=getint(argv[12],0,29); //OUT base
+        }
         targ=T_INT;
         return;
     }

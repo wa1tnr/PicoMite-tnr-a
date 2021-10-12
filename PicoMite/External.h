@@ -50,7 +50,7 @@ void cmd_lcd(unsigned char *p);
 void cmd_keypad(void);
 void fun_distance(void);
 void fun_pulsin(void);
-
+void cmd_backlight(void);
 void cmd_bitbang(void);
 #endif
 
@@ -77,6 +77,7 @@ void cmd_bitbang(void);
 //	{ (unsigned char *)"WS2812",              T_CMD,			0, cmd_WS2812        },
 //	{ (unsigned char *)"SYNC",              T_CMD,			0, cmd_sync        },
 	{ (unsigned char *)"PWM",		T_CMD,		0, cmd_pwm		},
+	{ (unsigned char *)"Backlight",		T_CMD,		0, cmd_backlight		},
 #endif
 
 
@@ -284,6 +285,22 @@ extern int IrBits, IrCount;
 extern unsigned char *IrInterrupt;
 extern int codemap(int pin);
 extern int codecheck(unsigned char *line);
+extern int PWM0Apin;
+extern int PWM1Apin;
+extern int PWM2Apin;
+extern int PWM3Apin;
+extern int PWM4Apin;
+extern int PWM5Apin;
+extern int PWM6Apin;
+extern int PWM7Apin;
+extern int PWM0Bpin;
+extern int PWM1Bpin;
+extern int PWM2Bpin;
+extern int PWM3Bpin;
+extern int PWM4Bpin;
+extern int PWM5Bpin;
+extern int PWM6Bpin;
+extern int PWM7Bpin;
 extern int UART1RXpin;
 extern int UART1TXpin;
 extern int UART0TXpin;

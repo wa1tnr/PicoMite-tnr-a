@@ -76,6 +76,8 @@ int I2C0locked=0;
 int I2C1locked=0;
 int SPI0locked=0;
 int SPI1locked=0;
+int BacklightSlice=-1;
+int BacklightChannel=-1;
 /*--------------------------------------------------------------------------
 
    Module Private Functions
@@ -942,6 +944,130 @@ void InitReservedIO(void) {
 			gpio_set_dir(LCD_E_INKbusy, GPIO_IN);
 		}
 		CurrentSPISpeed=NONE_SPI_SPEED;
+		if(Option.DISPLAY_BL){
+			ExtCfg(Option.DISPLAY_BL, EXT_BOOT_RESERVED, 0);
+			int pin=Option.DISPLAY_BL,value, slice;
+			if(PinDef[pin].mode & PWM0A){PWM0Apin=pin;slice=0;}
+			else if(PinDef[pin].mode & PWM0B){PWM0Bpin=pin;slice=0;}
+			else if(PinDef[pin].mode & PWM1A){PWM1Apin=pin;slice=1;}
+			else if(PinDef[pin].mode & PWM1B){PWM1Bpin=pin;slice=1;}
+			else if(PinDef[pin].mode & PWM2A){PWM2Apin=pin;slice=2;}
+			else if(PinDef[pin].mode & PWM2B){PWM2Bpin=pin;slice=2;}
+			else if(PinDef[pin].mode & PWM3A){PWM3Apin=pin;slice=3;}
+			else if(PinDef[pin].mode & PWM3B){PWM3Bpin=pin;slice=3;}
+			else if(PinDef[pin].mode & PWM4A){PWM4Apin=pin;slice=4;}
+			else if(PinDef[pin].mode & PWM4B){PWM4Bpin=pin;slice=4;}
+			else if(PinDef[pin].mode & PWM5A){PWM5Apin=pin;slice=5;}
+			else if(PinDef[pin].mode & PWM5B){PWM5Bpin=pin;slice=5;}
+			else if(PinDef[pin].mode & PWM6A){PWM6Apin=pin;slice=6;}
+			else if(PinDef[pin].mode & PWM6B){PWM6Bpin=pin;slice=6;}
+			else if(PinDef[pin].mode & PWM7A){PWM7Apin=pin;slice=7;}
+			else if(PinDef[pin].mode & PWM7B){PWM7Bpin=pin;slice=7;}
+    		gpio_init(PinDef[pin].GPno); 
+			gpio_set_function(PinDef[pin].GPno, GPIO_FUNC_PWM);
+			MMFLOAT frequency=1000.0,duty=99.0;
+			int wrap=(Option.CPU_Speed*1000)/frequency;
+			int high=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty*10.0);
+			int div=1;
+			while(wrap>65535){
+				wrap>>=1;
+				if(duty>=0.0)high>>=1;
+				div<<=1;
+			}
+			wrap--;
+			high--;
+			if(div!=1)pwm_set_clkdiv(slice,(float)div);
+			pwm_set_wrap(slice, wrap);
+			BacklightSlice=slice;
+			if(slice==0 && PWM0Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==0 && PWM0Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==1 && PWM1Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==1 && PWM1Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==2 && PWM2Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==2 && PWM2Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==3 && PWM3Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==3 && PWM3Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==4 && PWM4Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==4 && PWM4Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==5 && PWM5Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==5 && PWM5Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==6 && PWM6Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==6 && PWM6Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==7 && PWM7Apin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_A, high);
+				BacklightChannel=PWM_CHAN_A;
+			}
+			if(slice==7 && PWM7Bpin!=99){
+				pwm_set_chan_level(slice, PWM_CHAN_B, high);
+				BacklightChannel=PWM_CHAN_B;
+			}
+			if(slice==0){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==1){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==2){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==3){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==4){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==5){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==6){
+				pwm_set_enabled(slice, true);
+			}
+			if(slice==7){
+				pwm_set_enabled(slice, true);
+			}
+		}
 	}
 	if(Option.SYSTEM_I2C_SDA){
 		ExtCfg(Option.SYSTEM_I2C_SCL, EXT_BOOT_RESERVED, 0);

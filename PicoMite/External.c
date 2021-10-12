@@ -32,7 +32,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/structs/systick.h"
 #include "hardware/structs/adc.h"
 #include "hardware/dma.h"
-
+extern MMFLOAT FDiv(MMFLOAT a, MMFLOAT b);
+extern MMFLOAT FMul(MMFLOAT a, MMFLOAT b);
+extern MMFLOAT FSub(MMFLOAT a, MMFLOAT b);
 const char *PinFunction[] = {	
         "OFF",
 		"AIN",
@@ -81,6 +83,8 @@ const char *PinFunction[] = {
         "PWM7A",
         "PWM7B"
 };
+extern int BacklightSlice,BacklightChannel;
+;
 extern struct s_vartbl {                               // structure of the variable table
 	unsigned char name[MAXVARLEN];                       // variable's name
 	unsigned char type;                                  // its type (T_NUM, T_INT or T_STR)
@@ -546,7 +550,7 @@ void ExtCfg(int pin, int cfg, int option) {
         case EXT_DIG_OUT:       if(!(PinDef[pin].mode & DIGITAL_OUT)) error("Invalid configuration");
                                 tris = 0; ana = 1; oc = 0;
                                 break;
-        case EXT_HEARTBEAT:     if(!(pin==41)) error("Invalid configuration");
+        case EXT_HEARTBEAT:     if(!(pin==43)) error("Invalid configuration");
                                 tris = 0; ana = 1; oc = 0;
                                 break;
         case EXT_UART0TX:       if(!(PinDef[pin].mode & UART0TX)) error("Invalid configuration");
@@ -726,9 +730,13 @@ int64_t __not_in_flash_func(ExtInp)(int pin){
     } else return  gpio_get(PinDef[pin].GPno);
 }
 void cmd_setpin(void) {
-	int i, pin, value, option = 0;
+	int i, pin, pin2=0, pin3=0, value, value2=0, value3=0, option = 0;
 	getargs(&cmdline, 7, ",");
 	if(argc%2 == 0 || argc < 3) error("Argument count");
+	char code;
+	if(!(code=codecheck(argv[0])))argv[0]+=2;
+	pin = getinteger(argv[0]);
+	if(!code)pin=codemap(pin);
 
     if(checkstring(argv[2], "OFF") || checkstring(argv[2], "0"))
         value = EXT_NOT_CONFIG;
@@ -752,7 +760,7 @@ void cmd_setpin(void) {
         value = EXT_HEARTBEAT;
     else if(checkstring(argv[2], "INTB"))
         value = EXT_INT_BOTH;
-    else if(checkstring(argv[2], "UART0TX"))
+/*    else if(checkstring(argv[2], "UART0TX"))
         value = EXT_UART0TX;
     else if(checkstring(argv[2], "UART0RX"))
         value = EXT_UART0RX;
@@ -789,7 +797,7 @@ void cmd_setpin(void) {
     else if(checkstring(argv[2], "INT3"))
         value = EXT_INT3;
     else if(checkstring(argv[2], "INT4"))
-        value = EXT_INT4;
+        value = EXT_INT4;*/
     else if(checkstring(argv[2], "PWM0A"))
         value = EXT_PWM0A;
     else if(checkstring(argv[2], "PWM1A"))
@@ -826,8 +834,116 @@ void cmd_setpin(void) {
         value = EXT_PIO0_OUT;
     else if(checkstring(argv[2], "PIO1"))
         value = EXT_PIO1_OUT;
-    else
-        value = getint(argv[2], 1, 9);
+    else if(checkstring(argv[4],"COM1")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(PinDef[pin].mode & UART0TX)value = EXT_UART0TX;
+        else if(PinDef[pin].mode & UART0RX)value = EXT_UART0RX;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & UART0TX)value2 = EXT_UART0TX;
+        else if(PinDef[pin2].mode & UART0RX)value2 = EXT_UART0RX;
+        else error("Invalid configuration");
+        if(value==value2)error("Invalid configuration");
+    } else if(checkstring(argv[4],"COM2")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(PinDef[pin].mode & UART1TX)value = EXT_UART1TX;
+        else if(PinDef[pin].mode & UART1RX)value = EXT_UART1RX;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & UART1TX)value2 = EXT_UART1TX;
+        else if(PinDef[pin2].mode & UART1RX)value2 = EXT_UART1RX;
+        else error("Invalid configuration");
+        if(value==value2)error("Invalid configuration");
+    }  else if(checkstring(argv[4],"I2C")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(PinDef[pin].mode & I2C0SCL)value = EXT_I2C0SCL;
+        else if(PinDef[pin].mode & I2C0SDA)value = EXT_I2C0SDA;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & I2C0SCL)value2 = EXT_I2C0SCL;
+        else if(PinDef[pin2].mode & I2C0SDA)value2 = EXT_I2C0SDA;
+        else error("Invalid configuration");
+        if(value==value2)error("Invalid configuration");
+    }  else if(checkstring(argv[4],"I2C2")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(PinDef[pin].mode & I2C1SCL)value = EXT_I2C1SCL;
+        else if(PinDef[pin].mode & I2C1SDA)value = EXT_I2C1SDA;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & I2C1SCL)value2 = EXT_I2C1SCL;
+        else if(PinDef[pin2].mode & I2C1SDA)value2 = EXT_I2C1SDA;
+        else error("Invalid configuration");
+        if(value==value2)error("Invalid configuration");
+    }  else if(checkstring(argv[6],"SPI")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(!(code=codecheck(argv[4])))argv[4]+=2;
+        pin3 = getinteger(argv[4]);
+        if(!code)pin3=codemap(pin3);
+        if(PinDef[pin].mode & SPI0RX)value = EXT_SPI0RX;
+        else if(PinDef[pin].mode & SPI0TX)value = EXT_SPI0TX;
+        else if(PinDef[pin].mode & SPI0SCK)value = EXT_SPI0SCK;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & SPI0RX)value2 = EXT_SPI0RX;
+        else if(PinDef[pin2].mode & SPI0TX)value2 = EXT_SPI0TX;
+        else if(PinDef[pin2].mode & SPI0SCK)value2 = EXT_SPI0SCK;
+        else error("Invalid configuration");
+        if(PinDef[pin3].mode & SPI0RX)value3 = EXT_SPI0RX;
+        else if(PinDef[pin3].mode & SPI0TX)value3 = EXT_SPI0TX;
+        else if(PinDef[pin3].mode & SPI0SCK)value3 = EXT_SPI0SCK;
+        else error("Invalid configuration");
+        if(value==value2 || value==value3 || value2==value3)error("Invalid configuration");
+    }  else if(checkstring(argv[6],"SPI2")){
+        if(!(code=codecheck(argv[2])))argv[2]+=2;
+        pin2 = getinteger(argv[2]);
+        if(!code)pin2=codemap(pin2);
+        if(!(code=codecheck(argv[4])))argv[4]+=2;
+        pin3 = getinteger(argv[4]);
+        if(!code)pin3=codemap(pin3);
+        if(PinDef[pin].mode & SPI1RX)value = EXT_SPI1RX;
+        else if(PinDef[pin].mode & SPI1TX)value = EXT_SPI1TX;
+        else if(PinDef[pin].mode & SPI1SCK)value = EXT_SPI1SCK;
+        else error("Invalid configuration");
+        if(PinDef[pin2].mode & SPI1RX)value2 = EXT_SPI1RX;
+        else if(PinDef[pin2].mode & SPI1TX)value2 = EXT_SPI1TX;
+        else if(PinDef[pin2].mode & SPI1SCK)value2 = EXT_SPI1SCK;
+        else error("Invalid configuration");
+        if(PinDef[pin3].mode & SPI1RX)value3 = EXT_SPI1RX;
+        else if(PinDef[pin3].mode & SPI1TX)value3 = EXT_SPI1TX;
+        else if(PinDef[pin3].mode & SPI1SCK)value3 = EXT_SPI1SCK;
+        else error("Invalid configuration");
+        if(value==value2 || value==value3 || value2==value3)error("Invalid configuration");
+    }  else if(checkstring(argv[2],"PWM")){
+        if(PinDef[pin].mode & PWM0A)value = EXT_PWM0A;
+        else if(PinDef[pin].mode & PWM0B)value = EXT_PWM0B;
+        else if(PinDef[pin].mode & PWM1A)value = EXT_PWM1A;
+        else if(PinDef[pin].mode & PWM1B)value = EXT_PWM1B;
+        else if(PinDef[pin].mode & PWM2A)value = EXT_PWM2A;
+        else if(PinDef[pin].mode & PWM2B)value = EXT_PWM2B;
+        else if(PinDef[pin].mode & PWM3A)value = EXT_PWM3A;
+        else if(PinDef[pin].mode & PWM3B)value = EXT_PWM3B;
+        else if(PinDef[pin].mode & PWM4A)value = EXT_PWM4A;
+        else if(PinDef[pin].mode & PWM4B)value = EXT_PWM4B;
+        else if(PinDef[pin].mode & PWM5A)value = EXT_PWM5A;
+        else if(PinDef[pin].mode & PWM5B)value = EXT_PWM5B;
+        else if(PinDef[pin].mode & PWM6A)value = EXT_PWM6A;
+        else if(PinDef[pin].mode & PWM6B)value = EXT_PWM6B;
+        else if(PinDef[pin].mode & PWM7A)value = EXT_PWM7A;
+        else if(PinDef[pin].mode & PWM7B)value = EXT_PWM7B;
+        else error("Invalid configuration");
+    }  else if(checkstring(argv[2],"INT")){
+        if(pin==Option.INT1pin)value = EXT_INT1;
+        else if(pin==Option.INT2pin)value = EXT_INT2;
+        else if(pin==Option.INT3pin)value = EXT_INT3;
+        else if(pin==Option.INT4pin)value = EXT_INT4;
+        else error("Invalid configuration");
+    } else error("Syntax");
+//        value = getint(argv[2], 1, 9);
 
     // check for any options
     switch(value) {
@@ -841,7 +957,7 @@ void cmd_setpin(void) {
         case EXT_DIG_IN:    if(argc == 5) {
                                 if(checkstring(argv[4], "PULLUP")) option = CNPUSET;
                                 else if(checkstring(argv[4], "PULLDOWN")) option = CNPDSET;
-                                else error("Invalid option");
+                                else error("Invalid configuration");
                             } else
                                 option = 0;
                             break;
@@ -850,7 +966,7 @@ void cmd_setpin(void) {
         case EXT_INT_BOTH:  if(argc == 7) {
                                 if(checkstring(argv[6], "PULLUP")) option = CNPUSET;
                                 else if(checkstring(argv[6], "PULLDOWN")) option = CNPDSET;
-                                else error("Invalid option");
+                                else error("Invalid configuration");
                             } else
                                 option = 0;
                             break;
@@ -868,17 +984,35 @@ void cmd_setpin(void) {
         case EXT_HEARTBEAT:   
                             option=0;
                             break;
-        default:            if(argc > 3) error("Unexpected text");
+        default:            if(argc > 3 && !value2) error("Unexpected text");
     }
+    // this allows the user to set a software interrupt on the touch IRQ pin if the GUI environment is not enabled
+    if(pin == Option.TOUCH_IRQ && Option.MaxCtrls==0) {
+        if(value == EXT_INT_HI || value == EXT_INT_LO || value == EXT_INT_BOTH)
+            ExtCurrentConfig[pin] = value;
+        else if(value == EXT_NOT_CONFIG) {
+            ExtCurrentConfig[pin] = EXT_BOOT_RESERVED;
+            for(i = 0; i < NBRINTERRUPTS; i++)
+                if(inttbl[i].pin == pin)
+                    inttbl[i].pin = 0;                              // disable the software interrupt on this pin
+        }
+        else
+            error("Pin % is reserved on startup", pin);
+    } else
 
-	char code;
-	if(!(code=codecheck(argv[0])))argv[0]+=2;
-	pin = getinteger(argv[0]);
-	if(!code)pin=codemap(pin);
     {
         CheckPin(pin, CP_IGNORE_INUSE);
         ExtCfg(pin, value, option);
     }
+    if(value2)    {
+        CheckPin(pin2, CP_IGNORE_INUSE);
+        ExtCfg(pin2, value2, option);
+    }
+    if(value3)    {
+        CheckPin(pin3, CP_IGNORE_INUSE);
+        ExtCfg(pin3, value3, option);
+    }
+
 
 	if(value == EXT_INT_HI || value == EXT_INT_LO || value == EXT_INT_BOTH) {
 		// we need to set up a software interrupt
@@ -955,7 +1089,7 @@ void fun_pin(void) {
                             for(j = 0, i = ANA_DISCARD; i < ANA_AVERAGE - ANA_DISCARD; i++) j += b[i];
 
                             // the total is averaged and scaled
-                            fret = ((MMFLOAT)j * VCC) / (MMFLOAT)(4095 * (ANA_AVERAGE - ANA_DISCARD*2));
+                            fret = FMul((MMFLOAT)j , VCC) / (MMFLOAT)(4095 * (ANA_AVERAGE - ANA_DISCARD*2));
                             targ = T_NBR;
                             return;
 
@@ -1067,7 +1201,7 @@ void fun_distance(void) {
     }
     techo=readusclock();
     // we have the echo, convert the time to centimeters
-    fret = ((MMFLOAT)techo)/58.0;  //200 ticks per us, 58 us per cm
+    fret = FDiv((MMFLOAT)techo,58.0);  //200 ticks per us, 58 us per cm
     targ = T_NBR;
 }
 
@@ -1119,7 +1253,7 @@ void cmd_pulse(void) {
     f = getnumber(argv[2]);                                         // get the pulse width
     if(f < 0) error("Number out of bounds");
     x = f;                                                          // get the integer portion (in mSec)
-    y = (int)((f - (MMFLOAT)x) * 1000.0);                             // get the fractional portion (in uSec)
+    y = (int)(FSub(f , (MMFLOAT)x) * 1000.0);                             // get the fractional portion (in uSec)
 
     for(i = 0; i < NBR_PULSE_SLOTS; i++)                            // search looking to see if the pin is in use
         if(PulseCnt[i] != 0 && PulsePin[i] == pin) {
@@ -1274,214 +1408,234 @@ void IRSendSignal(int pin, int half_cycles) {
     }
 }
 
-    void PWMoff(int slice){
-        if(slice==0 && PWM0Apin!=99){
-            ExtCfg(PWM0Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==0 && PWM0Bpin!=99){
-            ExtCfg(PWM0Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==1 && PWM1Apin!=99){
-            ExtCfg(PWM1Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==1 && PWM1Bpin!=99){
-            ExtCfg(PWM1Bpin,EXT_NOT_CONFIG,0);
-       }
-        if(slice==2 && PWM2Apin!=99){
-            ExtCfg(PWM2Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==2 && PWM2Bpin!=99){
-            ExtCfg(PWM2Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==3 && PWM3Apin!=99){
-            ExtCfg(PWM3Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==3 && PWM3Bpin!=99){
-            ExtCfg(PWM3Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==4 && PWM4Apin!=99){
-            ExtCfg(PWM4Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==4 && PWM4Bpin!=99){
-            ExtCfg(PWM4Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==5 && PWM5Apin!=99){
-            ExtCfg(PWM5Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==5 && PWM5Bpin!=99){
-            ExtCfg(PWM5Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==6 && PWM6Apin!=99){
-            ExtCfg(PWM6Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==6 && PWM6Bpin!=99){
-            ExtCfg(PWM6Bpin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==7 && PWM7Apin!=99){
-            ExtCfg(PWM7Apin,EXT_NOT_CONFIG,0);
-        }
-        if(slice==7 && PWM7Bpin!=99){
-            ExtCfg(PWM7Bpin,EXT_NOT_CONFIG,0);
-        }
-        pwm_set_enabled(slice, false);
+void PWMoff(int slice){
+    if(slice==0 && PWM0Apin!=99 && ExtCurrentConfig[PWM0Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM0Apin,EXT_NOT_CONFIG,0);
     }
-    
-    void cmd_pwm(void){
-        char *tp;
-        int div=1, high1, high2;
-        MMFLOAT duty1=-1.0, duty2=-1.0;
-        getargs(&cmdline,7,",");
-        int slice=getint(argv[0],0,7);
-        if(tp=checkstring(argv[2],"OFF")){
-            PWMoff(slice);
-            if(slice==0)slice0=0;
-            if(slice==1)slice1=0;
-            if(slice==2)slice2=0;
-            if(slice==3)slice3=0;
-            if(slice==4)slice4=0;
-            if(slice==5)slice5=0;
-            if(slice==6)slice6=0;
-            if(slice==7)slice7=0;
-            return;
-        }
-        MMFLOAT frequency=getnumber(argv[2]);
-        if(frequency>(MMFLOAT)(Option.CPU_Speed>>2)*1000.0)error("Invalid frequency");
-        if(*argv[4]){
-            duty1=getnumber(argv[4]);
-            if(duty1>100.0 || duty1<0.0)error("Syntax");
-        }
-        if(argc==7){
-            duty2=getnumber(argv[6]);
-            if(duty2>100.0 || duty2<0.0)error("Syntax");
-        }
+    if(slice==0 && PWM0Bpin!=99 && ExtCurrentConfig[PWM0Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM0Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==1 && PWM1Apin!=99 && ExtCurrentConfig[PWM1Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM1Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==1 && PWM1Bpin!=99 && ExtCurrentConfig[PWM1Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM1Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==2 && PWM2Apin!=99 && ExtCurrentConfig[PWM2Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM2Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==2 && PWM2Bpin!=99 && ExtCurrentConfig[PWM2Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM2Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==3 && PWM3Apin!=99 && ExtCurrentConfig[PWM3Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM3Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==3 && PWM3Bpin!=99 && ExtCurrentConfig[PWM3Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM3Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==4 && PWM4Apin!=99 && ExtCurrentConfig[PWM4Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM4Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==4 && PWM4Bpin!=99 && ExtCurrentConfig[PWM4Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM4Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==5 && PWM5Apin!=99 && ExtCurrentConfig[PWM5Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM5Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==5 && PWM5Bpin!=99 && ExtCurrentConfig[PWM5Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM5Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==6 && PWM6Apin!=99 && ExtCurrentConfig[PWM6Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM6Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==6 && PWM6Bpin!=99 && ExtCurrentConfig[PWM6Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM6Bpin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==7 && PWM7Apin!=99 && ExtCurrentConfig[PWM7Apin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM7Apin,EXT_NOT_CONFIG,0);
+    }
+    if(slice==7 && PWM7Bpin!=99 && ExtCurrentConfig[PWM7Bpin] < EXT_BOOT_RESERVED){
+        ExtCfg(PWM7Bpin,EXT_NOT_CONFIG,0);
+    }
+    pwm_set_enabled(slice, false);
+}
+void cmd_backlight(void){
+    if(!(Option.DISPLAY_TYPE<=I2C_PANEL || Option.DISPLAY_TYPE>=BufferedPanel ) && Option.DISPLAY_BL){
+        MMFLOAT frequency=1000.0;
+        getargs(&cmdline,1,",");
+        MMFLOAT duty=getint(argv[0],0,100);
         int wrap=(Option.CPU_Speed*1000)/frequency;
-        if(duty1>=0.0)high1=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty1*10.0);
-        if(duty2>=0.0)high2=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty2*10.0);
+        int high=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty*10.0);
+        int div=1;
         while(wrap>65535){
             wrap>>=1;
-            if(duty1>=0.0)high1>>=1;
-            if(duty2>=0.0)high2>>=1;
+            if(duty>=0.0)high>>=1;
             div<<=1;
         }
-        if(div>256)error("Invalid frequency");
         wrap--;
-        if(high1)high1--;
-        if(high2)high2--;
-        if(div!=1)pwm_set_clkdiv(slice,(float)div);
-        pwm_set_wrap(slice, wrap);
-        if(slice==0 && PWM0Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==0 && PWM0Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==1 && PWM1Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==1 && PWM1Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==2 && PWM2Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==2 && PWM2Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==3 && PWM3Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==3 && PWM3Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==4 && PWM4Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==4 && PWM4Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==5 && PWM5Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==5 && PWM5Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==6 && PWM6Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==6 && PWM6Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==7 && PWM7Apin==99 && duty1>=0.0)error("Pin not set for PWM");
-        if(slice==7 && PWM7Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
-        if(slice==0 && PWM0Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM0Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==0 && PWM0Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM0Bpin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-        if(slice==1 && PWM1Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM1Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==1 && PWM1Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM1Bpin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-        if(slice==2 && PWM2Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM2Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==2 && PWM2Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM2Bpin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-        if(slice==3 && PWM3Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM3Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==3 && PWM3Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM3Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-         if(slice==4 && PWM4Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM4Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==4 && PWM4Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM4Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-         if(slice==5 && PWM5Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM5Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==5 && PWM5Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM5Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-         if(slice==6 && PWM6Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM6Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==6 && PWM6Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM6Bpin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-         if(slice==7 && PWM7Apin!=99 && duty1>=0.0){
-            ExtCfg(PWM7Apin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_A, high1);
-        }
-        if(slice==7 && PWM7Bpin!=99 && duty2>=0.0){
-            ExtCfg(PWM7Bpin,EXT_COM_RESERVED,0);
-            pwm_set_chan_level(slice, PWM_CHAN_B, high2);
-        }
-          if(slice==0 && slice0==0){
-            pwm_set_enabled(slice, true);
-            slice0=1;
-        }
-          if(slice==1 && slice1==0){
-            pwm_set_enabled(slice, true);
-            slice1=1;
-        }
-          if(slice==2 && slice2==0){
-            pwm_set_enabled(slice, true);
-            slice2=1;
-        }
-          if(slice==3 && slice3==0){
-            pwm_set_enabled(slice, true);
-            slice3=1;
-        }
-          if(slice==4 && slice4==0){
-            pwm_set_enabled(slice, true);
-            slice4=1;
-        }
-          if(slice==5 && slice5==0){
-            pwm_set_enabled(slice, true);
-            slice5=1;
-        }
-          if(slice==6 && slice6==0){
-            pwm_set_enabled(slice, true);
-            slice6=1;
-        }
-          if(slice==7 && slice7==0){
-            pwm_set_enabled(slice, true);
-            slice7=1;
-        }
+        high--;
+        if(div!=1)pwm_set_clkdiv(BacklightSlice,(float)div);
+        pwm_set_wrap(BacklightSlice, wrap);
+        pwm_set_chan_level(BacklightSlice, BacklightChannel, high);
+    } else error("Backlight not set up");
+}    
+void cmd_pwm(void){
+    char *tp;
+    int div=1, high1, high2;
+    MMFLOAT duty1=-1.0, duty2=-1.0;
+    getargs(&cmdline,7,",");
+    int slice=getint(argv[0],0,7);
+    if(slice==BacklightSlice)error("Channel in use for backlight");
+    if(tp=checkstring(argv[2],"OFF")){
+        PWMoff(slice);
+        if(slice==0)slice0=0;
+        if(slice==1)slice1=0;
+        if(slice==2)slice2=0;
+        if(slice==3)slice3=0;
+        if(slice==4)slice4=0;
+        if(slice==5)slice5=0;
+        if(slice==6)slice6=0;
+        if(slice==7)slice7=0;
+        return;
     }
+    MMFLOAT frequency=getnumber(argv[2]);
+    if(frequency>(MMFLOAT)(Option.CPU_Speed>>2)*1000.0)error("Invalid frequency");
+    if(*argv[4]){
+        duty1=getnumber(argv[4]);
+        if(duty1>100.0 || duty1<0.0)error("Syntax");
+    }
+    if(argc==7){
+        duty2=getnumber(argv[6]);
+        if(duty2>100.0 || duty2<0.0)error("Syntax");
+    }
+    int wrap=(Option.CPU_Speed*1000)/frequency;
+    if(duty1>=0.0)high1=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty1*10.0);
+    if(duty2>=0.0)high2=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty2*10.0);
+    while(wrap>65535){
+        wrap>>=1;
+        if(duty1>=0.0)high1>>=1;
+        if(duty2>=0.0)high2>>=1;
+        div<<=1;
+    }
+    if(div>256)error("Invalid frequency");
+    wrap--;
+    if(high1)high1--;
+    if(high2)high2--;
+    if(div!=1)pwm_set_clkdiv(slice,(float)div);
+    pwm_set_wrap(slice, wrap);
+    if(slice==0 && PWM0Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==0 && PWM0Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==1 && PWM1Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==1 && PWM1Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==2 && PWM2Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==2 && PWM2Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==3 && PWM3Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==3 && PWM3Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==4 && PWM4Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==4 && PWM4Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==5 && PWM5Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==5 && PWM5Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==6 && PWM6Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==6 && PWM6Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==7 && PWM7Apin==99 && duty1>=0.0)error("Pin not set for PWM");
+    if(slice==7 && PWM7Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
+    if(slice==0 && PWM0Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM0Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==0 && PWM0Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM0Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+    if(slice==1 && PWM1Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM1Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==1 && PWM1Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM1Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+    if(slice==2 && PWM2Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM2Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==2 && PWM2Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM2Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+    if(slice==3 && PWM3Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM3Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==3 && PWM3Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM3Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+        if(slice==4 && PWM4Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM4Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==4 && PWM4Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM4Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+        if(slice==5 && PWM5Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM5Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==5 && PWM5Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM5Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+        if(slice==6 && PWM6Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM6Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==6 && PWM6Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM6Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+        if(slice==7 && PWM7Apin!=99 && duty1>=0.0){
+        ExtCfg(PWM7Apin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_A, high1);
+    }
+    if(slice==7 && PWM7Bpin!=99 && duty2>=0.0){
+        ExtCfg(PWM7Bpin,EXT_COM_RESERVED,0);
+        pwm_set_chan_level(slice, PWM_CHAN_B, high2);
+    }
+        if(slice==0 && slice0==0){
+        pwm_set_enabled(slice, true);
+        slice0=1;
+    }
+        if(slice==1 && slice1==0){
+        pwm_set_enabled(slice, true);
+        slice1=1;
+    }
+        if(slice==2 && slice2==0){
+        pwm_set_enabled(slice, true);
+        slice2=1;
+    }
+        if(slice==3 && slice3==0){
+        pwm_set_enabled(slice, true);
+        slice3=1;
+    }
+        if(slice==4 && slice4==0){
+        pwm_set_enabled(slice, true);
+        slice4=1;
+    }
+        if(slice==5 && slice5==0){
+        pwm_set_enabled(slice, true);
+        slice5=1;
+    }
+        if(slice==6 && slice6==0){
+        pwm_set_enabled(slice, true);
+        slice6=1;
+    }
+        if(slice==7 && slice7==0){
+        pwm_set_enabled(slice, true);
+        slice7=1;
+    }
+}
 
 
 /****************************************************************************************************************************
@@ -1764,7 +1918,7 @@ void __not_in_flash_func(WS2812)(unsigned char *q){
         int T0H=0,T0L=0,T1H=0,T1L=0;
         char *p;
         int i, j, bit, nbr=0;
-        int ticks_per_millisecond=ticks_per_second/1000;
+        int ticks_per_millisecond=ticks_per_second/1000; 
     	getargs(&q, 7, ",");
         if(argc != 7)error("Argument count");
     	p=argv[0];
@@ -2178,7 +2332,7 @@ void ClearExternalIO(void) {
 	for(i = 0; i < NBR_PULSE_SLOTS; i++) PulseCnt[i] = 0;             // disable any pending pulse commands
     PulseActive = false;
     slice0=0;slice1=0;slice2=0;slice3=0;slice4=0;slice5=0;slice6=0;slice7=0;
-    for(i=0; i<=7;i++)if(i!=Option.AUDIO_SLICE)PWMoff(i);
+    for(i=0; i<=7;i++)if(!(i==Option.AUDIO_SLICE || i==BacklightSlice))PWMoff(i);
     IRpin=99;
     PWM0Apin=99;
     PWM1Apin=99;

@@ -33,6 +33,7 @@ add_executable(PicoMite
             GUI.c
             GPS.c
             Audio.c
+            CFunction.c
 )
 pico_enable_stdio_usb(PicoMite 1)
 pico_enable_stdio_uart(PicoMite 0)
@@ -45,4 +46,5 @@ target_link_libraries(PicoMite pico_stdlib
         hardware_i2c
         hardware_spi
 		hardware_dma
+        hardware_exception
 )

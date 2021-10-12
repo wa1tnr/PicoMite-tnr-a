@@ -69,7 +69,7 @@ volatile uint32_t realflashpointer;
 int FlashLoad=0;
 unsigned char *CFunctionFlash = NULL;
 unsigned char *CFunctionLibrary = NULL;
-
+void RestoreProg(void);
 #define SDbufferSize 512
 static char *SDbuffer[MAXOPENFILES+1]={NULL};
 int buffpointer[MAXOPENFILES+1]={0};
@@ -171,8 +171,15 @@ void cmd_flash(void){
         uint32_t j=FLASH_TARGET_OFFSET  + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE;
         uSec(250000);
         disable_interrupts();
-        flash_range_erase(j, MAX_PROG_SIZE*10);
+        flash_range_erase(j, MAX_PROG_SIZE*MAXFLASHSLOTS);
         enable_interrupts();
+/*    } else if((p = checkstring(cmdline, "ERASE BACKUP"))) {
+        if(CurrentLinePtr) error("Invalid in program");
+        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
+        uSec(250000);
+        disable_interrupts();
+        flash_range_erase(j, MAX_PROG_SIZE);
+        enable_interrupts();*/
     } else if((p = checkstring(cmdline, "ERASE"))) {
         if(CurrentLinePtr) error("Invalid in program");
         int i=getint(p,1,MAXFLASHSLOTS);
@@ -180,6 +187,24 @@ void cmd_flash(void){
         uSec(250000);
         disable_interrupts();
         flash_range_erase(j, MAX_PROG_SIZE);
+        enable_interrupts();
+/*    } else if((p = checkstring(cmdline, "RESTORE BACKUP"))) {
+        if(CurrentLinePtr) error("Invalid in program");
+        RestoreProg();*/
+    } else if((p = checkstring(cmdline, "OVERWRITE"))) {
+        if(CurrentLinePtr) error("Invalid in program");
+        int i=getint(p,1,MAXFLASHSLOTS);
+        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE);
+        uSec(250000);
+        disable_interrupts();
+        flash_range_erase(j, MAX_PROG_SIZE);
+        enable_interrupts();
+        j=(Option.PROG_FLASH_SIZE>>2);
+        uSec(250000);
+        int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
+        while(j--)if(*pp++ != 0xFFFFFFFF)error("Already programmed");
+        disable_interrupts();
+        flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE), ProgMemory, Option.PROG_FLASH_SIZE);
         enable_interrupts();
     } else if((p = checkstring(cmdline, "LIST"))) {
         int j,i,k;
@@ -223,6 +248,7 @@ void cmd_flash(void){
         int *qq=(int *)ProgMemory;
         while(j--)*qq++ = *pp++;
         FlashLoad=i;
+        SaveProg();
     } else if((p = checkstring(cmdline, "CHAIN"))) {
         if(!CurrentLinePtr) error("Invalid at command prompt");
         int j=(Option.PROG_FLASH_SIZE>>2),i=getint(p,1,MAXFLASHSLOTS);
@@ -237,6 +263,8 @@ void cmd_flash(void){
         int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
         int *qq=(int *)ProgMemory;
         while(j--)*qq++ = *pp++;
+        FlashLoad=i;
+        SaveProg();
     	ClearRuntime();
 	    PrepareProgram(true);
         nextstmt = (unsigned char *)ProgMemory;
@@ -944,6 +972,7 @@ void cmd_autosave(void) {
     unsigned char *buf, *p;
     int c, prevc = 0, crunch = false;
     int count=0;
+    uint64_t timeout;
     if(CurrentLinePtr) error("Invalid in a program");
     if(*cmdline) {
         if(toupper(*cmdline) == 'C') 
@@ -956,7 +985,7 @@ void cmd_autosave(void) {
     p = buf = GetMemory(EDIT_BUFFER_SIZE);
     CrunchData(&p, 0);                                              // initialise the crunch data subroutine
     while((c = (getConsole() & 0x7f)) != 0x1a) {                    // while waiting for the end of text char
-        if(c==-1 && count) {fflush(stdout);count=0;}
+        if(c==127 && count && time_us_64()-timeout>100000) {fflush(stdout);count=0;}
         if(p == buf && c == '\n') continue;                         // throw away an initial line feed which can follow the command
         if((p - buf) >= EDIT_BUFFER_SIZE) error("Not enough memory");
         if(isprint(c) || c == '\r' || c == '\n' || c == TAB) {
@@ -966,7 +995,7 @@ void cmd_autosave(void) {
             else
                 *p++ = c;                                           // insert the input into RAM
             {
-                if(!(c == '\n' && prevc == '\r')) {MMputchar(c,0); count++;}    // and echo it
+                if(!(c == '\n' && prevc == '\r')) {MMputchar(c,0); count++; timeout=time_us_64();}    // and echo it
                 if(c == '\r') {MMputchar('\n',1); count=0;}
             }
             prevc = c;
@@ -1015,12 +1044,12 @@ void cmd_open(void) {
         fname = getCstring(argv[0]);
 
       // check that it is a serial port that we are opening
-        if(argc == 5 && !(mem_equal(fname, "COM0:", 5) || mem_equal(fname, "COM1:", 5))) {
+        if(argc == 5 && !(mem_equal(fname, "COM1:", 5) || mem_equal(fname, "COM2:", 5))) {
             FileOpen(fname, argv[2], argv[4]);
             diskchecktimer=DISKCHECKRATE;
             return;
         }
-      if(!(mem_equal(fname, "COM0:", 5) || mem_equal(fname, "COM1:", 5) ))  error("Invalid COM port");
+      if(!(mem_equal(fname, "COM1:", 5) || mem_equal(fname, "COM2:", 5) ))  error("Invalid COM port");
         if((*argv[2] == 'G') || (*argv[2] == 'g')){
             MMFLOAT timeadjust=0.0;
             argv[2]++;
@@ -1036,9 +1065,9 @@ void cmd_open(void) {
             SerialOpen(fname);
             fnbr = FindFreeFileNbr();
             GPSfnbr=fnbr;
-            FileTable[fnbr].com = fname[3] - '0' + 1;
-            if(mem_equal(fname, "COM0:", 5))GPSchannel=1;
-            if(mem_equal(fname, "COM1:", 5))GPSchannel=2;
+            FileTable[fnbr].com = fname[3] - '0';
+            if(mem_equal(fname, "COM1:", 5))GPSchannel=1;
+            if(mem_equal(fname, "COM2:", 5))GPSchannel=2;
             gpsbuf=gpsbuf1;
             gpscurrent=0;
             gpscount=0;
@@ -1047,7 +1076,7 @@ void cmd_open(void) {
             fnbr = getint(argv[2], 1, MAXOPENFILES);
             if(FileTable[fnbr].com != 0) error("Already open");
             SerialOpen(fname);
-            FileTable[fnbr].com = fname[3] - '0' + 1;
+            FileTable[fnbr].com = fname[3] - '0';
         }
       }
 }
@@ -1265,6 +1294,11 @@ void ResetAllFlash(void) {
     memset(Option.F8key,0,sizeof(Option.F8key));
     memset(Option.F9key,0,sizeof(Option.F9key));
     SaveOptions();
+    uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((10) * MAX_PROG_SIZE);
+    uSec(250000);
+    disable_interrupts();
+    flash_range_erase(j, MAX_PROG_SIZE);
+    enable_interrupts();
 }
 void FlashWriteBlock(void){
     int i;
@@ -1477,13 +1511,46 @@ void ClearSavedVars(void) {
     enable_interrupts();
 }
 void SaveOptions(void){
-    uSec(250000);
+    uSec(100000);
     disable_interrupts();
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_ERASE_SIZE);
     enable_interrupts();
     uSec(10000);
     disable_interrupts();
-    flash_range_program(FLASH_TARGET_OFFSET , (const uint8_t *)&Option.Autorun, 512);
+    flash_range_program(FLASH_TARGET_OFFSET , (const uint8_t *)&Option, 512);
     enable_interrupts();
-    uSec(1250000);
+    uSec(10000);
+ }
+ void SaveProg(void){
+        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
+        uSec(250000);
+        disable_interrupts();
+        flash_range_erase(j, MAX_PROG_SIZE);
+        enable_interrupts();
+        j=(Option.PROG_FLASH_SIZE>>2);
+        uSec(250000);
+        int *pp=(int *)(flash_target_contents+MAXFLASHSLOTS*MAX_PROG_SIZE);
+        while(j--)if(*pp++ != 0xFFFFFFFF)error("Flash erase problem");
+        disable_interrupts();
+        flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE), ProgMemory, Option.PROG_FLASH_SIZE);
+        enable_interrupts();
+
+ }
+ void RestoreProg(void){
+    int j=(Option.PROG_FLASH_SIZE>>2);
+    int *pp=(int *)(flash_target_contents+MAXFLASHSLOTS*MAX_PROG_SIZE);
+    char *p=(char *)pp;
+    if(*p==1){
+        int *qq=(int *)ProgMemory;
+        while(j--)*qq++ = *pp++;
+    } else {
+        if(*p!=0xff){
+            uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
+            uSec(250000);
+            disable_interrupts();
+            flash_range_erase(j, MAX_PROG_SIZE);
+            enable_interrupts();
+        }
+//        error("Nothing to restore");
+    }
  }

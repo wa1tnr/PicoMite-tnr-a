@@ -36,16 +36,22 @@ extern "C" {
 #include "hardware/clocks.h"
 #include "hardware/flash.h"
 #include "hardware/adc.h"
+#include "hardware/exception.h"
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "hardware/structs/systick.h"
+#include "hardware/structs/scb.h"
 #include "hardware/vreg.h"
+#include "pico/unique_id.h"
+#include <pico/bootrom.h>
+#include "../pico-sdk/lib/tinyusb/src/class/cdc/cdc_device.h"
 #define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
 #define USBKEEPALIVE 30000
 int ListCnt;
 int MMCharPos;
+int busfault=0;
 int ExitMMBasicFlag = false;
 volatile int MMAbort = false;
 unsigned int _excep_peek;
@@ -78,6 +84,7 @@ volatile int month = 1;
 volatile int year = 2000;
 volatile unsigned int GPSTimer = 0;
 volatile unsigned int SecondsTimer = 0;
+volatile unsigned int I2CTimer = 0;
 volatile int day_of_week=1;
 unsigned char PulsePin[NBR_PULSE_SLOTS];
 unsigned char PulseDirection[NBR_PULSE_SLOTS];
@@ -88,6 +95,8 @@ const uint8_t *SavedVarsFlash = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSE
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE);
 int ticks_per_second; 
 int InterruptUsed;
+int calibrate=0;
+char id_out[12];
 MMFLOAT VCC=3.3;
 extern unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
 
@@ -99,6 +108,75 @@ uint32_t __uninitialized_ram(_excep_code);
 
 FATFS fs;                 // Work area (file system object) for logical drive
 bool timer_callback(repeating_timer_t *rt);
+static uint64_t __not_in_flash_func(uSecFunc)(uint64_t a){
+    uint64_t b=time_us_64()+a;
+    while(time_us_64()<b){}
+    return b;
+}
+static uint64_t __not_in_flash_func(timer)(void){ return time_us_64();}
+static int64_t PinReadFunc(int a){return gpio_get(PinDef[a].GPno);}
+extern void CallExecuteProgram(char *p);
+extern void CallCFuncmSec(void);
+#define CFUNCRAM_SIZE   256
+int CFuncRam[CFUNCRAM_SIZE/sizeof(int)];
+MMFLOAT IntToFloat(long long int a){ return a; }
+MMFLOAT FMul(MMFLOAT a, MMFLOAT b){ return a * b; }
+MMFLOAT FAdd(MMFLOAT a, MMFLOAT b){ return a + b; }
+MMFLOAT FSub(MMFLOAT a, MMFLOAT b){ return a - b; }
+MMFLOAT FDiv(MMFLOAT a, MMFLOAT b){ return a / b; }
+int   FCmp(MMFLOAT a,MMFLOAT b){if(a>b) return 1;else if(a<b)return -1; else return 0;}
+MMFLOAT LoadFloat(unsigned long long c){union ftype{ unsigned long long a; MMFLOAT b;}f;f.a=c;return f.b; }
+const void * const CallTable[] __attribute__((section(".text")))  = {	(void *)uSecFunc,	//0x00
+																		(void *)putConsole,	//0x04
+																		(void *)getConsole,	//0x08
+																		(void *)ExtCfg,	//0x0c
+																		(void *)ExtSet,	//0x10
+																		(void *)ExtInp,	//0x14
+																		(void *)PinSetBit,	//0x18
+																		(void *)PinReadFunc,	//0x1c
+																		(void *)MMPrintString,	//0x20
+																		(void *)IntToStr,	//0x24
+																		(void *)CheckAbort,	//0x28
+																		(void *)GetMemory,	//0x2c
+																		(void *)GetTempMemory,	//0x30
+																		(void *)FreeMemory, //0x34
+																		(void *)&DrawRectangle,	//0x38
+																		(void *)&DrawBitmap,	//0x3c
+																		(void *)DrawLine,	//0x40
+																		(void *)FontTable,	//0x44
+																		(void *)&ExtCurrentConfig,	//0x48
+																		(void *)&HRes,	//0x4C
+																		(void *)&VRes,	//0x50
+																		(void *)SoftReset, //0x54
+																		(void *)error,	//0x58
+																		(void *)&ProgMemory,	//0x5c
+																		(void *)&vartbl, //0x60
+																		(void *)&varcnt,  //0x64
+																		(void *)&DrawBuffer,	//0x68
+																		(void *)&ReadBuffer,	//0x6c
+																		(void *)&FloatToStr,	//0x70
+                                                                        (void *)CallExecuteProgram, //0x74
+                                                                        (void *)CallCFuncmSec,	//0x78
+                                                                        (void *)CFuncRam,	//0x7c
+                                                                        (void *)&ScrollLCD,	//0x80
+																		(void *)IntToFloat, //0x84
+																		(void *)FloatToInt64,	//0x88
+																		(void *)&Option,	//0x8c
+//                                                                        (void *)&CFuncInt1,	//0x90
+//                                                                        (void *)&CFuncInt2,	//0x94
+																		(void *)sin,	//0x98
+																		(void *)DrawCircle,	//0x9c
+																		(void *)DrawTriangle,	//0xa0
+																		(void *)timer,	//0xa4
+                                                                        (void *)FMul,
+                                                                        (void *)FAdd,
+                                                                        (void *)FSub,
+                                                                        (void *)FDiv,
+                                                                        (void *)FCmp,
+                                                                        (void *)&LoadFloat,
+                                                                        (void *)uSecFunc	//0x00
+									   	   	   	   	   	   	   	   	   	   };
+
 const struct s_PinDef PinDef[NBRPINS + 1]={
 	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 0
 	    { 1,  0, "GP0",  DIGITAL_IN | DIGITAL_OUT | SPI0RX | UART0TX  | I2C0SDA | PWM0A,99,0},  	// pin 1
@@ -153,23 +231,25 @@ const int enableexFAT = 1;
 void __not_in_flash_func(routinechecks)(void){
     char alive[]="\033[?25h";
     int c;
-    if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
-        ConsoleRxBuf[ConsoleRxBufHead] = c;
-        if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
-            MMAbort = true;                                        // set the flag for the interpreter to see
-            ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
-  		} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
-  			Keycomplete=1;
-        } else {
-            ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
-            if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
-                ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
+    if(tud_cdc_connected()){
+        if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
+            ConsoleRxBuf[ConsoleRxBufHead] = c;
+            if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
+                MMAbort = true;                                        // set the flag for the interpreter to see
+                ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+            } else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
+                Keycomplete=1;
+            } else {
+                ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
+                if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
+                    ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
+                }
             }
         }
     }
 	if(GPSchannel)processgps();
     CheckSDCard();
-    ProcessTouch();
+    if(!calibrate)ProcessTouch();
     if(USBKeepalive==0){
         MMPrintString(alive);
     }
@@ -189,20 +269,20 @@ int getConsole(void) {
     return c;
 }
 void putConsole(int c) {
-    fputc(c,stdout);
-    fflush(stdout);
-    USBKeepalive=USBKEEPALIVE;
+    MMputchar(c,1);
 }
 // put a character out to the serial console
 char MMputchar(char c, int flush) {
-    putc(c,stdout);
-    if(isprint(c)) MMCharPos++;
-    if(c == '\r') {
-        MMCharPos = 1;
-    }
-    if(flush){
-        USBKeepalive=USBKEEPALIVE;
-        fflush(stdout);
+    if(tud_cdc_connected()){
+        putc(c,stdout);
+        if(isprint(c)) MMCharPos++;
+        if(c == '\r') {
+            MMCharPos = 1;
+        }
+        if(flush){
+            USBKeepalive=USBKEEPALIVE;
+            fflush(stdout);
+        }
     }
     return c;
 }
@@ -234,6 +314,19 @@ int MMInkey(void) {
     if(c == 0x1b) {
         InkeyTimer = 0;                                             // start the timer
         while((c = getConsole()) == -1 && InkeyTimer < 30);         // get the second char with a delay of 30mS to allow the next char to arrive
+        if(c == 'O'){   //support for many linux terminal emulators
+            while((c = getConsole()) == -1 && InkeyTimer < 50);        // delay some more to allow the final chars to arrive, even at 1200 baud
+            if(c == 'P') return F1;
+            if(c == 'Q') return F2;
+            if(c == 'R') return F3;
+            if(c == 'S') return F4;
+            if(c == '2'){
+                while((tc = getConsole()) == -1 && InkeyTimer < 70);        // delay some more to allow the final chars to arrive, even at 1200 baud
+                if(tc == 'R') return F3 + 0x20;
+                c1 = 'O'; c2 = c; c3 = tc; return 0x1b;                 // not a valid 4 char code
+            }
+            c1 = 'O'; c2 = c; return 0x1b;                 // not a valid 4 char code
+        }
         if(c != '[') { c1 = c; return 0x1b; }                       // must be a square bracket
         while((c = getConsole()) == -1 && InkeyTimer < 50);         // get the third char with delay
         if(c == 'A') return UP;                                     // the arrow keys are three chars
@@ -305,7 +398,7 @@ void MMgetline(int filenbr, char *p) {
 			 do {
 				if(++nbrchars > MAXSTRLEN) error("Line is too long");
 				*p++ = ' ';
-				if(filenbr == 0 && EchoOption) putConsole(' ');
+				if(filenbr == 0 && EchoOption) MMputchar(' ',1);
 			} while(nbrchars % 4);
 			continue;
 		}
@@ -332,7 +425,7 @@ void MMgetline(int filenbr, char *p) {
         }
         
 		if(isprint(c)) {
-			if(filenbr == 0 && EchoOption) putConsole(c);           // The console requires that chars be echoed
+			if(filenbr == 0 && EchoOption) MMputchar(c,1);           // The console requires that chars be echoed
 		}
 		if(++nbrchars > MAXSTRLEN) error("Line is too long");		// stop collecting if maximum length
 		*p++ = c;													// save our char
@@ -368,10 +461,10 @@ void MMPrintString(char* s) {
     USBKeepalive=USBKEEPALIVE;
 }
 
-void myprintf(char *s){
+/*void myprintf(char *s){
    fputs(s,stdout);
      fflush(stdout);
-}
+}*/
 
 void mT4IntEnable(int status){
 	if(status){
@@ -400,6 +493,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         IntPauseTimer++;												// used by the PAUSE command inside an interrupt
         ds18b20Timer++;
 		GPSTimer++;
+        I2CTimer++;
         if(clocktimer)clocktimer--;
         if(Timer2)Timer2--;
         if(Timer1)Timer1--;
@@ -533,6 +627,7 @@ void __not_in_flash_func(CheckAbort)(void) {
     routinechecks();
     if(MMAbort) {
         WDTimer = 0;                                                // turn off the watchdog timer
+        calibrate=0;
         longjmp(mark, 1);                                           // jump back to the input prompt
     }
 }
@@ -567,6 +662,10 @@ void PFlt(MMFLOAT flt){
 void PFltComma(MMFLOAT n) {
     MMPrintString(", "); PFlt(n);
 }
+void sigbus(void){
+    MMPrintString("Error: Invalid address - resetting\r\n");
+    SoftReset();
+}
 
 int main() {
     static int ErrorInPrompt;
@@ -575,8 +674,9 @@ int main() {
     LoadOptions();
     if(Option.Baudrate == 0 ||
         !(Option.Tab==2 || Option.Tab==3 || Option.Tab==4 ||Option.Tab==8) ||
-        !(Option.Autorun>=0 && Option.Autorun<=10) ||
-        !(Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU)
+        !(Option.Autorun>=0 && Option.Autorun<=11) ||
+        !(Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU) ||
+        !((Option.PROG_FLASH_SIZE + Option.HEAP_SIZE + MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl)))==(160*1024))
         ){
         ResetAllFlash();              // init the options if this is the very first startup
         _excep_code=0;
@@ -587,7 +687,7 @@ int main() {
     set_sys_clock_khz(cpu, true);
     m_alloc(M_VAR);
     m_alloc(M_PROG);                                           // init the variables for program memory
-
+    pico_get_unique_board_id_string (id_out,12);
     // The previous line automatically detached clk_peri from clk_sys, and
     // attached it to pll_usb, so that clk_peri won't be disturbed by future
     // changes to system clock or system PLL. If we need higher clk_peri
@@ -608,20 +708,17 @@ int main() {
     // the UART etc.
     stdio_set_translate_crlf(&stdio_usb, false);
     stdio_init_all();
-    uSec(1500000);
     LoadOptions();
-   adc_init();
+    adc_init();
     adc_set_temp_sensor_enabled(true);
-    if (!add_repeating_timer_us(-1000, timer_callback, NULL, &timer)) {
-        printf("Failed to add timer\n");
-        return 1;
-    }
+    add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
+    while (!tud_cdc_connected() && mSecTimer<5000) {}
     InitReservedIO();
     ClearExternalIO();
     ConsoleRxBufHead = 0;
     ConsoleRxBufTail = 0;
     InitHeap();              										// initilise memory allocation
-
+    uSecFunc(10);
 //    LoadOptions();
     // negative timeout means exact delay (rather than delay between callbacks)
 	OptionErrorSkip = false;
@@ -630,7 +727,11 @@ int main() {
     InitDisplayI2C(0);
     InitTouch();
     ErrorInPrompt = false;
+    exception_set_exclusive_handler(HARDFAULT_EXCEPTION,sigbus);
     while((i=getConsole())!=-1){}
+
+    RestoreProg();
+
     if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == WATCHDOG_TIMEOUT)){
         if(Option.Autorun==0 ){
             if(!(_excep_code == RESET_COMMAND))MMPrintString(MES_SIGNON); //MMPrintString(b);                                 // print sign on message
@@ -663,7 +764,10 @@ int main() {
 		*tknbuf = 0;											// we do not want to run whatever is in the token buffer
     } else {
         if(*ProgMemory == 0x01 ) ClearVars(0);
-        else ClearProgram();
+        else {
+//            PInt(*ProgMemory);PRet();
+            ClearProgram();
+        }
         PrepareProgram(true);
         if(FindSubFun("MM.STARTUP", 0) >= 0) ExecuteProgram("MM.STARTUP\0");
         if(Option.Autorun && _excep_code != RESTART_DOAUTORUN) {
@@ -795,7 +899,7 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                     if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
                 } while((p - inpbuf) % 2);
             } else {
-                if(isprint(*pm)) {
+                if(isprint((uint8_t)*pm)) {
                     *p++ = *pm;
                     if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
                 }
@@ -805,15 +909,15 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
         if(*pm) prevchar = *pm++;                                   // step over the end of line char but not the terminating zero
         *p = 0;                                                     // terminate the string in inpbuf
 
-        if(*inpbuf == 0 && (*pm == 0 || (!isprint(*pm) && pm[1] == 0))) break; // don't save a trailing newline
+        if(*inpbuf == 0 && (*pm == 0 || (!isprint((uint8_t)*pm) && pm[1] == 0))) break; // don't save a trailing newline
 
         tokenise(false);                                            // turn into executable code
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
             MemWriteByte(*p++); nbr++;
 
-            if((realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5)
-                goto exiterror1;
+            if((int)((char *)realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
+//                goto exiterror1;
         }
         MemWriteByte(0); nbr++;                              // terminate that line in flash
     }
@@ -827,9 +931,11 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
      //   Unsigned Int - The Offset (in words) to the main() function (ie, the entry point to the CFunction/CSub).  Omitted in a font.
      //   word1..wordN - The CFunction/CSub/Font code
      // The next CFunction/CSub/Font starts immediately following the last word of the previous CFunction/CSub/Font
+    int firsthex=1;
     realmemsave= realmempointer;
-    p = ProgMemory;                                              // start scanning program memory
+    p = (char *)ProgMemory;                                              // start scanning program memory
     while(*p != 0xff) {
+    	nbr++;
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
         if(*p == 0) break;                                          // end of the program
         if(*p == T_NEWLINE) {
@@ -843,26 +949,33 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
             p += p[1] + 2;                                          // skip over the label
             skipspace(p);                                           // and any following spaces
         }
-        if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+        if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+            if(*p == GetCommandValue("DefineFont")) {
              endtoken = GetCommandValue("End DefineFont");
              p++;                                                // step over the token
              skipspace(p);
              if(*p == '#') p++;
              fontnbr = getint(p, 1, FONT_TABLE_SIZE);
-             // font 6 has some special characters, some of which depend on font 1
-             if(fontnbr == 1 || fontnbr == 6) error("Cannot redefine fonts 1 or 6");
+                                                 // font 6 has some special characters, some of which depend on font 1
+             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) error("Cannot redefine fonts 1, 6 or 7");
              realmempointer+=4;
              skipelement(p);                                     // go to the end of the command
              p--;
+            } else {
+                endtoken = GetCommandValue("End CSub");
+                realmempointer+=4;
+                fontnbr = 0;
+                firsthex=0;
+            }
              SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
              realmempointer+=4;
              p++;
              skipspace(p);
              if(!fontnbr) {
-                 if(!isnamestart(*p))  error("Function name");
-                 do { p++; } while(isnamechar(*p));
+                 if(!isnamestart((uint8_t)*p))  error("Function name");
+                 do { p++; } while(isnamechar((uint8_t)*p));
                  skipspace(p);
-                 if(!(isxdigit(p[0]) && isxdigit(p[1]) && isxdigit(p[2]))) {
+                 if(!(isxdigit((uint8_t)p[0]) && isxdigit((uint8_t)p[1]) && isxdigit((uint8_t)p[2]))) {
                      skipelement(p);
                      p++;
                     if(*p == T_NEWLINE) {
@@ -877,8 +990,8 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                      skipspace(p);
                      n = 0;
                      for(i = 0; i < 8; i++) {
-                         if(!isxdigit(*p)) error("Invalid hex word");
-                         if((int)((unsigned char *)realmempointer - ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
+                         if(!isxdigit((uint8_t)*p)) error("Invalid hex word");
+                         if((int)((char *)realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
                          n = n << 4;
                          if(*p <= '9')
                              n |= (*p - '0');
@@ -888,6 +1001,10 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                      }
                      realmempointer+=4;
                      skipspace(p);
+                     if(firsthex){
+                    	 firsthex=0;
+                    	 if(((n>>16) & 0xff) < 0x20)error("Can't define non-printing characters");
+                     }
                  }
                  // we are at the end of a embedded code line
                  while(*p) p++;                                      // make sure that we move to the end of the line
@@ -906,11 +1023,9 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
      }
     realmempointer = realmemsave ;
     updatecount=0;
-    p = ProgMemory;                                              // start scanning program memory
+    p = (char *)ProgMemory;                                              // start scanning program memory
      while(*p != 0xff) {
      	nbr++;
-     	if((nbr % 256)==0){
-     	}
          if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
          if(*p == 0) break;                                          // end of the program
          if(*p == T_NEWLINE) {
@@ -924,30 +1039,30 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
              p += p[1] + 2;                                          // skip over the label
              skipspace(p);                                           // and any following spaces
          }
-         if(/**p == cmdCSUB || */*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-			 if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-				 endtoken = GetCommandValue("End DefineFont");
-				 p++;                                                // step over the token
-				 skipspace(p);
-				 if(*p == '#') p++;
-				 fontnbr = getint(p, 1, FONT_TABLE_SIZE);
-													 // font 6 has some special characters, some of which depend on font 1
-				 if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) error("Cannot redefine fonts 1, 6, or 7");
+         if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+         if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+             endtoken = GetCommandValue("End DefineFont");
+             p++;                                                // step over the token
+             skipspace(p);
+             if(*p == '#') p++;
+             fontnbr = getint(p, 1, FONT_TABLE_SIZE);
+                                                 // font 6 has some special characters, some of which depend on font 1
+             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) error("Cannot redefine fonts 1, 6, or 7");
 
-				 MemWriteWord(fontnbr - 1);             // a low number (< FONT_TABLE_SIZE) marks the entry as a font
-				 skipelement(p);                                     // go to the end of the command
-				 p--;
-			 } /*else {
-				 endtoken = GetCommandValue("End CSub");
-				 MemWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
-				 fontnbr = 0;
-			 }*/
-             SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
+             MemWriteWord(fontnbr - 1);             // a low number (< FONT_TABLE_SIZE) marks the entry as a font
+             skipelement(p);                                     // go to the end of the command
+             p--;
+         } else {
+             endtoken = GetCommandValue("End CSub");
+             MemWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
+             fontnbr = 0;
+         }
+            SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
              MemWriteWord(storedupdates[updatecount++]);                        // leave this blank so that we can later do the write
              p++;
              skipspace(p);
              if(!fontnbr) {
-                 if(!isnamestart(*p))  error("Function name");
+                 if(!isnamestart((uint8_t)*p))  error("Function name");
                  do { p++; } while(isnamechar(*p));
                  skipspace(p);
                  if(!(isxdigit(p[0]) && isxdigit(p[1]) && isxdigit(p[2]))) {
@@ -974,6 +1089,7 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                              n |= (toupper(*p) - 'A' + 10);
                          p++;
                      }
+
                      MemWriteWord(n);
                      skipspace(p);
                  }
@@ -993,8 +1109,7 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
      }
      MemWriteWord(0xffffffff);                                // make sure that the end of the CFunctions is terminated with an erased word
      MemWriteClose();                                              // this will flush the buffer and step the flash write pointer to the next word boundary
-     retvalue=((uint32_t)realmempointer-(uint32_t)ProgMemory);
-
+    SaveProg();
     if(msg) {                                                       // if requested by the caller, print an informative message
         if(MMCharPos > 1) MMPrintString("\r\n");                    // message should be on a new line
         MMPrintString("Saved ");
@@ -1004,9 +1119,6 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
     }
     memcpy(tknbuf, buf, STRINGSIZE);                                // restore the token buffer in case there are other commands in it
 //    initConsole();
-//	clearrepeat();
-//    SCB_EnableICache() ;
-//    SCB_EnableDCache() ;
     return;
 
     // we only get here in an error situation while writing the program to flash
@@ -1014,7 +1126,6 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
         MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program in flash
         MemWriteClose();
         error("Not enough memory");
-        return;;
 }
 
 #ifdef __cplusplus

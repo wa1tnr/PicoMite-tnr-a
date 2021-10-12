@@ -1886,7 +1886,7 @@ void ProcessTouch(void) {
     static int repeat = 0;
     static int waiting = false;
     int r, spinup;
-
+    if(!Option.MaxCtrls || !TOUCH_GETIRQTRIS)return;
     if(repeat) {
         if(TOUCH_DOWN)
             if(TouchTimer < repeat)

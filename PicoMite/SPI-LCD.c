@@ -39,13 +39,21 @@ const struct Displays display_details[]={
 		{"ST7789", LCD_SPI_SPEED, 240, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9481", LCD_SPI_SPEED, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9488", LCD_SPI_SPEED, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"ST7789_135", LCD_SPI_SPEED, 240, 135, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"ST7789_320", 20000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"N5110", NOKIA_SPI_SPEED, 84, 48, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"SSD1306SPI", LCD_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7920", ST7920_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_HIGH, SPI_PHASE_2EDGE},
 		{"GDEH029A1", EINK_SPI_SPEED, 128, 296, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"User", 0, 0, 0, 0, 0, 0 ,0},
 		{"", TOUCH_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9488Read", 12000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"ST7789Read", 6000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"User", 0, 0, 0, 0, 0, 0 ,0},
 
 };
 int LCD_CS_PIN=0;
@@ -128,7 +136,7 @@ void SetAndReserve(int pin, int inp, int init, int type) {
 
 
 void ConfigDisplaySPI(unsigned char *p) {
-	char code,CD,RESET,CS,BUSY=0;
+	char code,CD,RESET,CS,BACKLIGHT=0, BUSY=0;
     getargs(&p, 13, ",");
 
     if(checkstring(argv[0], "ILI9163")) {
@@ -141,6 +149,10 @@ void ConfigDisplaySPI(unsigned char *p) {
         Option.DISPLAY_TYPE = ST7735;
     } else if(checkstring(argv[0], "ST7789")) {
         Option.DISPLAY_TYPE = ST7789;
+    } else if(checkstring(argv[0], "ST7789_135")) {
+        Option.DISPLAY_TYPE = ST7789A;
+    } else if(checkstring(argv[0], "ST7789_320")) {
+        Option.DISPLAY_TYPE = ST7789B;
     } else if(checkstring(argv[0], "ILI9481")) {
         Option.DISPLAY_TYPE = ILI9481;
     } else if(checkstring(argv[0], "ILI9488")) {
@@ -166,7 +178,7 @@ void ConfigDisplaySPI(unsigned char *p) {
     else if(checkstring(argv[2], "RP") || checkstring(argv[2], "RPORTRAIT"))
         Option.DISPLAY_ORIENTATION = RPORTRAIT;
     else error("Orientation");
-    if(Option.DISPLAY_TYPE==ST7789)Option.DISPLAY_ORIENTATION=(Option.DISPLAY_ORIENTATION+2) % 4;
+    if(Option.DISPLAY_TYPE==ST7789 || Option.DISPLAY_TYPE == ST7789A|| Option.DISPLAY_TYPE == ST7789A)Option.DISPLAY_ORIENTATION=(Option.DISPLAY_ORIENTATION+2) % 4;
 	if(!(code=codecheck(argv[4])))argv[4]+=2;
 	CD = getinteger(argv[4]);
 	if(!code)CD=codemap(CD);
@@ -188,8 +200,15 @@ void ConfigDisplaySPI(unsigned char *p) {
 				if(!code)BUSY=codemap(BUSY);
 				Option.fullrefresh=0;
 				if(argc==13)Option.fullrefresh=getint(argv[12],0,10000);
-			} else  error("Argument count");
-		}
+			
+			} else  {
+				if(!(code=codecheck(argv[10])))argv[10]+=2;
+				BACKLIGHT = getinteger(argv[10]);
+				if(!code)BACKLIGHT=codemap(BACKLIGHT);
+				CheckPin(BACKLIGHT, CP_IGNORE_INUSE);
+        		if((PinDef[BACKLIGHT].slice & 0x7f) == Option.AUDIO_SLICE) error("Channel in use for Audio");
+			}
+		} 
 		CheckPin(CS, CP_IGNORE_INUSE);
 		Option.LCD_CS = CS;
 	    if(BUSY){
@@ -201,6 +220,7 @@ void ConfigDisplaySPI(unsigned char *p) {
     CheckPin(RESET, CP_IGNORE_INUSE);
 	Option.LCD_CD = CD;
 	Option.LCD_Reset = RESET;
+	Option.DISPLAY_BL = BACKLIGHT;
     if(!(Option.DISPLAY_TYPE>I2C_PANEL && Option.DISPLAY_TYPE < BufferedPanel)) Option.Refresh = 1;
 }
 
@@ -223,7 +243,7 @@ void InitDisplaySPI(int InitOnly) {
         	DrawRectangle = DrawRectangleSPI;
         	DrawBitmap = DrawBitmapSPI;
         	DrawBuffer = DrawBufferSPI;
-        	if(Option.DISPLAY_TYPE == ILI9341 || Option.DISPLAY_TYPE == ILI9488)ReadBuffer = ReadBufferSPI;
+        	if(Option.DISPLAY_TYPE == ILI9341 || Option.DISPLAY_TYPE == ILI9488 || Option.DISPLAY_TYPE == ST7789B)ReadBuffer = ReadBufferSPI;
         } else {
             DrawRectangle = DrawRectangleMEM;
             DrawBitmap = DrawBitmapMEM;
@@ -500,12 +520,18 @@ void InitDisplaySPI(int InitOnly) {
             }
             break;
         case ST7789:
+		case ST7789A:
+		case ST7789B:
             ResetController();
             spi_write_command(ST77XX_SWRESET);    uSec(150000);
             spi_write_command(ST77XX_SLPOUT);    uSec(500000);
             spi_write_command(ST77XX_COLMOD);    spi_write_data(0x55);uSec(10000);
-            spi_write_command(ST77XX_CASET); spi_write_data(0x0); spi_write_data(0x0); spi_write_data(0x0); spi_write_data(240);
-            spi_write_command(ST77XX_RASET); spi_write_data(0x0); spi_write_data(0); spi_write_data(0); spi_write_data(240);
+//            if(Option.DISPLAY_TYPE==ST7789){spi_write_command(ST77XX_CASET); spi_write_data(0x0); spi_write_data(0x0); spi_write_data(0x0); spi_write_data(239);}
+//			else if(Option.DISPLAY_ORIENTATION & 1){spi_write_command(ST77XX_CASET); spi_write_data(0x0); spi_write_data(40); spi_write_data(0x1); spi_write_data(23);}
+//				 else {spi_write_command(ST77XX_CASET); spi_write_data(0x0); spi_write_data(52); spi_write_data(0x0); spi_write_data(186);}
+//            if(Option.DISPLAY_TYPE==ST7789){spi_write_command(ST77XX_RASET); spi_write_data(0x0); spi_write_data(0); spi_write_data(0); spi_write_data(239);}
+//			else if(Option.DISPLAY_ORIENTATION & 1){spi_write_command(ST77XX_RASET); spi_write_data(0x0); spi_write_data(53); spi_write_data(0); spi_write_data(187);}
+//				 else {spi_write_command(ST77XX_RASET); spi_write_data(0x0); spi_write_data(40); spi_write_data(1); spi_write_data(23);}
             spi_write_command(ST77XX_INVON);    uSec(10000);
             spi_write_command(ST77XX_NORON);    uSec(10000);
             spi_write_command(ST77XX_DISPON);    uSec(500000);
@@ -734,6 +760,32 @@ void DefineRegionSPI(int xstart, int ystart, int xend, int yend, int rw) {
 				xend+=80;
 			}
 		}
+		if(Option.DISPLAY_TYPE==ST7789A){
+			if(Option.DISPLAY_ORIENTATION ==1 ){
+				xstart+=40;
+				xend+=40;
+				ystart+=52;
+				yend+=52;
+			}
+			else if(Option.DISPLAY_ORIENTATION ==3 ){
+				xstart+=40;
+				xend+=40;
+				ystart+=53;
+				yend+=53;
+			}
+			else if(Option.DISPLAY_ORIENTATION==0){
+				ystart+=40;
+				yend+=40;
+				xstart+=52;
+				xend+=52;
+			}
+			else if(Option.DISPLAY_ORIENTATION==2){
+				ystart+=40;
+				yend+=40;
+				xstart+=53;
+				xend+=53;
+			}
+		}
 		if(Option.DISPLAY_TYPE==ST7735S){
 			if(Option.DISPLAY_ORIENTATION & 1){
 				ystart+=26;
@@ -940,6 +992,7 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
 void ReadBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     int r, N, t;
     unsigned char h,l;
+//	PInt(x1);PIntComma(y1);PIntComma(x2);PIntComma(y2);PRet();
     // make sure the coordinates are kept within the display area
     if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
     if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
@@ -952,24 +1005,24 @@ void ReadBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     if(y2 < 0) y2 = 0;
     if(y2 >= VRes) y2 = VRes - 1;
     N=(x2- x1+1) * (y2- y1+1) * 3;
-    if(Option.DISPLAY_TYPE==ILI9341)spi_write_cd(ILI9341_PIXELFORMAT,1,0x66); //change to RDB666 for read
+    if(Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE==ST7789B )spi_write_cd(ILI9341_PIXELFORMAT,1,0x66); //change to RDB666 for read
     DefineRegionSPI(x1, y1, x2, y2, 0);
 	if(Option.DISPLAY_TYPE==ILI9488)SPISpeedSet(ILI9488Read); //need to slow SPI for read on this display
-	h=xchg_byte(l);
+	rcvr_byte_multi((uint8_t *)p, 1);
+	if(Option.DISPLAY_TYPE==ST7789B)rcvr_byte_multi((uint8_t *)p, 1);
     r=0;
 	rcvr_byte_multi((uint8_t *)p,N);
 	gpio_put(LCD_CD_PIN,GPIO_PIN_RESET);
     ClearCS(Option.LCD_CS);                  //set CS high
 	if(Option.DISPLAY_TYPE==ILI9488)SPISpeedSet(ILI9488);
     // revert to non enhanced SPI mode
-    if(Option.DISPLAY_TYPE==ILI9341)spi_write_cd(ILI9341_PIXELFORMAT,1,0x55); //change back to rdb565
+    if(Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE==ST7789B )spi_write_cd(ILI9341_PIXELFORMAT,1,0x55); //change back to rdb565
     r=0;
     while(N) {
-        h=(uint8_t)p[r+2];
-        l=(uint8_t)p[r];
-        p[r]=h;//(h & 0xF8);
-        p[r+2]=l;//(l & 0xF8);
-//        p[r+1]=p[r+1] & 0xFC;
+		h=(uint8_t)p[r+2];
+		l=(uint8_t)p[r];
+		p[r]=h;//(h & 0xF8);
+		p[r+2]=l;//(l & 0xF8);
         r+=3;
         N-=3;
     }

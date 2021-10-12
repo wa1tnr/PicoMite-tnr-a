@@ -1592,8 +1592,9 @@ void fun_math(void){
 			int i,j,card1=1;
 			MMFLOAT *a1float=NULL, max=-3.0e+38;
 			int64_t *a1int=NULL;
-			getargs(&tp, 1,",");
-			if(!(argc == 1)) error("Argument count");
+			long long int *temp=NULL;
+			getargs(&tp, 3,",");
+//			if(!(argc == 1)) error("Argument count");
 			ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 			if(vartbl[VarIndex].type & T_NBR) {
 				card1=1;
@@ -1612,14 +1613,32 @@ void fun_math(void){
 				a1int = (int64_t *)ptr1;
 				if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
 			} else error("Argument 1 must be numerical");
+			if(argc==3){
+				if(vartbl[VarIndex].dims[1] > 0) {		// Not an array
+					error("Argument 1 must be a 1D numerical array");
+				}
+				temp = findvar(argv[2], V_FIND);
+				if(!(vartbl[VarIndex].type & T_INT)) error("Invalid variable");
+			}
+
 			if(a1float!=NULL){
 				for(i=0; i< card1;i++){
-					if((*a1float)>max)max=(*a1float);
+					if((*a1float)>max){
+						max=(*a1float);
+						if(temp!=NULL){
+							*temp=i+OptionBase;
+						}
+					}
 					a1float++;
 				}
 			} else {
 				for(i=0; i< card1;i++){
-					if(((MMFLOAT)(*a1int))>max)max=(MMFLOAT)(*a1int);
+					if(((MMFLOAT)(*a1int))>max){
+						max=(MMFLOAT)(*a1int);
+						if(temp!=NULL){
+							*temp=i+OptionBase;
+						}
+					}
 					a1int++;
 				}
 			}
@@ -1633,8 +1652,9 @@ void fun_math(void){
 			int i,j,card1=1;
 			MMFLOAT *a1float=NULL, min=3.0e+38;
 			int64_t *a1int=NULL;
-			getargs(&tp, 1,",");
-			if(!(argc == 1)) error("Argument count");
+			long long int *temp=NULL;
+			getargs(&tp, 3,",");
+//			if(!(argc == 1)) error("Argument count");
 			ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 			if(vartbl[VarIndex].type & T_NBR) {
 				card1=1;
@@ -1653,14 +1673,31 @@ void fun_math(void){
 				a1int = (int64_t *)ptr1;
 				if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
 			} else error("Argument 1 must be numerical");
+			if(argc==3){
+				if(vartbl[VarIndex].dims[1] > 0) {		// Not an array
+					error("Argument 1 must be a 1D numerical array");
+				}
+				temp = findvar(argv[2], V_FIND);
+				if(!(vartbl[VarIndex].type & T_INT)) error("Invalid variable");
+			}
 			if(a1float!=NULL){
 				for(i=0; i< card1;i++){
-					if((*a1float)<min)min=(*a1float);
+					if((*a1float)<min){
+						min=(*a1float);
+						if(temp!=NULL){
+							*temp=i+OptionBase;
+						}
+					}
 					a1float++;
 				}
 			} else {
 				for(i=0; i< card1;i++){
-					if(((MMFLOAT)(*a1int))<min)min=(MMFLOAT)(*a1int);
+					if(((MMFLOAT)(*a1int))<min){
+						min=(MMFLOAT)(*a1int);
+						if(temp!=NULL){
+							*temp=i+OptionBase;
+						}
+					}
 					a1int++;
 				}
 			}

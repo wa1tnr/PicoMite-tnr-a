@@ -83,6 +83,7 @@ extern volatile unsigned int IntPauseTimer;
 extern volatile unsigned int Timer1, Timer2;		                       //1000Hz decrement timer
 extern volatile unsigned int diskchecktimer;
 extern volatile int ds18b20Timer;
+extern volatile unsigned int I2CTimer;
 extern volatile int second;
 extern volatile int minute;
 extern volatile int hour;
@@ -100,7 +101,7 @@ extern unsigned char PulseDirection[];
 extern int PulseCnt[];
 extern int PulseActive;
 extern volatile int ClickTimer;
-
+extern int calibrate;
 struct s_PinDef {
 	int pin;
 	int GPno;

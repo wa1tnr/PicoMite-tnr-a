@@ -48,7 +48,7 @@ void fun_mmi2c(void);
 #ifdef INCLUDE_COMMAND_TABLE
 
 	{ "I2C",	T_CMD,		0, cmd_i2c              },
-	{ "I2C1",	T_CMD,		0, cmd_i2c2              },
+	{ "I2C2",	T_CMD,		0, cmd_i2c2              },
   	{ "RTC",    T_CMD,      0, cmd_rtc              },
 #endif
 
@@ -113,6 +113,12 @@ extern unsigned int I2C2_enabled;									// I2C enable marker
 extern unsigned int I2C_enabled;									// I2C enable marker
 extern unsigned int I2C_Timeout;									// master timeout value
 extern unsigned int I2C2_Timeout;									// master timeout value
+extern volatile unsigned int I2C_Status;                            // status flags
+extern volatile unsigned int I2C2_Status;                            // status flags
+extern char *I2C_Slave_Send_IntLine;                                // pointer to the slave send interrupt line number
+extern char *I2C_Slave_Receive_IntLine;                             // pointer to the slave receive interrupt line number
+extern char *I2C2_Slave_Send_IntLine;                                // pointer to the slave send interrupt line number
+extern char *I2C2_Slave_Receive_IntLine;                             // pointer to the slave receive interrupt line number
 
 #endif
 #endif
