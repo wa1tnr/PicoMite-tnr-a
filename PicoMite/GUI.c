@@ -2358,8 +2358,8 @@ void ResetGUI(void) {
     SetupPage = 0;
     CurrentPages = 1;
     for(i = 1; i < Option.MaxCtrls; i++) {
-        if(Ctrl[i].s) FreeMemory(Ctrl[i].s);
-        if(Ctrl[i].fmt) FreeMemory(Ctrl[i].fmt);
+        if(Ctrl[i].s) FreeMemorySafe((void *)&Ctrl[i].s);
+        if(Ctrl[i].fmt) FreeMemorySafe((void *)&Ctrl[i].fmt);
         memset(&Ctrl[i],0,sizeof(struct s_ctrl));
     }
 }

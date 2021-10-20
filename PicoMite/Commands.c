@@ -78,7 +78,6 @@ unsigned char *TraceBuff[TRACE_BUFF_SIZE];
 int TraceBuffIndex;                       // used for listing the contents of the trace buffer
 int OptionErrorSkip;                                               // how to handle an error
 int MMerrno;                                                        // the error number
-unsigned char LastFile[256];							// used to keep track of the last file RUN, LOADed or SAVed
 
 const unsigned int CaseOption = 0xffffffff;	// used to store the case of the listed output
 
@@ -463,12 +462,12 @@ void cmd_new(void) {
 	checkend(cmdline);
 	ClearProgram();
 	FlashLoad=0;
-	*LastFile = 0;
 	uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
 	uSec(250000);
 	disable_interrupts();
 	flash_range_erase(j, MAX_PROG_SIZE);
 	enable_interrupts();
+    memset(inpbuf,0,STRINGSIZE);
 	longjmp(mark, 1);							                    // jump back to the input prompt
 }
 
@@ -708,6 +707,7 @@ void __not_in_flash_func(cmd_else)(void) {
 
 void cmd_end(void) {
 	checkend(cmdline);
+    memset(inpbuf,0,STRINGSIZE);
 	longjmp(mark, 1);												// jump back to the input prompt
 }
 

@@ -41,6 +41,7 @@ const struct Displays display_details[]={
 		{"ILI9488", LCD_SPI_SPEED, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7789_135", LCD_SPI_SPEED, 240, 135, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7789_320", 20000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"ILI9488W", LCD_SPI_SPEED, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"N5110", NOKIA_SPI_SPEED, 84, 48, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"SSD1306SPI", LCD_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7920", ST7920_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_HIGH, SPI_PHASE_2EDGE},
@@ -48,7 +49,6 @@ const struct Displays display_details[]={
 		{"", TOUCH_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9488Read", 12000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7789Read", 6000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
@@ -64,7 +64,7 @@ void DisplayNotSet(void) {
     error("Display not configured");
 }
 
-unsigned char RAMBASE[1024]={0};
+unsigned char LCDBuffer[1440]={0};
 
 const uint8_t GDEH029A1_LUTDefault_full[] =
 {
@@ -111,7 +111,6 @@ void DrawRectangleMEM(int x1, int y1, int x2, int y2, int c);
 void DrawBitmapMEM(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
 void spi_write_CommandData(const uint8_t* pCommandData, uint8_t datalen);
 void ST7920command(unsigned char data);
-unsigned char linebuff[1440];
 // utility function for routines that want to reserve a pin for special I/O
 // this ignores any previous settings and forces the pin to its new state
 // pin is the pin number
@@ -157,6 +156,8 @@ void ConfigDisplaySPI(unsigned char *p) {
         Option.DISPLAY_TYPE = ILI9481;
     } else if(checkstring(argv[0], "ILI9488")) {
         Option.DISPLAY_TYPE = ILI9488;
+    } else if(checkstring(argv[0], "ILI9488W")) {
+        Option.DISPLAY_TYPE = ILI9488W;
     } else if(checkstring(argv[0], "ILI9341")) {
         Option.DISPLAY_TYPE = ILI9341;
     } else if(checkstring(argv[0], "N5110")) {
@@ -253,100 +254,148 @@ void InitDisplaySPI(int InitOnly) {
     // the initialisation sequences and the SPI driver code was written by Peter Mather (matherp on The Back Shed forum)
     switch(Option.DISPLAY_TYPE) {
 		case ILI9488:
+		case ILI9488W:
 			DisplayHRes = 480;
 			DisplayVRes = 320;
 			ResetController();
-			spi_write_command(0xE0); // Positive Gamma Control
-			spi_write_data(0x00);
-			spi_write_data(0x03);
-			spi_write_data(0x09);
-			spi_write_data(0x08);
-			spi_write_data(0x16);
-			spi_write_data(0x0A);
-			spi_write_data(0x3F);
-			spi_write_data(0x78);
-			spi_write_data(0x4C);
-			spi_write_data(0x09);
-			spi_write_data(0x0A);
-			spi_write_data(0x08);
-			spi_write_data(0x16);
-			spi_write_data(0x1A);
-			spi_write_data(0x0F);
+			if(Option.DISPLAY_TYPE==ILI9488){
+				spi_write_command(0xE0); // Positive Gamma Control
+				spi_write_data(0x00);
+				spi_write_data(0x03);
+				spi_write_data(0x09);
+				spi_write_data(0x08);
+				spi_write_data(0x16);
+				spi_write_data(0x0A);
+				spi_write_data(0x3F);
+				spi_write_data(0x78);
+				spi_write_data(0x4C);
+				spi_write_data(0x09);
+				spi_write_data(0x0A);
+				spi_write_data(0x08);
+				spi_write_data(0x16);
+				spi_write_data(0x1A);
+				spi_write_data(0x0F);
 
-			spi_write_command(0XE1); // Negative Gamma Control
-			spi_write_data(0x00);
-			spi_write_data(0x16);
-			spi_write_data(0x19);
-			spi_write_data(0x03);
-			spi_write_data(0x0F);
-			spi_write_data(0x05);
-			spi_write_data(0x32);
-			spi_write_data(0x45);
-			spi_write_data(0x46);
-			spi_write_data(0x04);
-			spi_write_data(0x0E);
-			spi_write_data(0x0D);
-			spi_write_data(0x35);
-			spi_write_data(0x37);
-			spi_write_data(0x0F);
+				spi_write_command(0XE1); // Negative Gamma Control
+				spi_write_data(0x00);
+				spi_write_data(0x16);
+				spi_write_data(0x19);
+				spi_write_data(0x03);
+				spi_write_data(0x0F);
+				spi_write_data(0x05);
+				spi_write_data(0x32);
+				spi_write_data(0x45);
+				spi_write_data(0x46);
+				spi_write_data(0x04);
+				spi_write_data(0x0E);
+				spi_write_data(0x0D);
+				spi_write_data(0x35);
+				spi_write_data(0x37);
+				spi_write_data(0x0F);
 
-			spi_write_command(0XC0); // Power Control 1
-			spi_write_data(0x17);
-			spi_write_data(0x15);
+				spi_write_command(0XC0); // Power Control 1
+				spi_write_data(0x17);
+				spi_write_data(0x15);
 
-			spi_write_command(0xC1); // Power Control 2
-			spi_write_data(0x41);
+				spi_write_command(0xC1); // Power Control 2
+				spi_write_data(0x41);
 
-			spi_write_command(0xC5); // VCOM Control
-			spi_write_data(0x00);
-			spi_write_data(0x12);
-			spi_write_data(0x80);
+				spi_write_command(0xC5); // VCOM Control
+				spi_write_data(0x00);
+				spi_write_data(0x12);
+				spi_write_data(0x80);
 
-			spi_write_command(TFT_MADCTL); // Memory Access Control
-			spi_write_data(0x48); // MX, BGR
+				spi_write_command(TFT_MADCTL); // Memory Access Control
+				spi_write_data(0x48); // MX, BGR
 
-			spi_write_command(0x3A); // Pixel Interface Format
-			#if defined (ESP32_PARALLEL)
-			spi_write_data(0x55); // 16 bit colour for parallel
-			#else
-			spi_write_data(0x66); // 18 bit colour for SPI
-			#endif
+				spi_write_command(0x3A); // Pixel Interface Format
+				spi_write_data(0x66); // 18 bit colour for SPI
 
-			spi_write_command(0xB0); // Interface Mode Control
-			spi_write_data(0x00);
+				spi_write_command(0xB0); // Interface Mode Control
+				spi_write_data(0x00);
 
-			spi_write_command(0xB1); // Frame Rate Control
-			spi_write_data(0xA0);
+				spi_write_command(0xB1); // Frame Rate Control
+				spi_write_data(0xA0);
 
-			spi_write_command(0xB4); // Display Inversion Control
-			spi_write_data(0x02);
+				spi_write_command(0xB4); // Display Inversion Control
+				spi_write_data(0x02);
 
-			spi_write_command(0xB6); // Display Function Control
-			spi_write_data(0x02);
-			spi_write_data(0x02);
-			spi_write_data(0x3B);
+				spi_write_command(0xB6); // Display Function Control
+				spi_write_data(0x02);
+				spi_write_data(0x02);
+				spi_write_data(0x3B);
 
-			spi_write_command(0xB7); // Entry Mode Set
-			spi_write_data(0xC6);
+				spi_write_command(0xB7); // Entry Mode Set
+				spi_write_data(0xC6);
 
-			spi_write_command(0xF7); // Adjust Control 3
-			spi_write_data(0xA9);
-			spi_write_data(0x51);
-			spi_write_data(0x2C);
-			spi_write_data(0x82);
+				spi_write_command(0xF7); // Adjust Control 3
+				spi_write_data(0xA9);
+				spi_write_data(0x51);
+				spi_write_data(0x2C);
+				spi_write_data(0x82);
 
-			spi_write_command(TFT_SLPOUT); //Exit Sleep
-			uSec(120000);
+				spi_write_command(TFT_SLPOUT); //Exit Sleep
+				uSec(120000);
 
-			spi_write_command(TFT_DISPON); //Display on
-			uSec(25000);
+				spi_write_command(TFT_DISPON); //Display on
+				uSec(25000);
+			} else {
+				spi_write_command(0x21);
+				spi_write_command(0xC2);	//Normal mode, increase can change the display quality, while increasing power consumption
+				spi_write_data(0x33);
+				spi_write_command(0XC5);
+				spi_write_data(0x00);
+				spi_write_data(0x1e);//VCM_REG[7:0]. <=0X80.
+				spi_write_data(0x80);
+				spi_write_command(0xB1);//Sets the frame frequency of full color normal mode
+				spi_write_data(0xB0);//0XB0 =70HZ, <=0XB0.0xA0=62HZ
+				spi_write_command(0x36);
+				spi_write_data(0x28); //2 DOT FRAME MODE,F<=70HZ.
+				spi_write_command(0XE0);
+				spi_write_data(0x0);
+				spi_write_data(0x13);
+				spi_write_data(0x18);
+				spi_write_data(0x04);
+				spi_write_data(0x0F);
+				spi_write_data(0x06);
+				spi_write_data(0x3a);
+				spi_write_data(0x56);
+				spi_write_data(0x4d);
+				spi_write_data(0x03);
+				spi_write_data(0x0a);
+				spi_write_data(0x06);
+				spi_write_data(0x30);
+				spi_write_data(0x3e);
+				spi_write_data(0x0f);		
+				spi_write_command(0XE1);
+				spi_write_data(0x0);
+				spi_write_data(0x13);
+				spi_write_data(0x18);
+				spi_write_data(0x01);
+				spi_write_data(0x11);
+				spi_write_data(0x06);
+				spi_write_data(0x38);
+				spi_write_data(0x34);
+				spi_write_data(0x4d);
+				spi_write_data(0x06);
+				spi_write_data(0x0d);
+				spi_write_data(0x0b);
+				spi_write_data(0x31);
+				spi_write_data(0x37);
+				spi_write_data(0x0f);
+				spi_write_command(0X3A);	//Set Interface Pixel Format
+				spi_write_data(0x55);
+				spi_write_command(0x11);//sleep out
+				uSec(120000);
+				spi_write_command(0x29);//Turn on the LCD display
+			}
 			spi_write_command(TFT_MADCTL);
-         switch(Option.DISPLAY_ORIENTATION) {
-             case LANDSCAPE:     spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Landscape); break;
-             case PORTRAIT:      spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Portrait); break;
-             case RLANDSCAPE:    spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Landscape180); break;
-             case RPORTRAIT:     spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Portrait180); break;
-         }
+			switch(Option.DISPLAY_ORIENTATION) {
+				case LANDSCAPE:     spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Landscape); break;
+				case PORTRAIT:      spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Portrait); break;
+				case RLANDSCAPE:    spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Landscape180); break;
+				case RPORTRAIT:     spi_write_cd(ILI9341_MEMCONTROL,1,ILI9341_Portrait180); break;
+			}
  			break;
 		case ILI9481:
 			DisplayHRes = 480;
@@ -647,7 +696,7 @@ void SetCS(void) {
 void spi_write_data(unsigned char data){
     gpio_put(LCD_CD_PIN,GPIO_PIN_SET);
     SetCS();
-    if(Option.DISPLAY_TYPE == ILI9481)	{SPIsend2(data);}
+    if(Option.DISPLAY_TYPE == ILI9481 || Option.DISPLAY_TYPE == ILI9488W)	{SPIsend2(data);}
     else {SPIsend(data);}
      ClearCS(Option.LCD_CS);
 }
@@ -656,7 +705,7 @@ void spi_write_data(unsigned char data){
 void spi_write_command(unsigned char data){
     gpio_put(LCD_CD_PIN,GPIO_PIN_RESET);
     SetCS();
-    if(Option.DISPLAY_TYPE == ILI9481)	{SPIsend2(data);}
+    if(Option.DISPLAY_TYPE == ILI9481 || Option.DISPLAY_TYPE == ILI9488W)	{SPIsend2(data);}
     else {SPIsend(data);}
     ClearCS(Option.LCD_CS);
 }
@@ -705,7 +754,7 @@ void ResetController(void){
 
 void DefineRegionSPI(int xstart, int ystart, int xend, int yend, int rw) {
 	unsigned char coord[4];
-    if(Option.DISPLAY_TYPE == ILI9481){
+    if(Option.DISPLAY_TYPE == ILI9481 || Option.DISPLAY_TYPE == ILI9488W){
 		SetCS();
     	gpio_put(LCD_CD_PIN,GPIO_PIN_RESET);
     	SPIsend2(ILI9341_COLADDRSET);
@@ -880,7 +929,7 @@ void DrawRectangleSPI(int x1, int y1, int x2, int y2, int c){
 		if(Option.DISPLAY_TYPE==ILI9488){
 			i = x2 - x1 + 1;
 			i*=3;
-			p=linebuff;
+			p=LCDBuffer;
 			col[0]=(c>>16);
 			col[1]=(c>>8) & 0xFF;
 			col[2]=(c & 0xFF);
@@ -889,7 +938,7 @@ void DrawRectangleSPI(int x1, int y1, int x2, int y2, int c){
 		} else {
 			i = x2 - x1 + 1;
 			i*=2;
-			p=linebuff;
+			p=LCDBuffer;
 			col[0]= ((c >> 16) & 0b11111000) | ((c >> 13) & 0b00000111);
 			col[1] = ((c >>  5) & 0b11100000) | ((c >>  3) & 0b00011111);
 			for(t=0;t<i;t+=2){p[t]=col[0];p[t+1]=col[1];}
@@ -1068,7 +1117,7 @@ void DrawBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     ClearCS(Option.LCD_CS);                  //set CS high
 }
 void DrawRectangleMEM(int x1, int y1, int x2, int y2, int c){
-    unsigned char* p=(void *)((unsigned int)RAMBASE);
+    unsigned char* p=(void *)((unsigned int)LCDBuffer);
     int x,y,loc,t;
     unsigned char mask;
     if(x1 < 0) x1 = 0;
@@ -1130,7 +1179,7 @@ void DrawRectangleMEM(int x1, int y1, int x2, int y2, int c){
 void DrawBitmapMEM(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap){
     int i, j, k, m, x, y,t, loc;
     unsigned char omask, amask;
-    unsigned char* p=(void *)((unsigned int)RAMBASE);
+    unsigned char* p=(void *)((unsigned int)LCDBuffer);
     if(x1>=HRes || y1>=VRes || x1+width*scale<0 || y1+height*scale<0)return;
     for(i = 0; i < height; i++) {                                   // step thru the font scan line by line
         for(j = 0; j < scale; j++) {                                // repeat lines to scale the font
@@ -1225,7 +1274,7 @@ void ST7920SetXY(int x, int y){
 
 void Display_Refresh(void){
 	if(!(Option.DISPLAY_TYPE<=I2C_PANEL || Option.DISPLAY_TYPE>=BufferedPanel)) return;
-	unsigned char* p=(void *)((unsigned int)RAMBASE);
+	unsigned char* p=(void *)((unsigned int)LCDBuffer);
 	if(low_x<0)low_x=0;
 	if(low_y<0)low_y=0;
 	if(high_x>DisplayHRes)high_x=DisplayHRes-1;
@@ -1291,7 +1340,7 @@ void Display_Refresh(void){
 			fullrefreshcount++;
 			if(fullrefreshcount==Option.fullrefresh)fullrefreshcount=0;
 		}
-		unsigned char* p=(void *)((unsigned int)RAMBASE);
+		unsigned char* p=(void *)((unsigned int)LCDBuffer);
 //Set memory area
 		spi_write_command(SET_RAM_X_ADD_START_END_POS);
 		spi_write_data(0);

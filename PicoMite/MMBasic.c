@@ -105,7 +105,7 @@ jmp_buf mark;                                                       // longjump 
 jmp_buf ErrNext;                                                    // longjump to recover from an error and continue
 unsigned char inpbuf[STRINGSIZE];                                            // used to store user keystrokes until we have a line
 unsigned char tknbuf[STRINGSIZE];                                            // used to store the tokenised representation of the users input line
-unsigned char lastcmd[STRINGSIZE];                                           // used to store the last command in case it is needed by the EDIT command
+//unsigned char lastcmd[STRINGSIZE];                                           // used to store the last command in case it is needed by the EDIT command
 unsigned char PromptString[MAXPROMPTLEN];                                    // the prompt for input, an empty string means use the default
 int ProgramChanged;                                                 // true if the program in memory has been changed and not saved
 struct s_hash hashlist[MAXVARS/2]={0};
@@ -1484,7 +1484,7 @@ unsigned char *findline(int nbr, int mustfind) {
 // search through program memory looking for a label.
 // returns a pointer to the T_NEWLINE token or throws an error if not found
 // non cached version
-unsigned char *findlabel(unsigned char *labelptr) {
+unsigned char __not_in_flash_func(*findlabel)(unsigned char *labelptr) {
     unsigned char *p, *lastp = ProgMemory + 1;
     int i;
     unsigned char label[MAXVARLEN + 1];
@@ -2228,8 +2228,9 @@ void error(char *msg, ...) {
     if(*MMErrMsg) {
         MMPrintString(" : ");
         MMPrintString(MMErrMsg);
-        }
-        MMPrintString("\r\n");
+    }
+    MMPrintString("\r\n");
+    memset(inpbuf,0,STRINGSIZE);
     longjmp(mark, 1);
 }
 
@@ -2741,21 +2742,6 @@ unsigned char __not_in_flash_func(*checkstring)(unsigned char *p, unsigned char 
     return NULL;                                                    // or NULL if not
 }
 
-
-
-// count the length of a program line excluding the terminating zero byte
-// the pointer p must be pointing to the T_NEWLINE token at the start of the line
-int GetLineLength(unsigned char *p) {
-    unsigned char *start;
-    start = p;
-    p++;                                                            // step over the newline token
-    if(*p == T_LINENBR) p += 3;                                     // step over a line number
-    while(!(p[0] == 0 && (p[1] == 0 || p[1] == T_NEWLINE))) p++;
-    return (p - start);
-}
-
-
-
 /********************************************************************************************************************************************
 A couple of I/O routines that do not belong anywhere else
 *********************************************************************************************************************************************/
@@ -2871,7 +2857,7 @@ int __not_in_flash_func(Mstrcmp)(unsigned char *s1, unsigned char *s2) {
  * sequences.
  */
 
-const static unsigned char charmap[] = {
+static unsigned char charmap[] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
@@ -2926,7 +2912,7 @@ const static unsigned char charmap[] = {
  */
 
 
-int mystrncasecmp(
+int __not_in_flash_func(mystrncasecmp)(
     const unsigned char *s1,         /* First string. */
     const unsigned char *s2,         /* Second string. */
     size_t  length)      /* Maximum number of characters to compare
@@ -2955,7 +2941,7 @@ int mystrncasecmp(
 #if defined(__PIC32MX__)
 inline
 #endif
-int str_equal(const unsigned char *s1, const unsigned char *s2) {
+int __not_in_flash_func(str_equal)(const unsigned char *s1, const unsigned char *s2) {
     if(charmap[*(unsigned char *)s1] != charmap[*(unsigned char *)s2]) return 0;
     for ( ; ; ) {
         if(*s2 == '\0') return 1;
@@ -2968,7 +2954,7 @@ int str_equal(const unsigned char *s1, const unsigned char *s2) {
 
 // Compare two areas of memory, ignoring case differences.
 // Returns true if they are equal (ignoring case) otherwise returns false.
-int mem_equal(unsigned char *s1, unsigned char *s2, int i) {
+int __not_in_flash_func(mem_equal)(unsigned char *s1, unsigned char *s2, int i) {
     if(charmap[*(unsigned char *)s1] != charmap[*(unsigned char *)s2]) return 0;
     while (--i) {
         if(charmap[*(unsigned char *)++s1] != charmap[*(unsigned char *)++s2])

@@ -934,6 +934,7 @@ void cmd_files(void) {
     MMPrintString("\r\n");
     FreeMemory((void *)(char *)flist);
     f_closedir(&djd);
+    memset(inpbuf,0,STRINGSIZE);
     longjmp(mark, 1);                                                 // jump back to the input prompt
 }
 // remove unnecessary text

@@ -105,6 +105,7 @@ unsigned char WatchdogSet = false;
 unsigned char IgnorePIN = false;
 bool timer_callback(repeating_timer_t *rt);
 uint32_t __uninitialized_ram(_excep_code);
+unsigned char lastcmd[STRINGSIZE*4];                                           // used to store the last command in case it is needed by the EDIT command
 
 FATFS fs;                 // Work area (file system object) for logical drive
 bool timer_callback(repeating_timer_t *rt);
@@ -432,15 +433,260 @@ void MMgetline(int filenbr, char *p) {
 	}
 	*p = 0;
 }
+// insert a string into the start of the lastcmd buffer.
+// the buffer is a sequence of strings separated by a zero byte.
+// using the up arrow usere can call up the last few commands executed.
+void InsertLastcmd(unsigned char *s) {
+int i, slen;
+    if(strcmp(lastcmd, s) == 0) return;                             // don't duplicate
+    slen = strlen(s);
+    if(slen < 1 || slen > STRINGSIZE*4 - 1) return;
+    slen++;
+    for(i = STRINGSIZE*4 - 1; i >=  slen ; i--)
+        lastcmd[i] = lastcmd[i - slen];                             // shift the contents of the buffer up
+    strcpy(lastcmd, s);                                             // and insert the new string in the beginning
+    for(i = STRINGSIZE*4 - 1; lastcmd[i]; i--) lastcmd[i] = 0;             // zero the end of the buffer
+}
+
 void EditInputLine(void) {
-	MMPrintString((char *)inpbuf);
-	if(autoOn) {
-		MMgetline(0, inpbuf);
-		if(atoi((char *)inpbuf) > 0) autoNext = atoi((char *)inpbuf) + autoIncr;
-	}
-	else
-		MMgetline(0, inpbuf);
-		//gets(inpbuf);
+    char *p = NULL;
+    char buf[MAXKEYLEN + 3];
+    int lastcmd_idx, lastcmd_edit;
+    int insert, startline, maxchars;
+    int CharIndex, BufEdited;
+    int c, i, j;
+    maxchars = Option.Width;
+    if(strlen(inpbuf) >= maxchars) {
+        MMPrintString(inpbuf);
+        error("Line is too long to edit");
+    }
+    startline = MMCharPos - 1;                                                          // save the current cursor position
+    MMPrintString(inpbuf);                                                              // display the contents of the input buffer (if any)
+    CharIndex = strlen(inpbuf);                                                         // get the current cursor position in the line
+    insert = false;
+//    Cursor = C_STANDARD;
+    lastcmd_edit = lastcmd_idx = 0;
+    BufEdited = false; //(CharIndex != 0);
+    while(1) {
+        c = MMgetchar();
+        if(c == TAB) {
+            strcpy(buf, "        ");
+            switch (Option.Tab) {
+              case 2:
+                buf[2 - (CharIndex % 2)] = 0; break;
+              case 3:
+                buf[3 - (CharIndex % 3)] = 0; break;
+              case 4:
+                buf[4 - (CharIndex % 4)] = 0; break;
+              case 8:
+                buf[8 - (CharIndex % 8)] = 0; break;
+            }
+        } else {
+            buf[0] = c;
+            buf[1] = 0;
+        }
+        do {
+            switch(buf[0]) {
+                case '\r':
+                case '\n':  //if(autoOn && atoi(inpbuf) > 0) autoNext = atoi(inpbuf) + autoIncr;
+                            //if(autoOn && !BufEdited) *inpbuf = 0;
+                            goto saveline;
+                            break;
+
+                case '\b':  if(CharIndex > 0) {
+                                BufEdited = true;
+                                i = CharIndex - 1;
+                                for(p = inpbuf + i; *p; p++) *p = *(p + 1);                 // remove the char from inpbuf
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; }         // go to the beginning of the line
+                                MMPrintString(inpbuf); MMputchar(' ',0); MMputchar('\b',0);     // display the line and erase the last char
+                                for(CharIndex = strlen(inpbuf); CharIndex > i; CharIndex--)
+                                    MMputchar('\b',0);  
+                                fflush(stdout);                                      // return the cursor to the righ position
+                            }
+                            break;
+
+                case CTRLKEY('S'):
+                case LEFT:  if(CharIndex > 0) {
+                                if(CharIndex == strlen(inpbuf)) {
+                                    insert = true;
+      //                              Cursor = C_INSERT;
+                                }
+                                MMputchar('\b',1);
+                                CharIndex--;
+                            }
+                            break;
+
+                case CTRLKEY('D'):
+                case RIGHT: if(CharIndex < strlen(inpbuf)) {
+                                MMputchar(inpbuf[CharIndex],1);
+                                CharIndex++;
+                            }
+                            break;
+
+                case CTRLKEY(']'):
+                case DEL:   if(CharIndex < strlen(inpbuf)) {
+                                BufEdited = true;
+                                i = CharIndex;
+                                for(p = inpbuf + i; *p; p++) *p = *(p + 1);                 // remove the char from inpbuf
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; }         // go to the beginning of the line
+                                MMPrintString(inpbuf); MMputchar(' ',0); MMputchar('\b',0);     // display the line and erase the last char
+                                for(CharIndex = strlen(inpbuf); CharIndex > i; CharIndex--)
+                                    MMputchar('\b',0);   
+                                fflush(stdout);                                     // return the cursor to the right position
+                            }
+                            break;
+
+                case CTRLKEY('N'):
+                case INSERT:insert = !insert;
+//                            Cursor = C_STANDARD + insert;
+                            break;
+
+                case CTRLKEY('U'):
+                case HOME:  if(CharIndex > 0) {
+                                if(CharIndex == strlen(inpbuf)) {
+                                    insert = true;
+//                                    Cursor = C_INSERT;
+                                }
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; }
+                                fflush(stdout);
+                            }
+                            break;
+
+                case CTRLKEY('K'):
+                case END:   while(CharIndex < strlen(inpbuf))
+                                MMputchar(inpbuf[CharIndex++],0);
+                                fflush(stdout);
+                            break;
+
+/*            if(c == F2)  tp = "RUN";
+            if(c == F3)  tp = "LIST";
+            if(c == F4)  tp = "EDIT";
+            if(c == F10) tp = "AUTOSAVE";
+            if(c == F11) tp = "XMODEM RECEIVE";
+            if(c == F12) tp = "XMODEM SEND";
+            if(c == F5) tp = Option.F5key;
+            if(c == F6) tp = Option.F6key;
+            if(c == F7) tp = Option.F7key;
+            if(c == F8) tp = Option.F8key;
+            if(c == F9) tp = Option.F9key;*/
+                case 0x91:
+                    break;
+                case 0x92:
+                    strcpy(&buf[1],"RUN\r\n");
+                    break;
+                case 0x93:
+                    strcpy(&buf[1],"LIST\r\n");
+                    break;
+                case 0x94:
+                    strcpy(&buf[1],"EDIT\r\n");
+                    break;
+                case 0x95:
+                    if(*Option.F5key)strcpy(&buf[1],Option.F5key);
+                    break;
+                case 0x96:
+                    if(*Option.F6key)strcpy(&buf[1],Option.F6key);
+                    break;
+                case 0x97:
+                    if(*Option.F7key)strcpy(&buf[1],Option.F7key);
+                    break;
+                case 0x98:
+                    if(*Option.F8key)strcpy(&buf[1],Option.F8key);
+                    break;
+                case 0x99:
+                    if(*Option.F9key)strcpy(&buf[1],Option.F9key);
+                    break;
+                case 0x9a:
+                    strcpy(&buf[1],"AUTOSAVE\r\n");
+                    break;
+                case 0x9b:
+                    strcpy(&buf[1],"XMODEM RECEIVE\r\n");
+                    break;
+                 case 0x9c:
+                    strcpy(&buf[1],"XMODEM SEND\r\n");
+                    break;
+                case CTRLKEY('E'):
+                case UP:    if(!(BufEdited /*|| autoOn || CurrentLineNbr */)) {
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; } 
+                                fflush(stdout);       // go to the beginning of line
+                                if(lastcmd_edit) {
+                                    i = lastcmd_idx + strlen(&lastcmd[lastcmd_idx]) + 1;    // find the next command
+                                    if(lastcmd[i] != 0 && i < STRINGSIZE*4 - 1) lastcmd_idx = i;  // and point to it for the next time around
+                                } else
+                                    lastcmd_edit = true;
+                                strcpy(inpbuf, &lastcmd[lastcmd_idx]);                      // get the command into the buffer for editing
+                                goto insert_lastcmd;
+                            }
+                            break;
+
+
+                case CTRLKEY('X'):
+                case DOWN:  if(!(BufEdited /*|| autoOn || CurrentLineNbr */)) {
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; }   
+                                fflush(stdout);      // go to the beginning of line
+                                if(lastcmd_idx == 0)
+                                    *inpbuf = lastcmd_edit = 0;
+                                else {
+                                    for(i = lastcmd_idx - 2; i > 0 && lastcmd[i - 1] != 0; i--);// find the start of the previous command
+                                    lastcmd_idx = i;                                        // and point to it for the next time around
+                                    strcpy(inpbuf, &lastcmd[i]);                            // get the command into the buffer for editing
+                                }
+                                goto insert_lastcmd;                                        // gotos are bad, I know, I know
+                            }
+                            break;
+
+                insert_lastcmd:                                                             // goto here if we are just editing a command
+                            if(strlen(inpbuf) + startline >= maxchars) {                    // if the line is too long
+                                while(CharIndex)  { MMputchar('\b',0); CharIndex--; }         // go to the start of the line
+                                MMPrintString(inpbuf);                                      // display the offending line
+                                error("Line is too long to edit");
+                            }
+                            MMPrintString(inpbuf);                                          // display the line
+                            CharIndex = strlen(inpbuf);                                     // get the current cursor position in the line
+                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
+                                MMputchar(' ',0);                                             // erase the rest of the line
+                                CharIndex++;
+                            }
+                            while(CharIndex > strlen(inpbuf)) { MMputchar('\b',0); CharIndex--; } // return the cursor to the right position
+                            fflush(stdout);
+                            break;
+
+                default:    if(buf[0] >= ' ' && buf[0] < 0x7f) {
+                                BufEdited = true;                                           // this means that something was typed
+                                i = CharIndex;
+                                j = strlen(inpbuf);
+                                if(insert) {
+                                    if(strlen(inpbuf) >= maxchars - 1) break;               // sorry, line full
+                                    for(p = inpbuf + strlen(inpbuf); j >= CharIndex; p--, j--) *(p + 1) = *p;
+                                    inpbuf[CharIndex] = buf[0];                             // insert the char
+                                    MMPrintString(&inpbuf[CharIndex]);                      // display new part of the line
+                                    CharIndex++;
+                                    for(j = strlen(inpbuf); j > CharIndex; j--)
+                                        MMputchar('\b',0); 
+                                        fflush(stdout);                                   // return the cursor to the right position
+                                } else {
+                                    inpbuf[strlen(inpbuf) + 1] = 0;                         // incase we are adding to the end of the string
+                                    inpbuf[CharIndex++] = buf[0];                           // overwrite the char
+                                    MMputchar(buf[0],1);                                      // display it
+                                    if(CharIndex + startline >= maxchars) {                 // has the input gone beyond the end of the line?
+                                        MMgetline(0, inpbuf);                               // use the old fashioned way of getting the line
+                                        //if(autoOn && atoi(inpbuf) > 0) autoNext = atoi(inpbuf) + autoIncr;
+                                        goto saveline;
+                                    }
+                                }
+                            }
+                            break;
+            }
+            for(i = 0; i < MAXKEYLEN + 1; i++) buf[i] = buf[i + 1];                             // shuffle down the buffer to get the next char
+        } while(*buf);
+    if(CharIndex == strlen(inpbuf)) {
+        insert = false;
+//        Cursor = C_STANDARD;
+        }
+    }
+
+    saveline:
+//    Cursor = C_STANDARD;
+    MMPrintString("\r\n");
 }
 // get a keystroke.  Will wait forever for input
 // if the unsigned char is a cr then replace it with a newline (lf)
@@ -628,6 +874,7 @@ void __not_in_flash_func(CheckAbort)(void) {
     if(MMAbort) {
         WDTimer = 0;                                                // turn off the watchdog timer
         calibrate=0;
+        memset(inpbuf,0,STRINGSIZE);
         longjmp(mark, 1);                                           // jump back to the input prompt
     }
 }
@@ -828,10 +1075,27 @@ int main() {
         } else
             MMPrintString("> ");                                    // print the prompt
         ErrorInPrompt = false;
-        MMgetline(0, inpbuf);                                       // get the input
+        EditInputLine();
+        InsertLastcmd(inpbuf);                                  // save in case we want to edit it later
+//        MMgetline(0, inpbuf);                                       // get the input
         if(!*inpbuf) continue;                                      // ignore an empty line
+	  char *p=inpbuf;
+	  skipspace(p);
+	  if(*p=='*'){ //shortform RUN command so convert to a normal version
+		  memmove(&p[4],&p[0],strlen(p)+1);
+		  p[0]='R';p[1]='U';p[2]='N';p[3]='$';p[4]=34;
+		  char  *q;
+		  if((q=strchr(p,' ')) != 0){ //command line after the filename
+			  *q=','; //chop the command at the first space character
+			  memmove(&q[1],&q[0],strlen(q)+1);
+			  q[0]=34;
+		  } else strcat(p,"\"");
+		  p[3]=' ';
+//		  PRet();MMPrintString(inpbuf);PRet();
+	  }
         tokenise(true);                                             // turn into executable code
         ExecuteProgram(tknbuf);                                     // execute the line straight away
+        memset(inpbuf,0,STRINGSIZE);
     }
 }
 volatile union u_flash {

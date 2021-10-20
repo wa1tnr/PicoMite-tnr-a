@@ -1925,16 +1925,24 @@ void fun_rgb(void) {
     if(argc == 5)
         iret = rgb(getint(argv[0], 0, 255), getint(argv[2], 0, 255), getint(argv[4], 0, 255));
     else if(argc == 1) {
-            if(checkstring(argv[0], "WHITE"))        iret = WHITE;
-            else if(checkstring(argv[0], "BLACK"))   iret = BLACK;
-            else if(checkstring(argv[0], "BLUE"))    iret = BLUE;
-            else if(checkstring(argv[0], "GREEN"))   iret = GREEN;
-            else if(checkstring(argv[0], "CYAN"))    iret = CYAN;
-            else if(checkstring(argv[0], "RED"))     iret = RED;
-            else if(checkstring(argv[0], "MAGENTA")) iret = MAGENTA;
-            else if(checkstring(argv[0], "YELLOW"))  iret = YELLOW;
-            else if(checkstring(argv[0], "BROWN"))   iret = BROWN;
-            else if(checkstring(argv[0], "GRAY"))    iret = GRAY;
+        if(checkstring(argv[0], "WHITE"))        iret = WHITE;
+        else if(checkstring(argv[0], "BLACK"))   iret = BLACK;
+        else if(checkstring(argv[0], "BLUE"))    iret = BLUE;
+        else if(checkstring(argv[0], "GREEN"))   iret = GREEN;
+        else if(checkstring(argv[0], "CYAN"))    iret = CYAN;
+        else if(checkstring(argv[0], "RED"))     iret = RED;
+        else if(checkstring(argv[0], "MAGENTA")) iret = MAGENTA;
+        else if(checkstring(argv[0], "YELLOW"))  iret = YELLOW;
+        else if(checkstring(argv[0], "BROWN"))   iret = BROWN;
+        else if(checkstring(argv[0], "GRAY"))    iret = GRAY;
+        else if(checkstring(argv[0], "GREY"))    iret = GRAY;
+        else if(checkstring(argv[0], "LIGHTGRAY"))    iret = LITEGRAY;
+        else if(checkstring(argv[0], "LIGHTGREY"))    iret = LITEGRAY;
+        else if(checkstring(argv[0], "ORANGE"))    iret = ORANGE;
+        else if(checkstring(argv[0], "PINK"))    iret = PINK;
+        else if(checkstring(argv[0], "GOLD"))    iret = GOLD;
+        else if(checkstring(argv[0], "SALMON"))    iret = SALMON;
+        else if(checkstring(argv[0], "BEIGE"))    iret = BEIGE;
             else error("Invalid colour: $", argv[0]);
     } else
         error("Syntax");

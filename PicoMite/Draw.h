@@ -122,7 +122,12 @@ void fun_mmcharheight(void);
     #define GRAY                RGB(128,  128,    128)
     #define LITEGRAY            RGB(210,  210,    210)
     #define WHITE               RGB(255,  255,    255)
-    
+    #define ORANGE            	RGB(0xff,	0xA5,	0)
+	  #define PINK				        RGB(0xFF,	0xA0,	0xAB)
+	  #define GOLD				        RGB(0xFF,	0xD7,	0x00)
+	  #define SALMON				      RGB(0xFA,	0x80,	0x72)
+	  #define BEIGE				        RGB(0xF5,	0xF5,	0xDC)
+
     #define JUSTIFY_LEFT        0
     #define JUSTIFY_CENTER      1
     #define JUSTIFY_RIGHT       2

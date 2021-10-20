@@ -40,7 +40,7 @@ extern "C" {
 // more static memory allocations (less important)
 #define MAXFORLOOPS         20                      // each entry uses 17 bytes
 #define MAXDOLOOPS          20                      // each entry uses 12 bytes
-#define MAXGOSUB            64                     // each entry uses 4 bytes
+#define MAXGOSUB            50                     // each entry uses 4 bytes
 #define MAX_MULTILINE_IF    20                      // each entry uses 8 bytes
 #define MAXTEMPSTRINGS      64                      // each entry takes up 4 bytes
 #define MAXSUBFUN           256                      // each entry takes up 4 bytes
@@ -58,6 +58,7 @@ extern "C" {
 #define MAXCOMPORTS 2
 #define MAXERRMSG           64                      // max error msg size (MM.ErrMsg$ is truncated to this)
 #define MAXSOUNDS           4
+#define MAXKEYLEN           64
 // define the maximum number of arguments to PRINT, INPUT, WRITE, ON, DIM, ERASE, DATA and READ
 // each entry uses zero bytes.  The number is limited by the length of a command line
 #define MAX_ARG_COUNT       50

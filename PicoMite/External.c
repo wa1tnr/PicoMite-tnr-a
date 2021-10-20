@@ -168,7 +168,7 @@ void writeIRclock(uint64_t timeset){
   IRoffset=time_us_64()-(uint64_t)timeset;
 }
 
-uint8_t PINMAP[30]={1,2,4,5,6,7,9,10,11,12,14,15,16,17,19,20,21,22,24,25,26,27,29,41,42,43,31,32,34,44};
+const uint8_t PINMAP[30]={1,2,4,5,6,7,9,10,11,12,14,15,16,17,19,20,21,22,24,25,26,27,29,41,42,43,31,32,34,44};
 int codemap(int pin){
 			if(pin>29 || pin<0) error("Invalid GPIO");
 			return (int)PINMAP[pin];
@@ -2316,6 +2316,7 @@ void ClearExternalIO(void) {
 	for(i = 0; i < NBRINTERRUPTS; i++) {
       inttbl[i].pin = 0;                                            // disable all interrupts
   	}
+
     ExtCfg(41,EXT_DIG_OUT,Option.PWM);
     ExtCfg(42,EXT_DIG_IN,0);
     gpio_init(PinDef[HEARTBEATpin].GPno);

@@ -220,7 +220,6 @@ extern void ListProgram(unsigned char *p, int all);
 extern unsigned char *llist(unsigned char *b, unsigned char *p);
 extern unsigned char *CheckIfTypeSpecified(unsigned char *p, int *type, int AllowDefaultType);
 
-extern unsigned char LastFile[];
 
 // definitions related to setting video off and on
 extern const unsigned int CaseOption;

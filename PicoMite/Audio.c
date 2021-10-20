@@ -95,11 +95,6 @@ char *sbuff1=NULL, *sbuff2=NULL;
 uint16_t *ibuff1, *ibuff2;
 char *modbuff=NULL;
 char *pbuffp;
-union map1
-{
-    unsigned short channels[2];
-    unsigned int value;
-} flacvalue;
 void audio_checks(void);
 uint16_t *playbuff;
 volatile int ppos = 0;                                                       // playing position for PLAY WAV
