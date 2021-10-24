@@ -9,6 +9,8 @@ To build the application follow the instructions in the manual "Getting started 
 to set up your development environment. Then replace the directories in the sdk with the files provided. 
 Finally import the PicoMite project
 
+Compiled version and documentation is available on https://geoffg.net/picomite.html
+
 
 ***********************************************************************************************************************
 
