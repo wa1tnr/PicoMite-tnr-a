@@ -7,7 +7,13 @@ The amended versions of these is included in the files provided
 
 To build the application follow the instructions in the manual "Getting started with the Raspberry Pi Pico"
 to set up your development environment. Then replace the directories in the sdk with the files provided. 
-Finally import the PicoMite project
+Finally import the PicoMite project.
+
+The file layout should be:
+anything/pico-sdk
+anything/PicoMite/all source and header files
+
+The code was developed under VSCODE on W10 and cases of filenames may need changing for building on Linux
 
 Compiled version and documentation is available on https://geoffg.net/picomite.html
 
