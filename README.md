@@ -10,6 +10,7 @@ to set up your development environment. Then replace the directories in the sdk 
 Finally import the PicoMite project.
 
 The file layout should be:
+
 anything/pico-sdk
 
 anything/PicoMite/all source and header files
