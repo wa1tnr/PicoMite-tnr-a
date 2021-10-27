@@ -19,6 +19,11 @@ The code was developed under VSCODE on W10 and cases of filenames may need chang
 
 Compiled version and documentation is available on https://geoffg.net/picomite.html
 
+Change list from V5.07.00
+
+V5.07.01b1
+Fixed bug in epoch function
+Increased number of WS2812 LEDs supported to 256
 
 ***********************************************************************************************************************
 
