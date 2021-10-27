@@ -350,9 +350,9 @@ void fun_epoch(void){
             min  = atoi(argv[8]);
             s = atoi(argv[10]);
             if(h < 0 || h > 23 || min < 0 || m > 59 || s < 0 || s > 59) error("Invalid time");
-            day = d;
-            month = m;
-            year = y;
+//            day = d;
+//            month = m;
+//            year = y;
             tm->tm_year = y - 1900;
             tm->tm_mon = m - 1;
             tm->tm_mday = d;
@@ -2000,6 +2000,12 @@ void fun_info(void){
     tp=checkstring(ep, "PROGRAM");
     if(tp){
         iret = (int64_t)(uint32_t)ProgMemory;
+        targ = T_INT;
+        return;
+    }
+    tp=checkstring(ep, "SYSTICK");
+    if(tp){
+        iret = (int64_t)(uint32_t)systick_hw->cvr;
         targ = T_INT;
         return;
     }

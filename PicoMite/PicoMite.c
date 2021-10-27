@@ -41,9 +41,11 @@ extern "C" {
 #include "Hardware_Includes.h"
 #include "hardware/structs/systick.h"
 #include "hardware/structs/scb.h"
+#include "hardware/regs/busctrl.h"
 #include "hardware/vreg.h"
 #include "pico/unique_id.h"
 #include <pico/bootrom.h>
+#include "pico/multicore.h"
 #include "../pico-sdk/lib/tinyusb/src/class/cdc/cdc_device.h"
 #define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
@@ -180,10 +182,17 @@ const void * const CallTable[] __attribute__((section(".text")))  = {	(void *)uS
 
 const struct s_PinDef PinDef[NBRPINS + 1]={
 	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 0
+    #ifdef experimental
+	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 1
+	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 2
+	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 3
+	    { 0, 99, "NULL",  UNUSED  ,99, 99},                                                         // pin 4
+    #else
 	    { 1,  0, "GP0",  DIGITAL_IN | DIGITAL_OUT | SPI0RX | UART0TX  | I2C0SDA | PWM0A,99,0},  	// pin 1
 		{ 2,  1, "GP1",  DIGITAL_IN | DIGITAL_OUT | UART0RX | I2C0SCL | PWM0B ,99,128},    		    // pin 2
 		{ 3, 99, "GND",  UNUSED  ,99,99},                                                           // pin 3
 		{ 4,  2, "GP2",  DIGITAL_IN | DIGITAL_OUT | SPI0SCK | I2C1SDA | PWM1A ,99,1},   		    // pin 4
+    #endif
 		{ 5,  3, "GP3",  DIGITAL_IN | DIGITAL_OUT | SPI0TX | I2C1SCL | PWM1B ,99,129},    			// pin 5
 		{ 6,  4, "GP4",  DIGITAL_IN | DIGITAL_OUT | SPI0RX| UART1TX  | I2C0SDA | PWM2A ,99,2},  	// pin 6
 		{ 7,  5, "GP5",  DIGITAL_IN | DIGITAL_OUT | UART1RX | I2C0SCL | PWM2B	,99,130},    		// pin 7
@@ -226,7 +235,38 @@ const struct s_PinDef PinDef[NBRPINS + 1]={
 		{ 43, 25, "GP25", DIGITAL_IN | DIGITAL_OUT | UART1RX | I2C0SCL| PWM4B  ,99 , 132},          // pseudo pin 43
 		{ 44, 29, "GP29", DIGITAL_IN | DIGITAL_OUT | ANALOG_IN | UART0RX | I2C0SCL | PWM6B, 3, 134},// pseudo pin 44
 };
-
+#ifdef experimental
+#define synch 480
+#define syncv 8000
+#define starth 720
+#define endh 3920
+#define startv 140000
+#define __core1_func(x) __scratch_y(__STRING(x)) x
+void __core1_func(core1_entry)()
+{
+    uint32_t p=0,c,k=0;
+    systick_hw->csr = 0x5;
+    systick_hw->rvr = 3999;
+    systick_hw->cvr = 0;
+    gpio_set_function(0,GPIO_FUNC_SIO);
+    gpio_set_function(1,GPIO_FUNC_SIO);
+    gpio_set_function(2,GPIO_FUNC_SIO);
+    gpio_set_dir_out_masked(7);
+    gpio_set_mask(3);
+    while(1){
+            p=3999-(volatile uint32_t)(systick_hw->cvr);
+            if(c<720 && k){
+                p++;
+                gpio_clr_mask(2);
+            }
+            else {
+                gpio_set_mask(2);
+            }
+            if(p>2092000)gpio_clr_mask(1);
+            else gpio_set_mask(1);
+    }
+}
+#endif
 const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 const int enableexFAT = 1;
 void __not_in_flash_func(routinechecks)(void){
@@ -948,13 +988,14 @@ int main() {
         cpu * 1000,                               // Input frequency
         cpu * 1000                                // Output (must be same as no divider)
     );
-    systick_hw->csr = 0x5;
-    systick_hw->rvr = 0x00FFFFFF;
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
     stdio_set_translate_crlf(&stdio_usb, false);
     stdio_init_all();
+#ifdef experimental
+    multicore_launch_core1(core1_entry);
+#endif
     LoadOptions();
     adc_init();
     adc_set_temp_sensor_enabled(true);
@@ -1028,6 +1069,10 @@ int main() {
             }       
         }
     }
+#ifdef experimental
+    uint32_t *xx=(uint32_t *)BUSCTRL_BASE;
+    *xx=0x10;
+#endif
 
     while(1) {
 #if defined(MX470)

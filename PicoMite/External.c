@@ -1938,7 +1938,7 @@ void __not_in_flash_func(WS2812)(unsigned char *q){
     		T1H=16777215 + setuptime-((17*ticks_per_millisecond)/20000) ;
     		T1L=16777215 + setuptime-((6*ticks_per_millisecond)/20000) ;
     	} else error("Syntax");
-        nbr=getint(argv[4],1,64);
+        nbr=getint(argv[4],1,256);
         if(nbr>1){
             ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
             if(vartbl[VarIndex].type & T_INT) {
