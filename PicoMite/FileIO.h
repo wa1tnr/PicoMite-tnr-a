@@ -126,12 +126,15 @@ struct option_s {
     unsigned char SD_CLK_PIN;
     unsigned char SD_MOSI_PIN;
     unsigned char SD_MISO_PIN;
-    unsigned char F5key[MAXKEYLEN];
+    unsigned char SerialConsole;
+    unsigned char SerialTX;
+    unsigned char SerialRX;
+    char dummy2[70];
+     unsigned char F5key[MAXKEYLEN];
     unsigned char F6key[MAXKEYLEN];
     unsigned char F7key[MAXKEYLEN];
     unsigned char F8key[MAXKEYLEN];
     unsigned char F9key[MAXKEYLEN];
-    char dummy2[73];
     // To enable older CFunctions to run any new options *MUST* be added at the end of the list
 } __attribute__((packed));
 extern unsigned char *CFunctionFlash, *CFunctionLibrary;

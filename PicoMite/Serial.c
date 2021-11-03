@@ -64,80 +64,124 @@ unsigned char com2_bit9 = 0;                                        // used to t
 void on_uart_irq0() {
     if(uart_is_readable(uart0)) {
 		char cc = uart_getc(uart0); 
-		if(GPSchannel==1){
-			*gpsbuf=cc;
-			gpsbuf++;
-			gpscount++;
-			if((char)cc==10 || gpscount==128){
-				if(gpscurrent){
-					*gpsbuf=0;
-					gpscurrent=0;
-					gpscount=0;
-					gpsbuf=gpsbuf1;
-					gpsready=gpsbuf2;
-				} else {
-					*gpsbuf=0;
-					gpscurrent=1;
-					gpscount=0;
-					gpsbuf=gpsbuf2;
-					gpsready=gpsbuf1;
+		if(Option.SerialConsole!=1){
+			if(GPSchannel==1){
+				*gpsbuf=cc;
+				gpsbuf++;
+				gpscount++;
+				if((char)cc==10 || gpscount==128){
+					if(gpscurrent){
+						*gpsbuf=0;
+						gpscurrent=0;
+						gpscount=0;
+						gpsbuf=gpsbuf1;
+						gpsready=gpsbuf2;
+					} else {
+						*gpsbuf=0;
+						gpscurrent=1;
+						gpscount=0;
+						gpsbuf=gpsbuf2;
+						gpsready=gpsbuf1;
+					}
+				}
+			} else {
+				com1Rx_buf[com1Rx_head]  =cc;   // store the byte in the ring buffer
+				com1Rx_head = (com1Rx_head + 1) % com1_buf_size;     // advance the head of the queue
+				if(com1Rx_head == com1Rx_tail) {                           // if the buffer has overflowed
+					com1Rx_tail = (com1Rx_tail + 1) % com1_buf_size; // throw away the oldest char
 				}
 			}
 		} else {
-			com1Rx_buf[com1Rx_head]  =cc;   // store the byte in the ring buffer
-			com1Rx_head = (com1Rx_head + 1) % com1_buf_size;     // advance the head of the queue
-			if(com1Rx_head == com1Rx_tail) {                           // if the buffer has overflowed
-				com1Rx_tail = (com1Rx_tail + 1) % com1_buf_size; // throw away the oldest char
-			}
+	  		ConsoleRxBuf[ConsoleRxBufHead]  = cc;   // store the byte in the ring buffer
+	  		if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
+	  			MMAbort = true;                                        // set the flag for the interpreter to see
+	  			ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+	  		} else {
+	  			ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
+	  			if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
+	  				ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
+	  			}
+	  		}
 		}
     }
     if(uart_is_writable(uart0)){
-		if(com1Tx_head != com1Tx_tail) {
-			uart_putc_raw(uart0,com1Tx_buf[com1Tx_tail]);
-			com1Tx_tail = (com1Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
+		if(Option.SerialConsole!=1){
+			if(com1Tx_head != com1Tx_tail) {
+				uart_putc_raw(uart0,com1Tx_buf[com1Tx_tail]);
+				com1Tx_tail = (com1Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
+			} else {
+				uart_set_irq_enables(uart0, true, false);
+				com1_TX_complete=true;
+			}
 		} else {
-			uart_set_irq_enables(uart0, true, false);
-			com1_TX_complete=true;
+	  		if(ConsoleTxBufTail != ConsoleTxBufHead) {
+	  			uart_putc_raw(uart0,ConsoleTxBuf[ConsoleTxBufTail]);
+	  			ConsoleTxBufTail = (ConsoleTxBufTail + 1) % CONSOLE_TX_BUF_SIZE; // advance the tail of the queue
+	  		} else {
+				uart_set_irq_enables(uart0, true, false);
+	  		}
 		}
     }
 }
 void on_uart_irq1() {
 	if (uart_is_readable(uart1)) {
 		char cc = uart_getc(uart1); 
-		if(GPSchannel==2){
-			*gpsbuf=cc;
-			gpsbuf++;
-			gpscount++;
-			if((char)cc==10 || gpscount==128){
-				if(gpscurrent){
-					*gpsbuf=0;
-					gpscurrent=0;
-					gpscount=0;
-					gpsbuf=gpsbuf1;
-					gpsready=gpsbuf2;
-				} else {
-					*gpsbuf=0;
-					gpscurrent=1;
-					gpscount=0;
-					gpsbuf=gpsbuf2;
-					gpsready=gpsbuf1;
+		if(Option.SerialConsole!=2){
+			if(GPSchannel==2){
+				*gpsbuf=cc;
+				gpsbuf++;
+				gpscount++;
+				if((char)cc==10 || gpscount==128){
+					if(gpscurrent){
+						*gpsbuf=0;
+						gpscurrent=0;
+						gpscount=0;
+						gpsbuf=gpsbuf1;
+						gpsready=gpsbuf2;
+					} else {
+						*gpsbuf=0;
+						gpscurrent=1;
+						gpscount=0;
+						gpsbuf=gpsbuf2;
+						gpsready=gpsbuf1;
+					}
+				}
+			} else {
+				com2Rx_buf[com2Rx_head]  = cc;   // store the byte in the ring buffer
+				com2Rx_head = (com2Rx_head + 1) % com2_buf_size;     // advance the head of the queue
+				if(com2Rx_head == com2Rx_tail) {                           // if the buffer has overflowed
+					com2Rx_tail = (com2Rx_tail + 1) % com2_buf_size; // throw away the oldest char
 				}
 			}
 		} else {
-			com2Rx_buf[com2Rx_head]  = cc;   // store the byte in the ring buffer
-			com2Rx_head = (com2Rx_head + 1) % com2_buf_size;     // advance the head of the queue
-			if(com2Rx_head == com2Rx_tail) {                           // if the buffer has overflowed
-				com2Rx_tail = (com2Rx_tail + 1) % com2_buf_size; // throw away the oldest char
-			}
+	  		ConsoleRxBuf[ConsoleRxBufHead]  = cc;   // store the byte in the ring buffer
+	  		if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
+	  			MMAbort = true;                                        // set the flag for the interpreter to see
+	  			ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+	  		} else {
+	  			ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
+	  			if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
+	  				ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
+	  			}
+	  		}
 		}
     }
     if(uart_is_writable(uart1)){
-		if(com2Tx_head != com2Tx_tail) {
-			uart_putc_raw(uart1,com2Tx_buf[com2Tx_tail]);
-			com2Tx_tail = (com2Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
+		if(Option.SerialConsole!=2){
+			if(com2Tx_head != com2Tx_tail) {
+				uart_putc_raw(uart1,com2Tx_buf[com2Tx_tail]);
+				com2Tx_tail = (com2Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
+			} else {
+				uart_set_irq_enables(uart1, true, false);
+				com2_TX_complete=true;
+			}
 		} else {
-			uart_set_irq_enables(uart1, true, false);
-			com2_TX_complete=true;
+	  		if(ConsoleTxBufTail != ConsoleTxBufHead) {
+	  			uart_putc_raw(uart1,ConsoleTxBuf[ConsoleTxBufTail]);
+	  			ConsoleTxBufTail = (ConsoleTxBufTail + 1) % CONSOLE_TX_BUF_SIZE; // advance the tail of the queue
+	  		} else {
+				uart_set_irq_enables(uart1, true, false);
+	  		}
 		}
     }
 }
@@ -194,8 +238,7 @@ void SerialOpen(unsigned char *spec) {
 	if(argc < 1 || argc > 9) error("COM specification");
 
 	if(argc >= 3 && *argv[2]) {
-		baud = getinteger(argv[2]);									// get the baud rate as a number
-		if(baud<1200)error("1200 baud is minimum supported");
+		baud = getint(argv[2],Option.CPU_Speed*1000/16/65535,921600);									// get the baud rate as a number
 	} else
 		baud = COM_DEFAULT_BAUD_RATE;
 

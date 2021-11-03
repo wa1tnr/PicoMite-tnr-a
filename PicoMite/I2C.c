@@ -782,21 +782,23 @@ void i2c2Send(unsigned char *p) {
 
 void i2cCheck(unsigned char *p) {
 	int addr;
+	uint8_t rxdata;
 	getargs(&p, 1, ",");
 	if(!I2C_enabled)error("I2C not open");
 	addr = getinteger(argv[0]);
-    if(addr<1 || addr>0x7F)error("Invalid I2C address");
-    addr<<=1;
-//	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)addr, 2, 10);
+    if(addr<0 || addr>0x7F)error("Invalid I2C address");
+	int ret=i2c_read_blocking(i2c0, addr, &rxdata, 1, false);
+	mmI2Cvalue = ret < 0 ? 1 : 0;
 }
 void i2c2Check(unsigned char *p) {
 	int addr;
+	uint8_t rxdata;
 	getargs(&p, 1, ",");
 	if(!I2C2_enabled)error("I2C not open");
 	addr = getinteger(argv[0]);
-    if(addr<1 || addr>0x7F)error("Invalid I2C address");
-    addr<<=1;
-//	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)addr, 2, 10);
+    if(addr<0 || addr>0x7F)error("Invalid I2C address");
+	int ret=i2c_read_blocking(i2c1, addr, &rxdata, 1, false);
+	mmI2Cvalue = ret < 0 ? 1 : 0;
 }
 // receive data from an I2C slave - master mode
 void i2cReceive(unsigned char *p) {

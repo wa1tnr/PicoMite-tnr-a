@@ -47,4 +47,5 @@ target_link_libraries(PicoMite pico_stdlib
         hardware_spi
 		hardware_dma
         hardware_exception
-)
+        pico_multicore
+        )

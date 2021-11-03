@@ -80,7 +80,7 @@ extern "C" {
 #define MAXFLASHSLOTS 10
 #define SAVEDVARS_FLASH_SIZE 16384
 #define FLASH_ERASE_SIZE 4096
-#define MAX_CPU     250000
+#define MAX_CPU     252000
 #define MAXBLITBUF 32
 #define CONFIG_TITLE		0
 #define CONFIG_LOWER		1

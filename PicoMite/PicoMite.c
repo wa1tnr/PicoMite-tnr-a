@@ -44,6 +44,8 @@ extern "C" {
 #include "hardware/vreg.h"
 #include "pico/unique_id.h"
 #include <pico/bootrom.h>
+#include "hardware/irq.h"
+
 #include "../pico-sdk/lib/tinyusb/src/class/cdc/cdc_device.h"
 #define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
@@ -62,9 +64,9 @@ unsigned char BreakKey = BREAK_KEY;                                          // 
 volatile char ConsoleRxBuf[CONSOLE_RX_BUF_SIZE]={0};
 volatile int ConsoleRxBufHead = 0;
 volatile int ConsoleRxBufTail = 0;
-//volatile char ConsoleTxBuf[CONSOLE_TX_BUF_SIZE]={0};
-//volatile int ConsoleTxBufHead = 0;
-//volatile int ConsoleTxBufTail = 0;
+volatile char ConsoleTxBuf[CONSOLE_TX_BUF_SIZE]={0};
+volatile int ConsoleTxBufHead = 0;
+volatile int ConsoleTxBufTail = 0;
 volatile unsigned int AHRSTimer = 0;
 volatile unsigned int InkeyTimer = 0;
 volatile long long int mSecTimer = 0;                               // this is used to count mSec
@@ -232,7 +234,7 @@ const int enableexFAT = 1;
 void __not_in_flash_func(routinechecks)(void){
     char alive[]="\033[?25h";
     int c;
-    if(tud_cdc_connected()){
+    if(tud_cdc_connected() && Option.SerialConsole==0){
         if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
             ConsoleRxBuf[ConsoleRxBufHead] = c;
             if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -274,16 +276,27 @@ void putConsole(int c) {
 }
 // put a character out to the serial console
 char MMputchar(char c, int flush) {
-    if(tud_cdc_connected()){
-        putc(c,stdout);
-        if(isprint(c)) MMCharPos++;
-        if(c == '\r') {
-            MMCharPos = 1;
+    if(Option.SerialConsole==0){
+        if(tud_cdc_connected()){
+            putc(c,stdout);
+            if(isprint(c)) MMCharPos++;
+            if(c == '\r') {
+                MMCharPos = 1;
+            }
+            if(flush){
+                USBKeepalive=USBKEEPALIVE;
+                fflush(stdout);
+            }
         }
-        if(flush){
-            USBKeepalive=USBKEEPALIVE;
-            fflush(stdout);
-        }
+    } else {
+        int empty=uart_is_writable(Option.SerialConsole==1 ? uart0 : uart1);
+		while(ConsoleTxBufTail == ((ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE)); //wait if buffer full
+		ConsoleTxBuf[ConsoleTxBufHead] = c;							// add the char
+		ConsoleTxBufHead = (ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE;		   // advance the head of the queue
+		if(empty){
+	        uart_set_irq_enables(Option.SerialConsole==1 ? uart0 : uart1, true, true);
+			irq_set_pending(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ);
+		}
     }
     return c;
 }
@@ -642,12 +655,14 @@ void EditInputLine(void) {
                             }
                             MMPrintString(inpbuf);                                          // display the line
                             CharIndex = strlen(inpbuf);                                     // get the current cursor position in the line
-                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
+/*                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
                                 MMputchar(' ',0);                                             // erase the rest of the line
                                 CharIndex++;
                             }
                             while(CharIndex > strlen(inpbuf)) { MMputchar('\b',0); CharIndex--; } // return the cursor to the right position
-                            fflush(stdout);
+*/
+                            MMPrintString("\033[0K");
+//                            fflush(stdout);
                             break;
 
                 default:    if(buf[0] >= ' ' && buf[0] < 0x7f) {
@@ -954,16 +969,18 @@ int main() {
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
     stdio_set_translate_crlf(&stdio_usb, false);
-    stdio_init_all();
     LoadOptions();
+    stdio_init_all();
     adc_init();
     adc_set_temp_sensor_enabled(true);
     add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
-    while (!tud_cdc_connected() && mSecTimer<5000) {}
+    if(Option.SerialConsole==0) while (!tud_cdc_connected() && mSecTimer<5000) {}
     InitReservedIO();
     ClearExternalIO();
     ConsoleRxBufHead = 0;
     ConsoleRxBufTail = 0;
+    ConsoleTxBufHead = 0;
+    ConsoleTxBufTail = 0;
     InitHeap();              										// initilise memory allocation
     uSecFunc(10);
 //    LoadOptions();
@@ -996,7 +1013,7 @@ int main() {
 //    uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
 //    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
 //    uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
- //   PInt(f_rosc);PIntComma(f_pll_sys);PIntComma(f_clk_sys);PIntComma(f_clk_peri);PRet();
+//    PInt(f_rosc);PIntComma(f_pll_sys);PIntComma(f_clk_sys);PIntComma(f_clk_peri);PRet();
 //    PInt(sizeof(struct  option_s));PRet();
 //    PInt(PinDef[Option.SD_CS].GPno);PIntComma(PinDef[Option.SYSTEM_MOSI].GPno);PIntComma(PinDef[Option.SYSTEM_MISO].GPno);PIntComma(PinDef[Option.SYSTEM_CLK].GPno);PR5et();
     if(_excep_code == WATCHDOG_TIMEOUT) {
@@ -1028,7 +1045,6 @@ int main() {
             }       
         }
     }
-
     while(1) {
 #if defined(MX470)
     if(Option.DISPLAY_CONSOLE) {

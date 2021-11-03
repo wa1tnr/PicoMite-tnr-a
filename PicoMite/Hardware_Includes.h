@@ -102,6 +102,13 @@ extern int PulseCnt[];
 extern int PulseActive;
 extern volatile int ClickTimer;
 extern int calibrate;
+extern volatile char ConsoleRxBuf[CONSOLE_RX_BUF_SIZE];
+extern volatile int ConsoleRxBufHead;
+extern volatile int ConsoleRxBufTail;
+extern volatile char ConsoleTxBuf[CONSOLE_TX_BUF_SIZE];
+extern volatile int ConsoleTxBufHead;
+extern volatile int ConsoleTxBufTail;
+
 struct s_PinDef {
 	int pin;
 	int GPno;

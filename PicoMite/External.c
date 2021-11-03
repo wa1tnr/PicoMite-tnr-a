@@ -788,8 +788,6 @@ void cmd_setpin(void) {
         value = EXT_SPI1RX;
     else if(checkstring(argv[2], "SPI1SCK"))
         value = EXT_SPI1SCK;
-    else if(checkstring(argv[2], "IR"))
-        value = EXT_IR;
     else if(checkstring(argv[2], "INT1"))
         value = EXT_INT1;
     else if(checkstring(argv[2], "INT2"))
@@ -798,6 +796,8 @@ void cmd_setpin(void) {
         value = EXT_INT3;
     else if(checkstring(argv[2], "INT4"))
         value = EXT_INT4;*/
+    else if(checkstring(argv[2], "IR"))
+        value = EXT_IR;
     else if(checkstring(argv[2], "PWM0A"))
         value = EXT_PWM0A;
     else if(checkstring(argv[2], "PWM1A"))
@@ -1477,6 +1477,20 @@ void cmd_backlight(void){
         if(div!=1)pwm_set_clkdiv(BacklightSlice,(float)div);
         pwm_set_wrap(BacklightSlice, wrap);
         pwm_set_chan_level(BacklightSlice, BacklightChannel, high);
+    } else if(Option.DISPLAY_TYPE<=I2C_PANEL){
+        getargs(&cmdline,1,",");
+        int level=getint(argv[0],0,100);
+        level*=255;
+        level/=100;
+        I2C_Send_Command(0x81);//SETCONTRAST
+        I2C_Send_Command((uint8_t)level);
+    } else if(Option.DISPLAY_TYPE==SSD1306SPI){
+        getargs(&cmdline,1,",");
+        int level=getint(argv[0],0,100);
+        level*=255;
+        level/=100;
+        spi_write_command(0x81);//SETCONTRAST
+        spi_write_command((uint8_t)level);
     } else error("Backlight not set up");
 }    
 void cmd_pwm(void){

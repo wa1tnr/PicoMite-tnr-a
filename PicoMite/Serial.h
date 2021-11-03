@@ -91,7 +91,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 	extern unsigned char *com2Tx_buf;											// pointer to the buffer for transmitted characters
 	extern volatile int com2Tx_head, com2Tx_tail;								// head and tail of the ring buffer for com2 Tx
 	extern volatile int com2complete;
-
+	extern void on_uart_irq0();
+	extern void on_uart_irq1();
 // global functions
 void SerialOpen(unsigned char *spec);
 void SerialClose(int comnbr);

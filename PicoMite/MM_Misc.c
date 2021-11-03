@@ -1322,7 +1322,13 @@ void PO5Int(char *s1, int n1, int n2, int n3, int n4) {
 void printoptions(void){
 //	LoadOptions();
     int i=Option.DISPLAY_ORIENTATION;
-
+    if(Option.SerialConsole){
+        MMPrintString("OPTION SERIAL CONSOLE COM");
+        MMputchar(Option.SerialConsole+48,1);
+        MMputchar(',',1);
+        MMPrintString((char *)PinDef[Option.SerialTX].pinname);MMputchar(',',1);
+        MMPrintString((char *)PinDef[Option.SerialRX].pinname);PRet();
+    }
     if(Option.Autorun>0 && Option.Autorun<=10) PO2Int("AUTORUN", Option.Autorun);
     if(Option.Autorun==11)PO2Str("AUTORUN", "ON");
     if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
@@ -1542,6 +1548,49 @@ void cmd_option(void) {
 		return;
 	}
 
+    tp = checkstring(cmdline, "SERIAL CONSOLE");
+    if(tp) {
+        unsigned char *p=NULL;
+        if(checkstring(tp, "DISABLE")) {
+            Option.SerialTX=0;
+            Option.SerialRX=0;
+            Option.SerialConsole = 0; 
+        } else {
+            int pin,pin2,value,value2;
+            getargs(&tp,3,",");
+            if(argc!=3)error("Syntax");
+            char code;
+            if(!(code=codecheck(argv[0])))argv[0]+=2;
+            pin = getinteger(argv[0]);
+            if(!code)pin=codemap(pin);
+            if(!(code=codecheck(argv[2])))argv[2]+=2;
+            pin2 = getinteger(argv[2]);
+            if(!code)pin2=codemap(pin2);
+            if(PinDef[pin].mode & UART0TX)Option.SerialTX = pin;
+            else if(PinDef[pin].mode & UART0RX)Option.SerialRX = pin;
+            else goto checkcom2;
+            if(PinDef[pin2].mode & UART0TX)Option.SerialTX = pin2;
+            else if(PinDef[pin2].mode & UART0RX)Option.SerialRX = pin2;
+            else error("Invalid configuration");
+            if(Option.SerialTX==Option.SerialRX)error("Invalid configuration");
+            Option.SerialConsole = 1; 
+            SaveOptions(); 
+            SoftReset();
+            return;
+        checkcom2:
+            if(PinDef[pin].mode & UART1TX)Option.SerialTX = pin;
+            else if(PinDef[pin].mode & UART1RX)Option.SerialRX = pin;
+            else error("Invalid configuration");
+            if(PinDef[pin2].mode & UART1TX)Option.SerialTX = pin2;
+            else if(PinDef[pin2].mode & UART1RX)Option.SerialRX = pin2;
+            else error("Invalid configuration");
+            if(Option.SerialTX==Option.SerialRX)error("Invalid configuration");
+            Option.SerialConsole = 2; 
+            SaveOptions(); 
+            SoftReset();
+        }  
+    }
+
     tp = checkstring(cmdline, "AUTORUN");
     if(tp) {
         if(checkstring(tp, "OFF"))      { Option.Autorun = 0; SaveOptions(); return;  }
@@ -1631,6 +1680,7 @@ void cmd_option(void) {
         SoftReset();
         return;
     }
+
     tp = checkstring(cmdline, "AUTOREFRESH");
 	if(tp) {
 	    if((Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE == ILI9163 || Option.DISPLAY_TYPE == ST7735 || Option.DISPLAY_TYPE == ST7789 || Option.DISPLAY_TYPE == ST7789A)) error("Not valid for this display");
@@ -2049,6 +2099,20 @@ void fun_info(void){
 	    targ=T_STR;
 		return;
 	}
+    tp=checkstring(ep, "PINNO");
+    if(tp){
+        int pin;
+        char code;
+        if(!(code=codecheck(tp)))tp+=2;  
+        else ("Syntax");
+        pin = getinteger(tp);
+        if(!code)pin=codemap(pin);
+        if(IsInvalidPin(pin))error("Invalid pin");
+        iret=pin;
+        targ=T_INT;
+        return;
+    }
+
     tp=checkstring(ep, "PIN");
     if(tp){
         int pin;

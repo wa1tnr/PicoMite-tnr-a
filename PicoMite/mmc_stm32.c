@@ -72,6 +72,10 @@ BYTE (*xchg_byte)(BYTE data_out)= NULL;
 void (*xmit_byte_multi)(const BYTE *buff, int cnt)= NULL;
 void (*rcvr_byte_multi)(BYTE *buff, int cnt)= NULL;
 int (*SET_SPI_CLK)(int speed, int polarity, int edge)=NULL;
+const int mapping[101]={0,4,11,18,25,33,41,49,57,66,75,84,93,103,113,123,134,145,156,167,179,191,203,216,228,241,255,268,
+282,296,311,325,340,355,371,387,403,419,436,453,470,487,505,523,541,560,578,597,617,636,656,676,
+697,718,738,760,781,803,825,847,870,893,916,940,963,987,1012,1036,1061,1086,1111,1137,1163,1189,1216,
+1242,1269,1297,1324,1352,1380,1408,1437,1466,1495,1525,1554,1584,1615,1645,1676,1707,1739,1770,1802,1834,1867,1900,1933,1966,2000};
 int I2C0locked=0;
 int I2C1locked=0;
 int SPI0locked=0;
@@ -139,8 +143,8 @@ void on_pwm_wrap() {
         } else {
         	SoundPlay--;
 			pwm_set_both_levels(AUDIO_SLICE,
-			(((((SineTable[(int)PhaseAC_left]-2000)  * vol_left) / 100)+2000)*AUDIO_WRAP)>>12,
-			(((((SineTable[(int)PhaseAC_right]-2000)  * vol_right) / 100)+2000)*AUDIO_WRAP)>>12);
+			(((((SineTable[(int)PhaseAC_left]-2000)  * mapping[vol_left]) / 2000)+2000)*AUDIO_WRAP)>>12,
+			(((((SineTable[(int)PhaseAC_right]-2000)  * mapping[vol_right]) / 2000)+2000)*AUDIO_WRAP)>>12);
         	PhaseAC_left = PhaseAC_left + PhaseM_left;
         	PhaseAC_right = PhaseAC_right + PhaseM_right;
         	if(PhaseAC_left>=4096.0)PhaseAC_left-=4096.0;
@@ -195,14 +199,14 @@ void on_pwm_wrap() {
 				sound_PhaseAC_left[i] = sound_PhaseAC_left[i] + sound_PhaseM_left[i];
 				if(sound_PhaseAC_left[i]>=4096.0)sound_PhaseAC_left[i]-=4096.0;
 				j = (int)sound_mode_left[i][(int)sound_PhaseAC_left[i]];
-				j= (j-2000)*sound_v_left[i]/100;
+				j= (j-2000)*mapping[sound_v_left[i]]/2000;
 				leftv+=j;
     		}
     		if(sound_mode_right[i]!=nulltable){
 				sound_PhaseAC_right[i] = sound_PhaseAC_right[i] + sound_PhaseM_right[i];
 				if(sound_PhaseAC_right[i]>=4096.0)sound_PhaseAC_right[i]-=4096.0;
 				j = (int)sound_mode_right[i][(int)sound_PhaseAC_right[i]];
-				j= (j-2000)*sound_v_right[i]/100;
+				j= (j-2000)*mapping[sound_v_right[i]]/2000;
 				rightv += j;
    			}
     	}
@@ -1215,6 +1219,20 @@ void InitReservedIO(void) {
 		gpio_set_dir(23, GPIO_OUT);
 	}
 
+	if(Option.SerialConsole){
+//		printf("here\r\n");
+		ExtCfg(Option.SerialTX, EXT_BOOT_RESERVED, 0);
+		ExtCfg(Option.SerialRX, EXT_BOOT_RESERVED, 0);
+		gpio_set_function(PinDef[Option.SerialTX].GPno, GPIO_FUNC_UART);
+		gpio_set_function(PinDef[Option.SerialRX].GPno, GPIO_FUNC_UART);		
+		uart_init(Option.SerialConsole==1 ? uart0: uart1, 115200);
+		uart_set_hw_flow(Option.SerialConsole==1 ? uart0: uart1, false, false);
+		uart_set_format(Option.SerialConsole==1 ? uart0: uart1, 8, 1, UART_PARITY_NONE);
+		uart_set_fifo_enabled(Option.SerialConsole==1 ? uart0: uart1,  false);
+		irq_set_exclusive_handler(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ, Option.SerialConsole==1 ? on_uart_irq0 : on_uart_irq1);
+		irq_set_enabled(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ, true);
+		uart_set_irq_enables(Option.SerialConsole==1 ? uart0: uart1, true, false);
+	}
 }
 
 

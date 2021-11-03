@@ -1096,7 +1096,6 @@ MMFLOAT __not_in_flash_func(getnumber)(unsigned char *p) {
     MMFLOAT f;
     long long int  i64;
     unsigned char *s;
-
     evaluate(p, &f, &i64, &s, &t, false);
     if(t & T_INT) return (MMFLOAT)i64;
     return f;
@@ -2735,7 +2734,7 @@ void __not_in_flash_func(checkend)(unsigned char *p) {
 unsigned char __not_in_flash_func(*checkstring)(unsigned char *p, unsigned char *tkn) {
     skipspace(p);                                           // skip leading spaces
     while(*tkn && (toupper(*tkn) == toupper(*p))) { tkn++; p++; }   // compare the strings
-    if(*tkn == 0 && (*p == (unsigned char)' ' || *p == (unsigned char)',' || *p == (unsigned char)'\'' || *p == 0)) {
+    if(*tkn == 0 && (*p == (unsigned char)' ' || *p == (unsigned char)',' || *p == (unsigned char)'\'' || *p == 0|| *p == (unsigned char)'(' )) {
         skipspace(p);
         return p;                                                   // if successful return a pointer to the next non space character after the matched string
     }
