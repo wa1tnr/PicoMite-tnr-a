@@ -1,13 +1,7 @@
 Files to build the PicoMite. MMBasic running on the Raspberry Pi Pico
 
-NB: This should be built against pico-sdk version 1.2. 
-However, the version of TinyUSB in SDK1.2 must be replaced by TinyUSB 0.7.0. A cut down version of this is included in the files provided lib/tinyusb
-This also requires changes in the SDK directories src/rp2_common/pico_stdio_usb and src/rp2_common/tinyusb
-The amended versions of these is included in the files provided
-
-To build the application follow the instructions in the manual "Getting started with the Raspberry Pi Pico"
-to set up your development environment. Then replace the directories in the sdk with the files provided. 
-Finally import the PicoMite project.
+NB: This should be built against pico-sdk version 1.3. 
+Previous versions were built against a modified sdk version 1.2. V1.43 now works out-of-the-box
 
 The file layout should be:
 
@@ -26,7 +20,29 @@ V5.07.01b1
 Fixed bug in epoch function
 
 Increased number of WS2812 LEDs supported to 256
+MM.INFO(pinno GPnn) implemented to give physical pin number for a given GP number
 
+V5.07.01b2
+Improvement to terminal serial output used by command stacking
+Implements a logarithmic scale for the volume control so that PLAY VOLUME 50,50 should sound half as loud as 100,100
+Also applies to PLAY SOUND n, ch, type, freq [,vol]
+
+V5.07.01b3
+Fixes bug in SETPIN pinno,IR
+Fixes bug in parameters following subcommands/sub-functions that are enclosed in brackets e.g. POKE WORD (anything),anything or ? PEEK(WORD (anything))
+Allows variables or string literals in the SOUND command for both the channel and sound type. The original syntax is still also allowed
+
+V5.07.01b4
+YOU MUST EXECUTE OPTION RESET BEFORE LOADING THIS VERSION
+Implements the option of using a standard uart as the console
+OPTION SERIAL CONSOLE uartapin, uartbpin
+uartapin and uartbpin can be any valid pair of rx and tx pins for either com1 (uart0) or com2( uart1). The order you specify them is not important
+Use:
+OPTION SERIAL CONSOLE DISABLE
+to revert to normal the USB console
+
+V5.07.01b5
+Re-compile under sdk V1.3
 ***********************************************************************************************************************
 
 PicoMite MMBasic
