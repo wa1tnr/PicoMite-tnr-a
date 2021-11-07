@@ -58,7 +58,7 @@ void fun_GPS(void);
 #define MINMEA_MAX_LENGTH 80
 extern volatile char gpsbuf1[128];
 extern volatile char gpsbuf2[128];
-extern volatile char *gpsbuf;
+extern volatile char * volatile gpsbuf;
 extern volatile char gpscount;
 extern volatile int gpscurrent;
 extern volatile char *gpsready;

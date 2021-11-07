@@ -72,7 +72,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 int GPSchannel=0;
 volatile char gpsbuf1[128];
 volatile char gpsbuf2[128];
-volatile char *gpsbuf;
+volatile char * volatile gpsbuf;
 volatile char *gpsready;
 volatile char gpscount;
 volatile int gpscurrent;
@@ -535,7 +535,7 @@ void GPS_parse(char *nmea) {
   if (strstr(nmea, "$GPRMC") || strstr(nmea, "$GNRMC")) {
    // found RMC
     char *p = nmea;
-    int i;
+    int i, localGPSvalid=0;
     // get time
     p = strchr(p, ',')+1;
     float timef = atof(p);
@@ -556,9 +556,9 @@ void GPS_parse(char *nmea) {
 
     p = strchr(p, ',')+1;
     if (p[0] == 'A') 
-      GPSvalid = 1;
+      localGPSvalid = 1;
     else if (p[0] == 'V')
-      GPSvalid = 0;
+      localGPSvalid = 0;
     else
     {
         GPSvalid=0;
@@ -641,13 +641,16 @@ void GPS_parse(char *nmea) {
     }
     
     p = strchr(p, ',')+1;
-    if (',' != *p)
+    if (',' != *p && p[6]==',')
     {
-      uint32_t fulldate = atof(p);
+      uint32_t fulldate = atoi(p);
       day = fulldate / 10000;
       month = (fulldate % 10000) / 100;
       year = (fulldate % 100);
-    }
+//    PFlt(fulldate);PRet();
+//p[6]=0;
+//PRet();MMPrintString("D: ");MMPrintString(p);PRet();
+//p[6]=',';
     GPStime[0]=8;
     tm->tm_year = year + 100;
     tm->tm_mon = month - 1;
@@ -678,7 +681,9 @@ void GPS_parse(char *nmea) {
     GPSdate[9]=(i/10) + 48;
     GPSdate[10]=(i % 10) + 48;
     // we don't parse the remaining, yet!
+    GPSvalid=localGPSvalid;
     return;
+    }
   }
 
   return;

@@ -282,9 +282,9 @@ void UnloadFont(int);
 #endif
 #include "External.h"
 #include "MM_Misc.h"
-#include "editor.h"
+#include "Editor.h"
 #include "Draw.h"
-#include "xmodem.h"
+#include "Xmodem.h"
 #include "MATHS.h"
 #include "Onewire.h"
 #include "I2C.h"

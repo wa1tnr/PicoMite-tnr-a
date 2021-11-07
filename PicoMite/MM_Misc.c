@@ -1555,6 +1555,9 @@ void cmd_option(void) {
             Option.SerialTX=0;
             Option.SerialRX=0;
             Option.SerialConsole = 0; 
+            SaveOptions(); 
+            SoftReset();
+            return;
         } else {
             int pin,pin2,value,value2;
             getargs(&tp,3,",");
