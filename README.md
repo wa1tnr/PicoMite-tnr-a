@@ -43,6 +43,12 @@ to revert to normal the USB console
 
 V5.07.01b5
 Re-compile under sdk V1.3
+
+V5.07.01b6
+Fixes bug in GPS receipt where the first read of GPS(DATE) may give an incorrect answer. 
+Fixes bug in reporting the line of an error when goto/gosub to a line number is used. 
+Fixes bug where OPTION SERIAL CONSOLE DISABLE doesn't work after reboot. 
+Fixes filenames so that linux which doesn't understand that "The" and "the" are the same word will compile. 
 ***********************************************************************************************************************
 
 PicoMite MMBasic
