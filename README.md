@@ -9,7 +9,7 @@ anything/pico-sdk
 
 anything/PicoMite/all source and header files
 
-The code was developed under VSCODE on W10 and cases of filenames may need changing for building on Linux
+The code is developed under VSCODE on W11
 
 Compiled version and documentation is available on https://geoffg.net/picomite.html
 
