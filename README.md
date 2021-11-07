@@ -16,23 +16,23 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 Change list from V5.07.00
 ***********************************************************************************************************************
 
-V5.07.01b1
+V5.07.01b1: 
 Fixed bug in epoch function
 
-Increased number of WS2812 LEDs supported to 256
-MM.INFO(pinno GPnn) implemented to give physical pin number for a given GP number
+Increased number of WS2812 LEDs supported to 256. 
+MM.INFO(pinno GPnn) implemented to give physical pin number for a given GP number. 
 
-V5.07.01b2
+V5.07.01b2: 
 Improvement to terminal serial output used by command stacking. 
 Implements a logarithmic scale for the volume control so that PLAY VOLUME 50,50 should sound half as loud as 100,100. 
 Also applies to PLAY SOUND n, ch, type, freq [,vol]
 
-V5.07.01b3
+V5.07.01b3: 
 Fixes bug in SETPIN pinno,IR. 
 Fixes bug in parameters following subcommands/sub-functions that are enclosed in brackets e.g. POKE WORD (anything),anything or ? PEEK(WORD (anything)). 
 Allows variables or string literals in the SOUND command for both the channel and sound type. The original syntax is still also allowed.
 
-V5.07.01b4
+V5.07.01b4: 
 YOU MUST EXECUTE OPTION RESET BEFORE LOADING THIS VERSION
 Implements the option of using a standard uart as the console. 
 OPTION SERIAL CONSOLE uartapin, uartbpin. 
@@ -41,10 +41,10 @@ Use:
 OPTION SERIAL CONSOLE DISABLE
 to revert to normal the USB console
 
-V5.07.01b5
+V5.07.01b5: 
 Re-compile under sdk V1.3
 
-V5.07.01b6
+V5.07.01b6: 
 Fixes bug in GPS receipt where the first read of GPS(DATE) may give an incorrect answer. 
 Fixes bug in reporting the line of an error when goto/gosub to a line number is used. 
 Fixes bug where OPTION SERIAL CONSOLE DISABLE doesn't work after reboot. 
