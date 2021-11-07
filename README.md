@@ -17,8 +17,7 @@ Change list from V5.07.00
 ***********************************************************************************************************************
 
 V5.07.01b1: 
-Fixed bug in epoch function
-
+Fixed bug in epoch function. 
 Increased number of WS2812 LEDs supported to 256. 
 MM.INFO(pinno GPnn) implemented to give physical pin number for a given GP number. 
 
