@@ -967,7 +967,7 @@ void DrawSwitch(int r) {
     if(on) shift = 0; else shift = BTN_CAPTION_SHIFT;
     if(twobtn) {
         half = Ctrl[r].x1 + (Ctrl[r].x2 - Ctrl[r].x1)/2;
-        if(on) {                                                    // use the min, max elements to store the active x area of the button
+        if(!(on)) {                                                    // use the min, max elements to store the active x area of the button
             Ctrl[r].min = half;
             Ctrl[r].max = Ctrl[r].x2;
         } else {
@@ -1930,7 +1930,7 @@ void ProcessTouch(void) {
                 if(!(CurrentPages & (1 << Ctrl[r].page))) continue;                            // ignore if the page is not displayed
                 if(Ctrl[r].state & (CTRL_DISABLED | CTRL_DISABLED2 | CTRL_HIDDEN)) continue;   // ignore if control is disabled
                 switch(Ctrl[r].type) {
-                    case CTRL_SWITCH:   if(TouchX >= Ctrl[r].min && TouchX <= Ctrl[r].max) return;   // skip if it is not the touch sensitive area (depends on the switch state)
+                    case CTRL_SWITCH:   if(!(TouchX >= Ctrl[r].min && TouchX <= Ctrl[r].max)) return;// skip if it is not the touch sensitive area (depends on the switch state)                                        Ctrl[r].value = !Ctrl[r].value;
                                         Ctrl[r].value = !Ctrl[r].value;
                                         break;
                     

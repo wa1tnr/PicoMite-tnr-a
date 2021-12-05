@@ -27,6 +27,7 @@ extern "C" {
 #endif
 #define PICO_STDIO_ENABLE_CRLF_SUPPORT 0
 #define PICO_STACK_SIZE 0x4000
+#define PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE 0 
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -101,7 +102,7 @@ int calibrate=0;
 char id_out[12];
 MMFLOAT VCC=3.3;
 extern unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
-
+volatile int autorecover=0;
 volatile int processtick = 1;
 unsigned char WatchdogSet = false;
 unsigned char IgnorePIN = false;
@@ -1024,7 +1025,12 @@ int main() {
      ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 	if(setjmp(mark) != 0) {
      // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
-     ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
+        if(autorecover){
+            autorecover=0;
+            InitHeap();
+            RestoreProg();
+        }
+        ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 		*tknbuf = 0;											// we do not want to run whatever is in the token buffer
     } else {
         if(*ProgMemory == 0x01 ) ClearVars(0);
@@ -1166,6 +1172,7 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
     unsigned char *p, endtoken, fontnbr, prevchar = 0, buf[STRINGSIZE];
     int nbr, i, n, SaveSizeAddr;
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
+    autorecover=0;
     memcpy(buf, tknbuf, STRINGSIZE);                                // save the token buffer because we are going to use it
     realmempointer=(uint32_t)ProgMemory;
     memset(ProgMemory,0xFF,Option.PROG_FLASH_SIZE);

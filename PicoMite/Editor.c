@@ -174,7 +174,7 @@ void PositionCursor(unsigned char *curp);
 void cmd_edit(void) {
     unsigned char *fromp, *p;
     int y, x;
-
+    checkend(cmdline);
     if(CurrentLinePtr) error("Invalid in a program");
 #if defined(MX470)
     if(Option.ColourCode) {

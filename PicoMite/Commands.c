@@ -316,12 +316,20 @@ void ListFile(char *pp, int all) {
 }
 
 void cmd_list(void) {
-	char *p;
+	unsigned char *p;
 	int i,j,k,m,step;
     if((p = checkstring(cmdline, "ALL"))) {
-        ListProgram(ProgMemory, true);
-        checkend(p);
-    } else if((p = checkstring(cmdline, "COMMANDS"))) {
+        if(!(*p == 0 || *p == '\'')) {
+        	getargs(&p,1,",");
+        	char *buff=GetTempMemory(STRINGSIZE);
+        	strcpy(buff,getCstring(argv[0]));
+    		if(strchr(buff, '.') == NULL) strcat(buff, ".BAS");
+            ListFile(buff, true);
+        } else {
+        	ListProgram((char *)ProgMemory, true);
+        	checkend(p);
+        }
+   } else if((p = checkstring(cmdline, "COMMANDS"))) {
     	step=5;
     	m=0;
 		char** c=GetTempMemory((CommandTableSize+5)*sizeof(*c)+(CommandTableSize+5)*18);

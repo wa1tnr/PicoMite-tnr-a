@@ -29,6 +29,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 void xmodemTransmit(char *p, int fnbr);
 void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch);
 int FindFreeFileNbr(void);
+extern volatile int autorecover;
 
 
 void cmd_xmodem(void) {
@@ -173,7 +174,7 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
     unsigned char packetno = 1;
     int i, c;
     int retry, retrans = MAXRETRANS;
-
+    autorecover=1;
     CrunchData((unsigned char **)&sp, 0);                                         // initialise the crunch subroutine
 
         // first establish communication with the remote

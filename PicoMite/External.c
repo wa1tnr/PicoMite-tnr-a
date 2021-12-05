@@ -112,6 +112,7 @@ volatile char IrVarType;
 volatile char IrState, IrGotMsg;
 int IrBits, IrCount;
 unsigned char *IrInterrupt;
+int last_adc=99;
 int CallBackEnabled=0;
 int IRpin=99;
 int PWM0Apin=99;
@@ -708,7 +709,6 @@ void ExtCfg(int pin, int cfg, int option) {
     uSec(2);
 }
 int64_t __not_in_flash_func(ExtInp)(int pin){
-    static int last_adc=99;
     if(ExtCurrentConfig[pin]==EXT_ANA_IN){
         if(last_adc!=pin){
             last_adc=pin;
@@ -1039,6 +1039,7 @@ void fun_pin(void) {
     MMFLOAT t;
 	if(checkstring(ep, "TEMP")){
         adc_select_input(4);
+        last_adc=4;
         t=(MMFLOAT)adc_read()/4095.0*VCC;
         fret=(27.0-(t-0.706)/0.001721);
         targ=T_NBR;
