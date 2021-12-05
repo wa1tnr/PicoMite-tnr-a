@@ -48,6 +48,21 @@ Fixes bug in GPS receipt where the first read of GPS(DATE) may give an incorrect
 Fixes bug in reporting the line of an error when goto/gosub to a line number is used. 
 Fixes bug where OPTION SERIAL CONSOLE DISABLE doesn't work after reboot. 
 Fixes filenames so that linux which doesn't understand that "The" and "the" are the same word will compile. 
+
+V5.07.01b7
+Implements LIST ALL fname$. 
+Fixes bug in GUI SWITCH. 
+Restores original program if AUTOSAVE is terminated with Ctrl-C or XMODEM R terminates with an error.
+
+V5.07.01b8
+Clears variable memory after Ctrl-C out of Autosave. 
+Stops creation of spurious "Reset" USB device.  
+
+V5.07.01b9
+Further rework of GUI SWITCH. 
+Rename FileIO.c for Linux. 
+AUTOSAVE "file" now reports a "Syntax Error" rather than "Unknown command". 
+EDIT "file" reporting an error rather than just ignoring the argument.
 ***********************************************************************************************************************
 
 PicoMite MMBasic
