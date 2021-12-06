@@ -64,7 +64,7 @@ Rename FileIO.c for Linux.
 AUTOSAVE "file" now reports a "Syntax Error" rather than "Unknown command". 
 EDIT "file" reporting an error rather than just ignoring the argument.
 
-V5.07.01 release
+V5.07.01 release. 
 Incorporate changes above + force reset after OPTION AUDIO
 
 ***********************************************************************************************************************
