@@ -1782,6 +1782,8 @@ void cmd_option(void) {
         if(checkstring(tp, "DISABLE")){
             disable_audio();
             SaveOptions();
+            _excep_code = RESET_COMMAND;
+            SoftReset();
             return;                                // this will restart the processor ? only works when not in debug
         }
     	getargs(&tp,3,",");
@@ -1804,6 +1806,8 @@ void cmd_option(void) {
         Option.AUDIO_R=pin2;
         Option.AUDIO_SLICE=slice;
         SaveOptions();
+        _excep_code = RESET_COMMAND;
+        SoftReset();
         return;
     }
     tp = checkstring(cmdline, "SYSTEM I2C");

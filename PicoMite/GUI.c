@@ -445,6 +445,24 @@ void cmd_gui(void) {
             if(!Option.MaxCtrls)error("No memory allocated for GUI controls");
             if(!InvokingCtrl) return;
             DrawKeyboard(KEY_KEY_CANCEL);
+        } else if((pp = checkstring(p, "ACTIVATE"))) {
+            if(*pp == '#') p++;
+            r = getint(pp, 1, Option.MaxCtrls - 1);
+            if(Ctrl[r].type != CTRL_TEXTBOX) error("Not a TextBox");
+            strcpy(CancelValue, Ctrl[r].s);                                     // save the current value in case the user cancels
+            *Ctrl[r].s = 0;                                                     // set it to an empty string
+            Ctrl[r].state |= CTRL_SELECTED;                                     // select the number text/box
+            PopUpRedrawAll(r, true);
+            CurrentRef = InvokingCtrl = r;                                      // tell the keypad what text/number box it is servicing
+            KeyDown = -1;
+            KeyAltShift = 0;
+            DrawControl(r);
+//            ClickTimer += CLICK_DURATION;
+            if(GuiIntDownVector == NULL)
+                DrawKeyboard(KEY_OPEN);                                         // initial draw of the keypad
+            else
+                DelayedDrawKeyboard = true;                                     // leave it until after the keyboard interrupt
+            return;        
         } else
             r = GetCtrlParams(CTRL_TEXTBOX, p);
         return;
@@ -1930,7 +1948,7 @@ void ProcessTouch(void) {
                 if(!(CurrentPages & (1 << Ctrl[r].page))) continue;                            // ignore if the page is not displayed
                 if(Ctrl[r].state & (CTRL_DISABLED | CTRL_DISABLED2 | CTRL_HIDDEN)) continue;   // ignore if control is disabled
                 switch(Ctrl[r].type) {
-                    case CTRL_SWITCH:   if(!(TouchX >= Ctrl[r].min && TouchX <= Ctrl[r].max)) return;// skip if it is not the touch sensitive area (depends on the switch state)                                        Ctrl[r].value = !Ctrl[r].value;
+                    case CTRL_SWITCH:   if(!(TouchX >= Ctrl[r].min && TouchX <= Ctrl[r].max)) return;   // skip if it is not the touch sensitive area (depends on the switch state)                                        Ctrl[r].value = !Ctrl[r].value;
                                         Ctrl[r].value = !Ctrl[r].value;
                                         break;
                     
@@ -1985,11 +2003,10 @@ void ProcessTouch(void) {
                                         KeyAltShift = 0;
                                         DrawControl(r);
                                         ClickTimer += CLICK_DURATION;
-                                        if(GuiIntDownVector == NULL){
+                                        if(GuiIntDownVector == NULL)
                                             DrawKeyboard(KEY_OPEN);                                          // initial draw of the keypad
-                                        } else {
+                                        else
                                             DelayedDrawKeyboard = true;  
-                                        }                                    // leave it until after the keyboard interrupt
                                         return;
 
                     case CTRL_FMTBOX:   strcpy(CancelValue, Ctrl[r].s);                                     // save the current value in case the user cancels
