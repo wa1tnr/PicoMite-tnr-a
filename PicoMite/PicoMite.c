@@ -47,7 +47,7 @@ extern "C" {
 #include <pico/bootrom.h>
 #include "hardware/irq.h"
 
-#include "../pico-sdk/lib/tinyusb/src/class/cdc/cdc_device.h"
+#include "class/cdc/cdc_device.h" 
 #define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
