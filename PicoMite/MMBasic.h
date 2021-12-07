@@ -44,7 +44,7 @@ extern "C" {
   #define MMFAMILY
 #endif
 
-#include "Configuration.h"                          // memory configuration defines for the particular hardware this is running on
+#include "configuration.h"                          // memory configuration defines for the particular hardware this is running on
 
 // Types used to define an item of data.  Often they are ORed together.
 // Used in tokens, variables and arguments to functions

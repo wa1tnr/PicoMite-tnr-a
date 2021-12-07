@@ -33,7 +33,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include <stdio.h>
 #include <stddef.h>
 #include "Version.h"
-#include "Configuration.h"
+#include "configuration.h"
 #include "FileIO.h"
 #include "ff.h"
 void cmd_open(void);
@@ -284,7 +284,7 @@ void UnloadFont(int);
 #include "MM_Misc.h"
 #include "Editor.h"
 #include "Draw.h"
-#include "Xmodem.h"
+#include "XModem.h"
 #include "MATHS.h"
 #include "Onewire.h"
 #include "I2C.h"

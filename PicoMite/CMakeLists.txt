@@ -19,7 +19,7 @@ add_executable(PicoMite
             mmc_stm32.c
             Draw.c
             Editor.c
-            Xmodem.c
+            XModem.c
             MM_Misc.c
             External.c
             MATHS.c
