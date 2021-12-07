@@ -67,6 +67,8 @@ EDIT "file" reporting an error rather than just ignoring the argument.
 V5.07.01 release. 
 Incorporate changes above + force reset after OPTION AUDIO
 
+7-dec-2021: Fixed filename cases for Linux. No functional code changes 
+
 ***********************************************************************************************************************
 
 PicoMite MMBasic
