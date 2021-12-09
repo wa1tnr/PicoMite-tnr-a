@@ -32,7 +32,7 @@ extern "C" {
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
-#include "Configuration.h"
+#include "configuration.h"
 #include "hardware/watchdog.h"
 #include "hardware/clocks.h"
 #include "hardware/flash.h"
