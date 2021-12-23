@@ -15,7 +15,7 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
-V5.07.03b0
+V5.07.03b2
 
 YOU MUST LOAD clear_flash BEFORE LOADING THIS VERSION. 
 Program now runs from flash memory freeing up much more memory, following tuning there is no significant impact on performance. 
