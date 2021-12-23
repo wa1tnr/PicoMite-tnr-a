@@ -15,6 +15,47 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03b0
+
+YOU MUST LOAD clear_flash BEFORE LOADING THIS VERSION. 
+Program now runs from flash memory freeing up much more memory, following tuning there is no significant impact on performance. 
+Maximum program size now 124Kbytes, Flash slots reduced from 10 to 7. 
+FLASH RUN and FLASH CHAIN now execute direct from the specified flash slot without changing the main program. 
+OPTION MEMORY removed as no longer relevant. 
+OPTION BAUDRATE n now sets the baudrate for when a serial console is used. 
+Fixes bug in using SYSTEM I2C or I2C2 for general I2C use if I2C READ does not use a string as the variable.  
+Fixes bug in COM1 where buffer overrun is losing characters. 
+Support for a PS2 Keyboard added. 
+OPTION KEYBOARD NO_KEYBOARD/US/FR/GR/IT/BE/UK/ES. 
+use level conversion between the Pico pins and the PS2 socket or run the keyboard at 3.3V. 
+Connect GP8 to PS2 socket CLOCK pin via level converter.  
+Connect GP9 to PS2 socket DATA pin via level converter. 
+Connect VBUS to PS2 socket +5V. 
+Connect GND to PS2 socket GND. 
+Increases drive level for SDcard output pins (CD, MOSI and CLOCK) which MAY improve SDcard reliability when the SPI bus is loaded with additional devices (LCD and/or touch). 
+Reduces maximum file name length to 63 characters but increase maximum files that can be listed with FILES command to 1000. 
+Fixed memory leak caused by ctrl-C out of FILES command. 
+
+V5.07.02b2
+
+Fixes bug in day$(now) function. 
+Fixes bug where writing text to an SPI LCD that overlapped the bottom of the screen would fail to de-assert LCD_CS. 
+Fixes bug that added an extra space after a REM command each time the program was edited. 
+NEW subcommands for SETTICK. 
+SETTICK PAUSE, myint [,tickno] ' pauses the tick so that the interrupt is delayed but the current count is maintained. 
+SETTICK RESUME, myint [,tickno] ' resumes the tick after a pause. 
+NEW subcommands for FLASH. 
+FLASH LIST no [,all] ' lists in full the program held in the flash slot. 
+
+V5.07.02b1
+
+Fixes bug in ON KEY keyno,int
+Increases drive level for SDcard output pins (CD, MOSI and CLOCK)
+Reduces maximum file name length to 63 characters but increase maximum files that can be listed with FILES command to 1000
+
+V5.07.02b0
+Support for 240x240 round GC9A01 display
+
 
 V5.07.01b1: 
 Fixed bug in epoch function. 
