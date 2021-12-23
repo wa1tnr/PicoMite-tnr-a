@@ -86,7 +86,7 @@ struct s_hash {                             // structure of the token table
 // these are initialised at startup
 int CommandTableSize, TokenTableSize;
 
-struct s_vartbl *vartbl;                                            // this table stores all variables
+struct s_vartbl *vartbl=NULL;                                            // this table stores all variables
 int varcnt;                                                         // number of variables
 int VarIndex;                                                       // Global set by findvar after a variable has been created or found
 int Localvarcnt;                                                         // number of LOCAL variables
@@ -218,7 +218,6 @@ void  InitBasic(void) {
     cmdNEXT= GetCommandValue( (unsigned char *)"Next");
 	cmdIRET = GetCommandValue( (unsigned char *)"IReturn");
     cmdCSUB = GetCommandValue( (unsigned char *)"CSub");
-    m_alloc(M_VAR);
 //        PInt(CommandTableSize);
 //        PIntComma(TokenTableSize);
 //        MMPrintString("\r\n");
@@ -936,15 +935,12 @@ void  tokenise(int console) {
                 // we have found a command
                 *op++ = match_i + C_BASETOKEN;                      // insert the token found
                 p = match_p;                                        // step over the command in the source
+                if(isalpha(*(p-1)) && *p == ' ') p++;               // if the command is followed by a space skip over it
                 if(match_i + C_BASETOKEN == GetCommandValue("Rem")) // check if it is a REM command
                     while(*p) *op++ = *p++;                         // and in that case just copy everything
-                else {
-                    if(isalpha(*(p-1)) && *p == ' ')                // if the command is followed by a space
-                        p++;                                        // skip over it (llist will restore the space)
-                }
-                            firstnonwhite = false;
-                            labelvalid = false;                         // we do not want any labels after this
-                			continue;
+                firstnonwhite = false;
+                labelvalid = false;                                 // we do not want any labels after this
+                continue;
             }
 
             // next test if it is a label
@@ -2531,7 +2527,7 @@ void ClearProgram(void) {
 //    InitHeap();
     m_alloc(M_PROG);                                           // init the variables for program memory
     ClearRuntime();
-    ProgMemory[0] = ProgMemory[1] = ProgMemory[3] = ProgMemory[4] = 0;
+//    ProgMemory[0] = ProgMemory[1] = ProgMemory[3] = ProgMemory[4] = 0;
     PSize = 0;
     autoOn = 0; autoNext = 10; autoIncr = 10;                       // use by the AUTO command
     StartEditPoint = NULL;

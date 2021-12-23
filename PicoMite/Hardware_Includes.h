@@ -27,6 +27,11 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
+//#include "hardware/rtc.h"
+#include "pico/stdlib.h"
+#include "pico/util/datetime.h"
+//#include "pico/multicore.h"
+
 
 
 #if !defined(INCLUDE_COMMAND_TABLE) && !defined(INCLUDE_TOKEN_TABLE)
@@ -83,6 +88,7 @@ extern volatile unsigned int IntPauseTimer;
 extern volatile unsigned int Timer1, Timer2;		                       //1000Hz decrement timer
 extern volatile unsigned int diskchecktimer;
 extern volatile int ds18b20Timer;
+extern volatile int CursorTimer;
 extern volatile unsigned int I2CTimer;
 extern volatile int second;
 extern volatile int minute;
@@ -102,12 +108,16 @@ extern int PulseCnt[];
 extern int PulseActive;
 extern volatile int ClickTimer;
 extern int calibrate;
+extern volatile unsigned int InkeyTimer;                            // used to delay on an escape character
+extern int DISPLAY_TYPE;
+
 extern volatile char ConsoleRxBuf[CONSOLE_RX_BUF_SIZE];
 extern volatile int ConsoleRxBufHead;
 extern volatile int ConsoleRxBufTail;
 extern volatile char ConsoleTxBuf[CONSOLE_TX_BUF_SIZE];
 extern volatile int ConsoleTxBufHead;
 extern volatile int ConsoleTxBufTail;
+extern datetime_t rtc_t;
 
 struct s_PinDef {
 	int pin;
@@ -134,25 +144,32 @@ extern void FileClose(int fnbr);
 extern void PRet(void);
 extern void PInt(int64_t n);
 extern void PIntComma(int64_t n);
+extern void SRet(void);
+extern void SInt(int64_t n);
+extern void SIntComma(int64_t n);
 extern void PIntH(unsigned long long int n);
 extern void PIntHC(unsigned long long int n) ;
 extern void PFlt(MMFLOAT flt);
 extern void PFltComma(MMFLOAT n) ;
-extern void putConsole(int c);
+extern void putConsole(int c, int flush);
 extern void MMPrintString(char* s);
+extern void SSPrintString(char* s);
 extern void myprintf(char *s);
 extern int getConsole(void);
 extern void InitReservedIO(void);
+extern char SerialConsolePutC(char c, int flush);
 extern long long int *GetReceiveDataBuffer(unsigned char *p, unsigned int *nbr);
 extern int ticks_per_second;
 extern volatile unsigned int GPSTimer;
 extern int AUDIO_L_PIN, AUDIO_R_PIN, AUDIO_SLICE;
 extern uint16_t AUDIO_WRAP;
+extern int PromptFont, PromptFC, PromptBC;                             // the font and colours selected at the prompt
+
 // console related I/O
 int MMInkey(void);
 int MMgetchar(void);
 char MMputchar(char c, int flush);
-void SaveProgramToMemory(unsigned char *pm, int msg);
+void SaveProgramToFlash(unsigned char *pm, int msg);
 
 void CheckAbort(void);
 void EditInputLine(void);
@@ -171,6 +188,8 @@ void UnloadFont(int);
 #define putch _putch
 #endif
 #endif
+#define CURSOR_OFF        350              // cursor off time in mS
+#define CURSOR_ON     650                  // cursor on time in mS
 
 #define dp(...) {unsigned char s[140];sprintf((char *)s,  __VA_ARGS__); MMPrintString((char *)s); MMPrintString((char *)"\r\n");}
 
@@ -234,6 +253,8 @@ void UnloadFont(int);
 #define RESTART_NOAUTORUN   9996                                    // reset required after changing the LCD or touch config
 #define RESTART_DOAUTORUN   9995                                    // reset required by OPTION SET (ie, re runs the program)
 #define uSec(a) busy_wait_us(a)
+#define KEYBOARD_CLOCK 11
+#define KEYBOARD_DATA 12
 
 /**********************************************************************************
  All command tokens tokens (eg, PRINT, FOR, etc) should be inserted in this table
@@ -295,4 +316,5 @@ void UnloadFont(int);
 #include "GUI.h"
 #include "GPS.h"
 #include "Audio.h"
+#include "PS2Keyboard.h"
 

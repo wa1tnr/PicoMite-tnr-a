@@ -2344,6 +2344,7 @@ void ClearExternalIO(void) {
     KeypadInterrupt = NULL;
 
     for(i = 0; i < NBRSETTICKS; i++) TickInt[i] = NULL;
+    for(i = 0; i < NBRSETTICKS; i++) TickActive[i] = 1;
 
 	for(i = 0; i < NBR_PULSE_SLOTS; i++) PulseCnt[i] = 0;             // disable any pending pulse commands
     PulseActive = false;
@@ -2394,6 +2395,8 @@ void ClearExternalIO(void) {
     if(dma_channel_is_claimed(dma_chan))dma_channel_unclaim(dma_chan);
     dmarunning=0;
     ADCInterrupt=NULL;
+    KeyInterrupt=NULL;
+    keyselect=0;
 }
 
 
@@ -2524,6 +2527,7 @@ void __not_in_flash_func(IRHandler)(void) {
         }
     }
 void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
+    if(Option.KeyboardConfig |= NO_KEYBOARD && gpio==PinDef[KEYBOARD_CLOCK].GPno) CNInterrupt();
     if(gpio==PinDef[IRpin].GPno)IRHandler();
     if(gpio==PinDef[Option.INT1pin].GPno)TM_EXTI_Handler_1();
     if(gpio==PinDef[Option.INT2pin].GPno)TM_EXTI_Handler_2();

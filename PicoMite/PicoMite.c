@@ -78,6 +78,8 @@ volatile unsigned int PauseTimer = 0;
 volatile unsigned int IntPauseTimer = 0;
 volatile unsigned int Timer1=0, Timer2=0;		                       //1000Hz decrement timer
 volatile unsigned int USBKeepalive=USBKEEPALIVE;
+//volatile int CursorTimer=0;               // used to time the flashing cursor
+
 volatile int ds18b20Timer = -1;
 volatile int second = 0;                                            // date/time counters
 volatile int minute = 0;
@@ -96,20 +98,22 @@ int PulseActive;
 const uint8_t *flash_option_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET);
 const uint8_t *SavedVarsFlash = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET +  FLASH_ERASE_SIZE);
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE);
+const uint8_t *flash_progmemory = (const uint8_t *) (XIP_BASE + PROGSTART);
 int ticks_per_second; 
 int InterruptUsed;
 int calibrate=0;
 char id_out[12];
 MMFLOAT VCC=3.3;
+int PromptFont, PromptFC=0xFFFFFF, PromptBC=0;                             // the font and colours selected at the prompt
+int DISPLAY_TYPE;
 extern unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
-volatile int autorecover=0;
 volatile int processtick = 1;
 unsigned char WatchdogSet = false;
 unsigned char IgnorePIN = false;
 bool timer_callback(repeating_timer_t *rt);
 uint32_t __uninitialized_ram(_excep_code);
 unsigned char lastcmd[STRINGSIZE*4];                                           // used to store the last command in case it is needed by the EDIT command
-
+int QVGA_CLKDIV;	// SM divide clock ticks
 FATFS fs;                 // Work area (file system object) for logical drive
 bool timer_callback(repeating_timer_t *rt);
 static uint64_t __not_in_flash_func(uSecFunc)(uint64_t a){
@@ -229,9 +233,7 @@ const struct s_PinDef PinDef[NBRPINS + 1]={
 		{ 43, 25, "GP25", DIGITAL_IN | DIGITAL_OUT | UART1RX | I2C0SCL| PWM4B  ,99 , 132},          // pseudo pin 43
 		{ 44, 29, "GP29", DIGITAL_IN | DIGITAL_OUT | ANALOG_IN | UART0RX | I2C0SCL | PWM6B, 3, 134},// pseudo pin 44
 };
-
 const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-const int enableexFAT = 1;
 void __not_in_flash_func(routinechecks)(void){
     char alive[]="\033[?25h";
     int c;
@@ -263,7 +265,7 @@ void __not_in_flash_func(routinechecks)(void){
     }
 }
 
-int getConsole(void) {
+int __not_in_flash_func(getConsole)(void) {
     int c=-1;
     CheckAbort();
     if(ConsoleRxBufHead != ConsoleRxBufTail) {                            // if the queue has something in it
@@ -272,18 +274,16 @@ int getConsole(void) {
 	}
     return c;
 }
-void putConsole(int c) {
-    MMputchar(c,1);
+
+void putConsole(int c, int flush) {
+//    DisplayPutC(c);
+    SerialConsolePutC(c, flush);
 }
 // put a character out to the serial console
-char MMputchar(char c, int flush) {
+char SerialConsolePutC(char c, int flush) {
     if(Option.SerialConsole==0){
         if(tud_cdc_connected()){
             putc(c,stdout);
-            if(isprint(c)) MMCharPos++;
-            if(c == '\r') {
-                MMCharPos = 1;
-            }
             if(flush){
                 USBKeepalive=USBKEEPALIVE;
                 fflush(stdout);
@@ -298,6 +298,14 @@ char MMputchar(char c, int flush) {
 	        uart_set_irq_enables(Option.SerialConsole==1 ? uart0 : uart1, true, true);
 			irq_set_pending(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ);
 		}
+    }
+    return c;
+}
+char MMputchar(char c, int flush) {
+    putConsole(c, flush);
+    if(isprint(c)) MMCharPos++;
+    if(c == '\r') {
+        MMCharPos = 1;
     }
     return c;
 }
@@ -662,7 +670,7 @@ void EditInputLine(void) {
                             }
                             while(CharIndex > strlen(inpbuf)) { MMputchar('\b',0); CharIndex--; } // return the cursor to the right position
 */
-                            MMPrintString("\033[0K");
+                            SSPrintString("\033[0K");
 //                            fflush(stdout);
                             break;
 
@@ -709,14 +717,25 @@ void EditInputLine(void) {
 int MMgetchar(void) {
 	int c;
 	do {
+//		ShowCursor(1);
+        CheckKeyboard();
 		c=MMInkey();
 	} while(c == -1);
+//	ShowCursor(0);
 	return c;
 }
 // print a string to the console interfaces
 void MMPrintString(char* s) {
     while(*s) {
         MMputchar(*s,0);
+        s++;
+    }
+    fflush(stdout);
+    USBKeepalive=USBKEEPALIVE;
+}
+void SSPrintString(char* s) {
+    while(*s) {
+        SerialConsolePutC(*s,0);
         s++;
     }
     fflush(stdout);
@@ -761,9 +780,10 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(Timer1)Timer1--;
         if(USBKeepalive)USBKeepalive--;
         if(diskchecktimer)diskchecktimer--;
+//	    if(++CursorTimer > CURSOR_OFF + CURSOR_ON) CursorTimer = 0;		// used to control cursor blink rate
         if(InterruptUsed) {
             int i;
-            for(i = 0; i < NBRSETTICKS; i++) TickTimer[i]++;			// used in the interrupt tick
+            for(i = 0; i < NBRSETTICKS; i++) if(TickActive[i])TickTimer[i]++;			// used in the interrupt tick
         }
         if(WDTimer) {
             if(--WDTimer == 0) {
@@ -891,17 +911,30 @@ void __not_in_flash_func(CheckAbort)(void) {
         WDTimer = 0;                                                // turn off the watchdog timer
         calibrate=0;
         memset(inpbuf,0,STRINGSIZE);
+//        ShowCursor(false);
         longjmp(mark, 1);                                           // jump back to the input prompt
     }
 }
 void PRet(void){
     MMPrintString("\r\n");
 }
+void SRet(void){
+    SSPrintString("\r\n");
+}
 
 void PInt(int64_t n) {
     char s[20];
     IntToStr(s, (int64_t)n, 10);
     MMPrintString(s);
+}
+void SInt(int64_t n) {
+    char s[20];
+    IntToStr(s, (int64_t)n, 10);
+    SSPrintString(s);
+}
+
+void SIntComma(int64_t n) {
+    SSPrintString(", "); SInt(n);
 }
 
 void PIntComma(int64_t n) {
@@ -938,34 +971,28 @@ int main() {
     if(Option.Baudrate == 0 ||
         !(Option.Tab==2 || Option.Tab==3 || Option.Tab==4 ||Option.Tab==8) ||
         !(Option.Autorun>=0 && Option.Autorun<=11) ||
-        !(Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU) ||
-        !((Option.PROG_FLASH_SIZE + Option.HEAP_SIZE + MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl)))==(160*1024))
+        !(Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU)
         ){
         ResetAllFlash();              // init the options if this is the very first startup
         _excep_code=0;
         SoftReset();
     }
-    if(Option.CPU_Speed>200000)vreg_set_voltage(VREG_VOLTAGE_1_20);
-    uint64_t cpu=((Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU) ? Option.CPU_Speed : 125000);
-    set_sys_clock_khz(cpu, true);
-    m_alloc(M_VAR);
     m_alloc(M_PROG);                                           // init the variables for program memory
+    busy_wait_ms(100);
+    if(Option.CPU_Speed>200000)vreg_set_voltage(VREG_VOLTAGE_1_20);
+    busy_wait_ms(100);
+    set_sys_clock_khz(Option.CPU_Speed, true);
     pico_get_unique_board_id_string (id_out,12);
-    // The previous line automatically detached clk_peri from clk_sys, and
-    // attached it to pll_usb, so that clk_peri won't be disturbed by future
-    // changes to system clock or system PLL. If we need higher clk_peri
-    // frequencies, we can attach clk_peri directly back to system PLL (no
-    // divider available) and then use the clk_sys divider to scale clk_sys
-    // independently of clk_peri.
     clock_configure(
         clk_peri,
         0,                                                // No glitchless mux
         CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, // System PLL on AUX mux
-        cpu * 1000,                               // Input frequency
-        cpu * 1000                                // Output (must be same as no divider)
+        Option.CPU_Speed * 1000,                               // Input frequency
+        Option.CPU_Speed * 1000                                // Output (must be same as no divider)
     );
     systick_hw->csr = 0x5;
     systick_hw->rvr = 0x00FFFFFF;
+    busy_wait_ms(100);
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
@@ -977,6 +1004,7 @@ int main() {
     add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
     if(Option.SerialConsole==0) while (!tud_cdc_connected() && mSecTimer<5000) {}
     InitReservedIO();
+    initKeyboard();
     ClearExternalIO();
     ConsoleRxBufHead = 0;
     ConsoleRxBufTail = 0;
@@ -984,7 +1012,7 @@ int main() {
     ConsoleTxBufTail = 0;
     InitHeap();              										// initilise memory allocation
     uSecFunc(10);
-//    LoadOptions();
+    DISPLAY_TYPE = Option.DISPLAY_TYPE;
     // negative timeout means exact delay (rather than delay between callbacks)
 	OptionErrorSkip = false;
 	InitBasic();
@@ -995,28 +1023,16 @@ int main() {
     exception_set_exclusive_handler(HARDFAULT_EXCEPTION,sigbus);
     while((i=getConsole())!=-1){}
 
-    RestoreProg();
-
     if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == WATCHDOG_TIMEOUT)){
         if(Option.Autorun==0 ){
             if(!(_excep_code == RESET_COMMAND))MMPrintString(MES_SIGNON); //MMPrintString(b);                                 // print sign on message
         } else {
-            int j=Option.PROG_FLASH_SIZE>>2,i=Option.Autorun;
-            int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-            int *qq=(int *)ProgMemory;
-            while(j--)*qq++ = *pp++;
-            FlashLoad=i;
+            if(Option.Autorun!=MAXFLASHSLOTS+1){
+                ProgMemory=(char *)(flash_target_contents+(Option.Autorun-1)*MAX_PROG_SIZE);
+            }
             if(*ProgMemory != 0x01 ) MMPrintString(MES_SIGNON); 
         }
     }
-//    PIntH((uint32_t)ProgMemory);PIntHC((uint32_t)MMHeap);PIntHC((uint32_t)Ctrl);PIntHC((uint32_t)&Memory[MEMORY_SIZE]);PRet();
-//    uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
-//    uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
-//    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-//    uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
-//    PInt(f_rosc);PIntComma(f_pll_sys);PIntComma(f_clk_sys);PIntComma(f_clk_peri);PRet();
-//    PInt(sizeof(struct  option_s));PRet();
-//    PInt(PinDef[Option.SD_CS].GPno);PIntComma(PinDef[Option.SYSTEM_MOSI].GPno);PIntComma(PinDef[Option.SYSTEM_MISO].GPno);PIntComma(PinDef[Option.SYSTEM_CLK].GPno);PR5et();
     if(_excep_code == WATCHDOG_TIMEOUT) {
         WatchdogSet = true;                                 // remember if it was a watchdog timeout
         MMPrintString("\r\n\nWatchdog timeout\r\n");
@@ -1025,17 +1041,12 @@ int main() {
      ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 	if(setjmp(mark) != 0) {
      // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
-        if(autorecover){
-            autorecover=0;
-            InitHeap();
-            RestoreProg();
-        }
+        ProgMemory=(uint8_t *)flash_progmemory;
         ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 		*tknbuf = 0;											// we do not want to run whatever is in the token buffer
     } else {
         if(*ProgMemory == 0x01 ) ClearVars(0);
         else {
-//            PInt(*ProgMemory);PRet();
             ClearProgram();
         }
         PrepareProgram(true);
@@ -1051,6 +1062,7 @@ int main() {
             }       
         }
     }
+    PromptFont = Option.DefaultFont;
     while(1) {
 #if defined(MX470)
     if(Option.DISPLAY_CONSOLE) {
@@ -1058,10 +1070,6 @@ int main() {
         gui_fcolour = PromptFC;
         gui_bcolour = PromptBC;
         if(CurrentX != 0) MMPrintString("\r\n");                    // prompt should be on a new line
-    }
-    if(CurrentLinePtr) {
-        CloseAudio();
-        vol_left = 100; vol_right = 100;
     }
 #endif
         MMAbort = false;
@@ -1120,62 +1128,22 @@ int main() {
         memset(inpbuf,0,STRINGSIZE);
     }
 }
-volatile union u_flash {
-  uint64_t i64[4];
-  uint8_t  i8[32];
-  uint32_t  i32[8];
-} MemWord;
-volatile int mi8p=0;
-// globals used when writing bytes to flash
-volatile uint32_t realmempointer;
-void MemWriteBlock(void){
-    int i;
-    uint32_t address=realmempointer-32;
-//    if(address % 32)error("Memory write address");
-    memcpy((char *)address,(char*)&MemWord.i64[0],32);
-	for(i=0;i<8;i++)MemWord.i32[i]=0xFFFFFFFF;
-}
-void MemWriteByte(unsigned char b) {
-	realmempointer++;
-	MemWord.i8[mi8p]=b;
-	mi8p++;
-	mi8p %= 32;
-	if(mi8p==0){
-		MemWriteBlock();
-	}
-}
-void MemWriteWord(unsigned int i) {
-	MemWriteByte(i & 0xFF);
-	MemWriteByte((i>>8) & 0xFF);
-	MemWriteByte((i>>16) & 0xFF);
-	MemWriteByte((i>>24) & 0xFF);
-}
-
-void MemWriteAlign(void) {
-	  while(mi8p != 0) {
-		  MemWriteByte(0x0);
-	  }
-	  MemWriteWord(0xFFFFFFFF);
-}
-
-
-
-void MemWriteClose(void){
-	  while(mi8p != 0) {
-		  MemWriteByte(0xff);
-	  }
-
-}
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format
-void SaveProgramToMemory(unsigned char *pm, int msg) {
+void SaveProgramToFlash(unsigned char *pm, int msg) {
     unsigned char *p, endtoken, fontnbr, prevchar = 0, buf[STRINGSIZE];
-    int nbr, i, n, SaveSizeAddr;
-    uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
-    autorecover=0;
+    int nbr, i, j, n, SaveSizeAddr;
+    uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave, retvalue;
     memcpy(buf, tknbuf, STRINGSIZE);                                // save the token buffer because we are going to use it
-    realmempointer=(uint32_t)ProgMemory;
-    memset(ProgMemory,0xFF,Option.PROG_FLASH_SIZE);
+    realflashpointer=(uint32_t)PROGSTART;
+    disable_interrupts();
+    flash_range_erase(realflashpointer, MAX_PROG_SIZE);
+    j=MAX_PROG_SIZE/4;
+    int *pp=(int *)(flash_progmemory);
+        while(j--)if(*pp++ != 0xFFFFFFFF){
+            enable_interrupts();
+            error("Flash erase problem");
+        }
     nbr = 0;
     // this is used to count the number of bytes written to flash
     while(*pm) {
@@ -1183,12 +1151,12 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
         while(!(*pm == 0 || *pm == '\r' || (*pm == '\n' && prevchar != '\r'))) {
             if(*pm == TAB) {
                 do {*p++ = ' ';
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror;
                 } while((p - inpbuf) % 2);
             } else {
                 if(isprint((uint8_t)*pm)) {
                     *p++ = *pm;
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror;
                 }
             }
             prevchar = *pm++;
@@ -1201,15 +1169,14 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
         tokenise(false);                                            // turn into executable code
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
-            MemWriteByte(*p++); nbr++;
+            FlashWriteByte(*p++); nbr++;
 
-            if((int)((char *)realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
-//                goto exiterror1;
+            if((int)((char *)realflashpointer - (uint32_t)PROGSTART) >= Option.PROG_FLASH_SIZE - 5)  goto exiterror;
         }
-        MemWriteByte(0); nbr++;                              // terminate that line in flash
+        FlashWriteByte(0); nbr++;                              // terminate that line in flash
     }
-    MemWriteByte(0);
-    MemWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
+    FlashWriteByte(0);
+    FlashWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
     // now we must scan the program looking for CFUNCTION/CSUB/DEFINEFONT statements, extract their data and program it into the flash used by  CFUNCTIONs
      // programs are terminated with two zero bytes and one or more bytes of 0xff.  The CFunction area starts immediately after that.
      // the format of a CFunction/CSub/Font in flash is:
@@ -1219,8 +1186,8 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
      //   word1..wordN - The CFunction/CSub/Font code
      // The next CFunction/CSub/Font starts immediately following the last word of the previous CFunction/CSub/Font
     int firsthex=1;
-    realmemsave= realmempointer;
-    p = (char *)ProgMemory;                                              // start scanning program memory
+    realflashsave= realflashpointer;
+    p = (char *)flash_progmemory;                                              // start scanning program memory
     while(*p != 0xff) {
     	nbr++;
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
@@ -1244,22 +1211,28 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
              if(*p == '#') p++;
              fontnbr = getint(p, 1, FONT_TABLE_SIZE);
                                                  // font 6 has some special characters, some of which depend on font 1
-             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) error("Cannot redefine fonts 1, 6 or 7");
-             realmempointer+=4;
+             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) {
+                enable_interrupts();
+                error("Cannot redefine fonts 1, 6 or 7");
+             }
+             realflashpointer+=4;
              skipelement(p);                                     // go to the end of the command
              p--;
             } else {
                 endtoken = GetCommandValue("End CSub");
-                realmempointer+=4;
+                realflashpointer+=4;
                 fontnbr = 0;
                 firsthex=0;
             }
-             SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
-             realmempointer+=4;
+             SaveSizeAddr = realflashpointer;                                // save where we are so that we can write the CFun size in here
+             realflashpointer+=4;
              p++;
              skipspace(p);
              if(!fontnbr) {
-                 if(!isnamestart((uint8_t)*p))  error("Function name");
+                 if(!isnamestart((uint8_t)*p)){
+                    error("Function name");
+                    enable_interrupts();
+                 }  
                  do { p++; } while(isnamechar((uint8_t)*p));
                  skipspace(p);
                  if(!(isxdigit((uint8_t)p[0]) && isxdigit((uint8_t)p[1]) && isxdigit((uint8_t)p[2]))) {
@@ -1277,8 +1250,11 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                      skipspace(p);
                      n = 0;
                      for(i = 0; i < 8; i++) {
-                         if(!isxdigit((uint8_t)*p)) error("Invalid hex word");
-                         if((int)((char *)realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
+                         if(!isxdigit((uint8_t)*p)) {
+                            enable_interrupts();
+                            error("Invalid hex word");
+                         }
+                         if((int)((char *)realflashpointer - (uint32_t)PROGSTART) >= Option.PROG_FLASH_SIZE - 5) goto exiterror;
                          n = n << 4;
                          if(*p <= '9')
                              n |= (*p - '0');
@@ -1286,17 +1262,23 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                              n |= (toupper(*p) - 'A' + 10);
                          p++;
                      }
-                     realmempointer+=4;
+                     realflashpointer+=4;
                      skipspace(p);
                      if(firsthex){
                     	 firsthex=0;
-                    	 if(((n>>16) & 0xff) < 0x20)error("Can't define non-printing characters");
+                    	 if(((n>>16) & 0xff) < 0x20){
+                            enable_interrupts();
+                            error("Can't define non-printing characters");
+                         }
                      }
                  }
                  // we are at the end of a embedded code line
                  while(*p) p++;                                      // make sure that we move to the end of the line
                  p++;                                                // step to the start of the next line
-                 if(*p == 0) error("Missing END declaration");
+                 if(*p == 0) {
+                     enable_interrupts();
+                     error("Missing END declaration");
+                 }
                  if(*p == T_NEWLINE) {
                      CurrentLinePtr = p;
                      p++;                                            // skip the newline token
@@ -1304,13 +1286,13 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                  if(*p == T_LINENBR) p += 3;                         // skip over the line number
                  skipspace(p);
              } while(*p != endtoken);
-             storedupdates[updatecount++]=realmempointer - SaveSizeAddr - 4;
+             storedupdates[updatecount++]=realflashpointer - SaveSizeAddr - 4;
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
      }
-    realmempointer = realmemsave ;
+    realflashpointer = realflashsave ;
     updatecount=0;
-    p = (char *)ProgMemory;                                              // start scanning program memory
+    p = (char *)flash_progmemory;                                              // start scanning program memory
      while(*p != 0xff) {
      	nbr++;
          if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
@@ -1334,22 +1316,28 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
              if(*p == '#') p++;
              fontnbr = getint(p, 1, FONT_TABLE_SIZE);
                                                  // font 6 has some special characters, some of which depend on font 1
-             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) error("Cannot redefine fonts 1, 6, or 7");
+             if(fontnbr == 1 || fontnbr == 6 || fontnbr == 7) {
+                 enable_interrupts();
+                 error("Cannot redefine fonts 1, 6, or 7");
+             }
 
-             MemWriteWord(fontnbr - 1);             // a low number (< FONT_TABLE_SIZE) marks the entry as a font
+             FlashWriteWord(fontnbr - 1);             // a low number (< FONT_TABLE_SIZE) marks the entry as a font
              skipelement(p);                                     // go to the end of the command
              p--;
          } else {
              endtoken = GetCommandValue("End CSub");
-             MemWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
+             FlashWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
              fontnbr = 0;
          }
-            SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
-             MemWriteWord(storedupdates[updatecount++]);                        // leave this blank so that we can later do the write
+            SaveSizeAddr = realflashpointer;                                // save where we are so that we can write the CFun size in here
+             FlashWriteWord(storedupdates[updatecount++]);                        // leave this blank so that we can later do the write
              p++;
              skipspace(p);
              if(!fontnbr) {
-                 if(!isnamestart((uint8_t)*p))  error("Function name");
+                 if(!isnamestart((uint8_t)*p))  {
+                     enable_interrupts();
+                     error("Function name");
+                 }
                  do { p++; } while(isnamechar(*p));
                  skipspace(p);
                  if(!(isxdigit(p[0]) && isxdigit(p[1]) && isxdigit(p[2]))) {
@@ -1367,8 +1355,11 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                      skipspace(p);
                      n = 0;
                      for(i = 0; i < 8; i++) {
-                         if(!isxdigit(*p)) error("Invalid hex word");
-                         if((int)((char *)realmempointer - (uint32_t)ProgMemory) >= Option.PROG_FLASH_SIZE - 5) error("Not enough memory");
+                         if(!isxdigit(*p)) {
+                            enable_interrupts();
+                            error("Invalid hex word");
+                         }
+                         if((int)((char *)realflashpointer - (uint32_t)PROGSTART) >= Option.PROG_FLASH_SIZE - 5) goto exiterror;
                          n = n << 4;
                          if(*p <= '9')
                              n |= (*p - '0');
@@ -1377,13 +1368,16 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
                          p++;
                      }
 
-                     MemWriteWord(n);
+                     FlashWriteWord(n);
                      skipspace(p);
                  }
                  // we are at the end of a embedded code line
                  while(*p) p++;                                      // make sure that we move to the end of the line
                  p++;                                                // step to the start of the next line
-                 if(*p == 0) error("Missing END declaration");
+                 if(*p == 0) {
+                    enable_interrupts();
+                    error("Missing END declaration");
+                 }
                  if(*p == T_NEWLINE) {
                     CurrentLinePtr = p;
                     p++;                                        // skip the newline token
@@ -1394,9 +1388,8 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
      }
-     MemWriteWord(0xffffffff);                                // make sure that the end of the CFunctions is terminated with an erased word
-     MemWriteClose();                                              // this will flush the buffer and step the flash write pointer to the next word boundary
-    SaveProg();
+     FlashWriteWord(0xffffffff);                                // make sure that the end of the CFunctions is terminated with an erased word
+     FlashWriteClose();                                              // this will flush the buffer and step the flash write pointer to the next word boundary
     if(msg) {                                                       // if requested by the caller, print an informative message
         if(MMCharPos > 1) MMPrintString("\r\n");                    // message should be on a new line
         MMPrintString("Saved ");
@@ -1406,14 +1399,17 @@ void SaveProgramToMemory(unsigned char *pm, int msg) {
     }
     memcpy(tknbuf, buf, STRINGSIZE);                                // restore the token buffer in case there are other commands in it
 //    initConsole();
+    enable_interrupts();
     return;
 
     // we only get here in an error situation while writing the program to flash
-    exiterror1:
-        MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program in flash
-        MemWriteClose();
+    exiterror:
+        FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
+        FlashWriteClose();
+        enable_interrupts();
         error("Not enough memory");
 }
+
 
 #ifdef __cplusplus
 }

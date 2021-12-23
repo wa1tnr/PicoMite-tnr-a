@@ -72,8 +72,8 @@ int StartEditChar = 0;
 
     int OriginalFC, OriginalBC;                                     // the original fore/background colours used by MMBasic
 
-    #define MMputchar           SerUSBPutC
-    #define MMPrintString       SerUSBPutS
+    #define MMputchar           SerialConsolePutC
+    #define MMPrintString       SSPrintString
     #define MX470PutC(c)        DisplayPutC(c)
     #define MX470Scroll(n)      if(Option.DISPLAY_CONSOLE)ScrollLCD(n)
 
@@ -563,7 +563,7 @@ void FullScreenEditor(void) {
                                 MX470Cursor(0, 0);                                // home the cursor
                             #endif
                             BreakKey = BreakKeySave;
-                            if(buf[0] != ESC && TextChanged) SaveProgramToMemory(EdBuff, true);
+                            if(buf[0] != ESC && TextChanged) SaveProgramToFlash(EdBuff, true);
                             if(buf[0] == ESC || buf[0] == CTRLKEY('Q') || buf[0] == F1) return;
                             // this must be save, exit and run.  We have done the first two, now do the run part.
                             ClearRuntime();

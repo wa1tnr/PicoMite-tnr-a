@@ -52,8 +52,6 @@ void ResetAllFlash(void);
 void disable_interrupts(void);
 void enable_interrupts(void);
 void ErrorCheck(int fnbr);
-void SaveProg(void);
-void RestoreProg(void);
 extern int OptionFileErrorAbort;
 struct option_s {
     char Autorun;
@@ -140,6 +138,14 @@ struct option_s {
 extern unsigned char *CFunctionFlash, *CFunctionLibrary;
 extern struct option_s Option;
 extern int FlashLoad;
+extern void ResetOptions(void);
+extern void FlashWriteBlock(void);
+extern void FlashWriteWord(unsigned int i);
+extern void FlashWriteByte(unsigned char b);
+extern void FlashWriteAlign(void);
+extern void FlashWriteClose(void);
+extern volatile uint32_t realflashpointer;
+
 #ifdef __cplusplus
 }
 #endif

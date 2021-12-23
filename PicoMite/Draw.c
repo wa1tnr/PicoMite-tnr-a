@@ -71,6 +71,7 @@ typedef struct _BMPDECODER
     #include "Inconsola.h"
     #include "ArialNumFontPlus.h"
     #include "Font_8x6.h"
+    #include "smallfont.h"
 
     unsigned char *FontTable[FONT_TABLE_SIZE] = {   (unsigned char *)font1,
                                                     (unsigned char *)Misc_12x20_LE,
@@ -79,7 +80,7 @@ typedef struct _BMPDECODER
                                                     (unsigned char *)Inconsola,
                                                     (unsigned char *)ArialNumFontPlus,
 													(unsigned char *)F_6x8_LE,
-													NULL,
+													(unsigned char *)TinyFont,
                                                     NULL,
                                                     NULL,
                                                     NULL,
@@ -98,15 +99,20 @@ int gui_font;
 int gui_fcolour;
 int gui_bcolour;
 int low_y=480, high_y=0, low_x=800, high_x=0;
+int PrintPixelMode=0;
 
-int CurrentX, CurrentY;                                             // the current default position for the next char to be written
+int CurrentX=0, CurrentY=0;                                             // the current default position for the next char to be written
+//int gui_font_width, gui_font_height;
 int DisplayHRes, DisplayVRes;                                       // the physical characteristics of the display
 char * blitbuffptr[MAXBLITBUF];                                  //Buffer pointers for the BLIT command
+int CMM1=0;
 // the MMBasic programming characteristics of the display
 // note that HRes == 0 is an indication that a display is not configured
 int HRes = 0, VRes = 0;
-
+int lastx,lasty;
+const int colourmap[16]={BLACK,BLUE,GREEN,CYAN,RED,MAGENTA,YELLOW,WHITE,MYRTLE,COBALT,MIDGREEN,CERULEAN,RUST,FUCHSIA,BROWN,LILAC};
 // pointers to the drawing primitives
+//void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNotSet;
 void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c) = (void (*)(int , int , int , int , int ))DisplayNotSet;
 void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap) = (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
 void (*ScrollLCD) (int lines) = (void (*)(int ))DisplayNotSet;
@@ -231,7 +237,7 @@ void cmd_guiMX170(void) {
             while(getConsole() < '\r') {
                 DrawCircle(rand() % HRes, rand() % VRes, (rand() % t) + t/5, 1, 1, rgb((rand() % 8)*256/8, (rand() % 8)*256/8, (rand() % 8)*256/8), 1);
             }
-            ClearScreen(gui_bcolour);
+//            ClearScreen(gui_bcolour);
             return;
         }
         if((checkstring(p, "TOUCH"))) {
@@ -341,7 +347,6 @@ int rgb(int r, int g, int b) {
 void DrawPixel(int x, int y, int c) {
     DrawRectangle(x, y, x, y, c);
 }
-
 
 void ClearScreen(int c) {
     DrawRectangle(0, 0, HRes - 1, VRes - 1, c);
@@ -777,6 +782,16 @@ void GUIPrintChar(int fnt, int fc, int bc, char c, int orientation) {
     unsigned char *p, *fp, *np = NULL, *AllocatedMemory = NULL;
     int BitNumber, BitPos, x, y, newx, newy, modx, mody, scale = fnt & 0b1111;
     int height, width;
+    if(PrintPixelMode==1)bc=-1;
+    if(PrintPixelMode==2){
+    	int s=bc;
+    	bc=fc;
+    	fc=s;
+    }
+    if(PrintPixelMode==5){
+    	fc=bc;
+    	bc=-1;
+    }
 
     // to get the +, - and = chars for font 6 we fudge them by scaling up font 1
     if((fnt & 0xf0) == 0x50 && (c == '-' || c == '+' || c == '=')) {

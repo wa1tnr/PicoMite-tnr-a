@@ -30,10 +30,11 @@ extern "C" {
 #define FLASH_TARGET_OFFSET (1024 * 1024)
 
 #define MMFLOAT double
-#define MEMORY_SIZE 160*1024
-#define MAX_PROG_SIZE MEMORY_SIZE/2
-//#define Option.PROG_FLASH_SIZE		80*1024				// size of the program memory (in bytes)
-//#define Option.HEAP_SIZE			80*1024			// size of the heap memory (in bytes)
+#define MEMORY_SIZE (124*1024) 
+#define MAX_PROG_SIZE MEMORY_SIZE
+#define SAVEDVARS_FLASH_SIZE 16384
+#define FLASH_ERASE_SIZE 4096
+#define MAXFLASHSLOTS (((1024*1024)-FLASH_ERASE_SIZE-SAVEDVARS_FLASH_SIZE)/MAX_PROG_SIZE)-1
 #define MAXVARS             512                     // 8 + MAXVARLEN + MAXDIM * 2  (ie, 56 bytes) - these do not incl array members
 #define MAXHASH				MAXVARS/2-1
 
@@ -77,7 +78,6 @@ extern "C" {
 #define SCREENHEIGHT    24                          // this is the default and it can be changed using the OPTION command
 #define CONSOLE_BAUDRATE        115200               // only applies to the serial console
 #define MAXCFUNCTION	20
-#define MAXFLASHSLOTS 10
 #define SAVEDVARS_FLASH_SIZE 16384
 #define FLASH_ERASE_SIZE 4096
 #define MAX_CPU     252000
@@ -122,6 +122,7 @@ extern "C" {
 //#define DO_NOT_RESET (1 << 5)
 //#define HEARTBEAT    (1 << 6)
 #define HEARTBEATpin  43
+#define PROGSTART (FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((MAXFLASHSLOTS) * MAX_PROG_SIZE))
 #ifdef __cplusplus
 }
 #endif

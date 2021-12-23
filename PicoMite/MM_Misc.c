@@ -38,6 +38,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 extern int busfault;
 //#include "pico/stdio_usb/reset_interface.h"
 const char *OrientList[] = {"LANDSCAPE", "PORTRAIT", "RLANDSCAPE", "RPORTRAIT"};
+const char *KBrdList[] = {"", "US", "FR", "GR", "IT", "BE", "UK", "ES" };
 extern const void * const CallTable[];
 struct s_inttbl inttbl[NBRINTERRUPTS];
 unsigned char *InterruptReturn;
@@ -61,6 +62,7 @@ extern struct s_vartbl {                               // structure of the varia
 int TickPeriod[NBRSETTICKS];
 volatile int TickTimer[NBRSETTICKS];
 unsigned char *TickInt[NBRSETTICKS];
+volatile unsigned char TickActive[NBRSETTICKS];
 unsigned char *OnKeyGOSUB = NULL;
 const char *daystrings[] = {"dummy","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"};
 const char *CaseList[] = {"", "LOWER", "UPPER"};
@@ -293,7 +295,7 @@ void cmd_timer(void) {
   timeroffset=mytime-(uint64_t)getint(++cmdline,0,mytime)*1000;
 }
 // this is invoked as a function
-void fun_timer(void) {
+void __not_in_flash_func(fun_timer)(void) {
     fret = (MMFLOAT)(time_us_64()-timeroffset)/1000.0;
     targ = T_NBR;
 }
@@ -1176,8 +1178,17 @@ void fun_day(void) {
         if(i==0)i=7;
         strcpy(sret,daystrings[i]);
     } else {
-//        RtcGetTime();                                   // disable the timer interrupt to prevent any conflicts while updating
-        strcpy(sret,daystrings[day_of_week]);
+        tm->tm_year = year - 1900;
+        tm->tm_mon = month - 1;
+        tm->tm_mday = day;
+        tm->tm_hour = 0;
+        tm->tm_min = 0;
+        tm->tm_sec = 0;
+        time_of_day = timegm(tm);
+        tm=gmtime(&time_of_day);
+        i=tm->tm_wday;
+        if(i==0)i=7;
+        strcpy(sret,daystrings[i]);
     }
     CtoM(sret);
     targ = T_STR;
@@ -1278,14 +1289,20 @@ void cmd_ireturn(void){
 // set up the tick interrupt
 void cmd_settick(void){
     int period;
-    int irq;
+    int irq=0;;
+    int pause=0;
+    char s[STRINGSIZE];
     getargs(&cmdline, 5, ",");
+    strcpy(s,argv[0]);
     if(!(argc == 3 || argc == 5)) error("Argument count");
-    period = getint(argv[0], 0, INT_MAX);
-    if(argc == 5)
-        irq = getint(argv[4], 1, NBRSETTICKS) - 1;
-    else
-        irq = 0;
+    if(argc == 5) irq = getint(argv[4], 1, NBRSETTICKS) - 1;
+    if(strcasecmp(argv[0],"PAUSE")==0){
+        TickActive[irq]=0;
+        return;
+    } else if(strcasecmp(argv[0],"RESUME")==0){
+        TickActive[irq]=1;
+        return;
+    } else period = getint(argv[0], -1, INT_MAX);
     if(period == 0) {
         TickInt[irq] = NULL;                                        // turn off the interrupt
     } else {
@@ -1293,6 +1310,7 @@ void cmd_settick(void){
         TickInt[irq] = GetIntAddress(argv[2]);                      // get a pointer to the interrupt routine
         TickTimer[irq] = 0;                                         // set the timer running
         InterruptUsed = true;
+        TickActive[irq]=1;
 
     }
 }
@@ -1329,6 +1347,7 @@ void printoptions(void){
         MMPrintString((char *)PinDef[Option.SerialTX].pinname);MMputchar(',',1);
         MMPrintString((char *)PinDef[Option.SerialRX].pinname);PRet();
     }
+    if(Option.CPU_Speed!=125000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
     if(Option.Autorun>0 && Option.Autorun<=10) PO2Int("AUTORUN", Option.Autorun);
     if(Option.Autorun==11)PO2Str("AUTORUN", "ON");
     if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
@@ -1339,7 +1358,7 @@ void printoptions(void){
     if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase]);
     if(Option.Tab != 2) PO2Int("TAB", Option.Tab);
     if(Option.Height != 24 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
-    if(Option.CPU_Speed!=125000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
+    if(Option.KeyboardConfig != NO_KEYBOARD) PO2Str("KEYBOARD", KBrdList[(int)Option.KeyboardConfig]);
     if(Option.SD_CS){
         PO("SDCARD");
         MMPrintString((char *)PinDef[Option.SD_CS].pinname);
@@ -1394,7 +1413,7 @@ void printoptions(void){
     }
     if(Option.RTC)PO2Str("RTC AUTO", "ENABLED");
     if(Option.MaxCtrls)PO2Int("GUI CONTROLS", Option.MaxCtrls);
-    if(Option.PROG_FLASH_SIZE!=80*1024)PO4Int("MEMORY", Option.PROG_FLASH_SIZE>>10, Option.HEAP_SIZE>>10,MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl))>>10);
+    if(Option.PROG_FLASH_SIZE!=MAX_PROG_SIZE)PO4Int("MEMORY", Option.PROG_FLASH_SIZE>>10, Option.HEAP_SIZE>>10,MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl))>>10);
     if(Option.TOUCH_CS) {
         PO("TOUCH"); 
         MMPrintString((char *)PinDef[Option.TOUCH_CS].pinname);MMputchar(',',1);;
@@ -1547,6 +1566,42 @@ void cmd_option(void) {
 		SaveOptions();
 		return;
 	}
+    tp = checkstring(cmdline, "KEYBOARD");
+	if(tp) {
+    	//if(CurrentLinePtr) error("Invalid in a program");
+		if(checkstring(tp, "DISABLE")){
+			Option.KeyboardConfig = NO_KEYBOARD;
+            SaveOptions();
+            _excep_code = RESET_COMMAND;
+            SoftReset();
+		}
+        if(ExtCurrentConfig[KEYBOARD_CLOCK] != EXT_NOT_CONFIG && Option.KeyboardConfig == NO_KEYBOARD)  error("Pin % is in use",KEYBOARD_CLOCK);
+        if(ExtCurrentConfig[KEYBOARD_DATA] != EXT_NOT_CONFIG && Option.KeyboardConfig == NO_KEYBOARD)  error("Pin % is in use",KEYBOARD_DATA);
+        else if(checkstring(tp, "US"))	Option.KeyboardConfig = CONFIG_US;
+		else if(checkstring(tp, "FR"))	Option.KeyboardConfig = CONFIG_FR;
+		else if(checkstring(tp, "GR"))	Option.KeyboardConfig = CONFIG_GR;
+		else if(checkstring(tp, "IT"))	Option.KeyboardConfig = CONFIG_IT;
+		else if(checkstring(tp, "BE"))	Option.KeyboardConfig = CONFIG_BE;
+		else if(checkstring(tp, "UK"))	Option.KeyboardConfig = CONFIG_UK;
+		else if(checkstring(tp, "ES"))	Option.KeyboardConfig = CONFIG_ES;
+        else error("Syntax");
+        SaveOptions();
+        _excep_code = RESET_COMMAND;
+        SoftReset();
+	}
+
+    tp = checkstring(cmdline, "BAUDRATE");
+    if(tp) {
+        if(CurrentLinePtr) error("Invalid in a program");
+        int i;
+        i = getint(tp,Option.CPU_Speed*1000/16/65535,921600);	
+        if(i < 100) error("Number out of bounds");
+        Option.Baudrate = i;
+        SaveOptions();
+        if(!Option.SerialConsole)MMPrintString("Value saved but Serial Console not enabled");
+        else MMPrintString("Restart to activate");                // set the console baud rate
+        return;
+    }
 
     tp = checkstring(cmdline, "SERIAL CONSOLE");
     if(tp) {
@@ -1597,8 +1652,8 @@ void cmd_option(void) {
     tp = checkstring(cmdline, "AUTORUN");
     if(tp) {
         if(checkstring(tp, "OFF"))      { Option.Autorun = 0; SaveOptions(); return;  }
-        if(checkstring(tp, "ON"))      { Option.Autorun = 11; SaveOptions(); return;  }
-        Option.Autorun=getint(tp,0,10);
+        if(checkstring(tp, "ON"))      { Option.Autorun = MAXFLASHSLOTS+1; SaveOptions(); return;  }
+        Option.Autorun=getint(tp,0,MAXFLASHSLOTS);
         SaveOptions(); return; 
     }
 
@@ -1628,30 +1683,7 @@ void cmd_option(void) {
     tp = checkstring(cmdline,"GUI CONTROLS");
     if(tp) {
         getargs(&tp, 1, ",");
-        int maxc=getint(argv[0],0,500);
-        int oldcsize=MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl));
-        int ctrlsize=MRoundUpK2(maxc*sizeof(struct s_ctrl));
-        Option.MaxCtrls=maxc;
-        if(Option.PROG_FLASH_SIZE-(ctrlsize-oldcsize)/2 > 16384 || ctrlsize-oldcsize<=0){
-            Option.PROG_FLASH_SIZE=Option.PROG_FLASH_SIZE-(ctrlsize-oldcsize)/2;
-            Option.HEAP_SIZE=Option.HEAP_SIZE-(ctrlsize-oldcsize)/2;
-        } else {
-            Option.HEAP_SIZE=Option.HEAP_SIZE-(ctrlsize-oldcsize);
-        }
-//        PInt(Option.HEAP_SIZE);PIntComma(Option.PROG_FLASH_SIZE);PIntComma(ctrlsize);PRet();
-        SaveOptions();
-        _excep_code = RESET_COMMAND;
-        SoftReset();
-    }
-    tp = checkstring(cmdline,"MEMORY");
-    if(tp) {
-        getargs(&tp, 1, ",");
-        int ctrlsize=MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl));
-        int progsize=(getint(argv[0],1,(MEMORY_SIZE-ctrlsize)>>11))<<10;
-//        Option.MaxCtrls=maxc;
-        Option.PROG_FLASH_SIZE=progsize;
-        Option.HEAP_SIZE=MEMORY_SIZE-ctrlsize-progsize;
-//        PInt(Option.HEAP_SIZE);PIntComma(Option.PROG_FLASH_SIZE);PIntComma(ctrlsize);PRet();
+        Option.MaxCtrls=getint(argv[0],0,500);
         SaveOptions();
         _excep_code = RESET_COMMAND;
         SoftReset();
@@ -1762,7 +1794,8 @@ void cmd_option(void) {
     if(tp == NULL) tp = checkstring(cmdline, "COLORCODE");
     if(tp) {
         if(checkstring(tp, "ON"))       { Option.ColourCode = true; SaveOptions(); return; }
-        if(checkstring(tp, "OFF"))      { Option.ColourCode = false; SaveOptions(); return;  }
+        else if(checkstring(tp, "OFF"))      { Option.ColourCode = false; SaveOptions(); return;  }
+        else error("Syntax");
     }
 
     tp = checkstring(cmdline, "RTC AUTO");
@@ -1794,12 +1827,12 @@ void cmd_option(void) {
         pin1 = getinteger(argv[0]);
         if(!code)pin1=codemap(pin1);
         if(IsInvalidPin(pin1)) error("Invalid pin");
-        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use",pin1);
         if(!(code=codecheck(argv[2])))argv[2]+=2;
         pin2 = getinteger(argv[2]);
         if(!code)pin2=codemap(pin2);
         if(IsInvalidPin(pin2)) error("Invalid pin");
-        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use",pin2);
         slice=checkslice(pin1,pin2);
         if((PinDef[Option.DISPLAY_BL].slice & 0x7f) == slice) error("Channel in use for backlight");
         Option.AUDIO_L=pin1;
@@ -1810,6 +1843,7 @@ void cmd_option(void) {
         SoftReset();
         return;
     }
+
     tp = checkstring(cmdline, "SYSTEM I2C");
     if(tp) {
         int pin1,pin2,channel=-1;
@@ -1829,12 +1863,12 @@ void cmd_option(void) {
         pin1 = getinteger(argv[0]);
         if(!code)pin1=codemap(pin1);
         if(IsInvalidPin(pin1)) error("Invalid pin");
-        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use",pin1);
         if(!(code=codecheck(argv[2])))argv[2]+=2;
         pin2 = getinteger(argv[2]);
         if(!code)pin2=codemap(pin2);
         if(IsInvalidPin(pin2)) error("Invalid pin");
-        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use",pin2);
         if(PinDef[pin1].mode & I2C0SDA && PinDef[pin2].mode & I2C0SCL)channel=0;
         if(PinDef[pin1].mode & I2C1SDA && PinDef[pin2].mode & I2C1SCL)channel=1;
         if(channel==-1)error("Invalid I2C pins");
@@ -1875,22 +1909,22 @@ void cmd_option(void) {
         pin1 = getinteger(argv[0]);
         if(!code)pin1=codemap(pin1);
         if(IsInvalidPin(pin1)) error("Invalid pin");
-        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use",pin1);
         if(!(code=codecheck(argv[2])))argv[2]+=2;
         pin2 = getinteger(argv[2]);
         if(!code)pin2=codemap(pin2);
         if(IsInvalidPin(pin2)) error("Invalid pin");
-        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use",pin2);
         if(!(code=codecheck(argv[4])))argv[4]+=2;
         pin3 = getinteger(argv[4]);
         if(!code)pin3=codemap(pin3);
         if(IsInvalidPin(pin3)) error("Invalid pin");
-        if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use",pin3);
         if(!(code=codecheck(argv[6])))argv[6]+=2;
         pin4 = getinteger(argv[6]);
         if(!code)pin3=codemap(pin4);
         if(IsInvalidPin(pin4)) error("Invalid pin");
-        if(ExtCurrentConfig[pin4] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin4] != EXT_NOT_CONFIG)  error("Pin % is in use",pin4);
         if(pin1==pin2 || pin1==pin3 || pin1==pin4 || pin2==pin3 || pin2==pin4 || pin3==pin4)error("Pins must be unique");
         Option.INT1pin=pin1;
         Option.INT2pin=pin2;
@@ -1918,17 +1952,17 @@ void cmd_option(void) {
         pin1 = getinteger(argv[0]);
         if(!code)pin1=codemap(pin1);
         if(IsInvalidPin(pin1)) error("Invalid pin");
-        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use",pin1);
         if(!(code=codecheck(argv[2])))argv[2]+=2;
         pin2 = getinteger(argv[2]);
         if(!code)pin2=codemap(pin2);
         if(IsInvalidPin(pin2)) error("Invalid pin");
-        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use",pin2);
         if(!(code=codecheck(argv[4])))argv[4]+=2;
         pin3 = getinteger(argv[4]);
         if(!code)pin3=codemap(pin3);
         if(IsInvalidPin(pin3)) error("Invalid pin");
-        if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use",pin3);
 		if(!(PinDef[pin1].mode & SPI0SCK && PinDef[pin2].mode & SPI0TX  && PinDef[pin3].mode & SPI0RX  ) &&
         !(PinDef[pin1].mode & SPI1SCK && PinDef[pin2].mode & SPI1TX  && PinDef[pin3].mode & SPI1RX  ))error("Not valid SPI pins");
         Option.SYSTEM_CLK=pin1;
@@ -1956,7 +1990,7 @@ void cmd_option(void) {
         pin4 = getinteger(argv[0]);
         if(!code)pin4=codemap(pin4);
         if(IsInvalidPin(pin4)) error("Invalid pin");
-        if(ExtCurrentConfig[pin4] != EXT_NOT_CONFIG)  error("Pin % is in use");
+        if(ExtCurrentConfig[pin4] != EXT_NOT_CONFIG)  error("Pin % is in use",pin4);
         Option.SD_CS=pin4;
         Option.SDspeed=10;
         if(argc>1){
@@ -1964,17 +1998,17 @@ void cmd_option(void) {
             pin1 = getinteger(argv[2]);
             if(!code)pin1=codemap(pin1);
             if(IsInvalidPin(pin1)) error("Invalid pin");
-            if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use");
+            if(ExtCurrentConfig[pin1] != EXT_NOT_CONFIG)  error("Pin % is in use",pin1);
             if(!(code=codecheck(argv[4])))argv[4]+=2;
             pin2 = getinteger(argv[4]);
             if(!code)pin2=codemap(pin2);
             if(IsInvalidPin(pin2)) error("Invalid pin");
-            if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use");
+            if(ExtCurrentConfig[pin2] != EXT_NOT_CONFIG)  error("Pin % is in use",pin2);
             if(!(code=codecheck(argv[6])))argv[6]+=2;
             pin3 = getinteger(argv[6]);
             if(!code)pin3=codemap(pin3);
             if(IsInvalidPin(pin3)) error("Invalid pin");
-            if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use");
+            if(ExtCurrentConfig[pin3] != EXT_NOT_CONFIG)  error("Pin % is in use",pin3);
             Option.SD_CLK_PIN=pin1;
             Option.SD_MOSI_PIN=pin2;
             Option.SD_MISO_PIN=pin3;
@@ -2021,6 +2055,7 @@ void fun_info(void){
 	if(tp){
         if(checkstring(tp, "AUTORUN")){
 			if(Option.Autorun == false)strcpy(sret,"Off");
+            else if(Option.Autorun==MAXFLASHSLOTS+1)strcpy(sret,"On");
 			else {
                 char b[10];
                 IntToStr(b,Option.Autorun,10);
@@ -2138,9 +2173,6 @@ void fun_info(void){
             else strcpy(sret,"On");
         } else if(checkstring(ep, "LCDPANEL")){
             strcpy(sret,display_details[Option.DISPLAY_TYPE].name);
-//        } else if(checkstring(ep, "LCDPANELID")){
-//        	 if(Option.SSDspeed == 1)strcpy(sret,"1");
-//        	  else strcpy(sret,"0");
 
         } else if(checkstring(ep, "TOUCH")){
             if(Option.TOUCH_CS == false)strcpy(sret,"Disabled");
@@ -2564,18 +2596,10 @@ Tick Interrupts (1 to 4 in that order)
 
 // check if an interrupt has occured and if so, set the next command to the interrupt routine
 // will return true if interrupt detected or false if not
-int check_interrupt(void) {
+int checkdetailinterrupts(void) {
     int i, v;
     char *intaddr;
     static char rti[2];
-    if(!(DelayedDrawKeyboard || DelayedDrawFmtBox || calibrate) )ProcessTouch();
-    CheckSDCard();
-//    processgps();
-    if(CheckGuiFlag) CheckGui();                                    // This implements a LED flash
-
-//  if(CFuncInt) CallCFuncInt();                                    // check if the CFunction wants to do anything (see CFunction.c)
-    if(!InterruptUsed) return 0;                                    // quick exit if there are no interrupts set
-    if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0; // skip if we are in an interrupt or in immediate mode
 
     // check for an  ON KEY loc  interrupt
     if(OnKeyGOSUB && kbhitConsole()) {
@@ -2724,7 +2748,15 @@ GotAnInterrupt:
     nextstmt = intaddr;                                             // the next command will be in the interrupt routine
     return 1;
 }
-
+int __not_in_flash_func(check_interrupt)(void) {
+    if(!(DelayedDrawKeyboard || DelayedDrawFmtBox || calibrate) )ProcessTouch();
+    CheckSDCard();
+    if(CheckGuiFlag) CheckGui();                                    // This implements a LED flash
+    if(Option.KeyboardConfig)CheckKeyboard();
+    if(!InterruptUsed) return 0;                                    // quick exit if there are no interrupts set
+    if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0; // skip if we are in an interrupt or in immediate mode
+    return checkdetailinterrupts();
+}
 
 
 // get the address for a MMBasic interrupt
@@ -2742,119 +2774,3 @@ unsigned char *GetIntAddress(unsigned char *p) {
 
     return findline(getinteger(p), true);                           // otherwise try for a line number
 }
-/*void *mymalloc(size_t size){
-	static int32_t heaptop=0;
-	unsigned int *a = malloc(size);
-	if((uint32_t)a+size>heaptop)heaptop=(uint32_t)a+size;
-	if(heaptop+0x100 > __get_MSP()) {
-	    _excep_code = RESTART_HEAP;                            // otherwise do an automatic reset
-		uSec(10000);
-	    SoftReset();                                                // this will restart the processor
-	}
-	return a;
-}
-void fun_json(void){
-    char *json_string=NULL;
-    const cJSON *root = NULL;
-    void *ptr1 = NULL;
-    char *p;
-	int64_t *dest=NULL;
-    MMFLOAT tempd;
-    int i,j,k,mode,index;
-    char field[32],num[6];
-    getargs(&ep, 3, ",");
-    char *a=GetTempMemory(STRINGSIZE);
-    cJSON_Hooks myhooks;
-    ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
-    if(vartbl[VarIndex].type & T_INT) {
-    if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-    if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
-        error("Argument 1 must be integer array");
-    }
-    dest = (long long int *)ptr1;
-    json_string=(char *)&dest[1];
-    } else error("Argument 1 must be integer array");
-    myhooks.malloc_fn = mymalloc;
-    myhooks.free_fn = free;
-    cJSON_InitHooks(&myhooks);
-    cJSON * parse = cJSON_Parse(json_string);
-    if(parse==NULL)error("Invalid JSON data");
-    root=parse;
-    p=getCstring(argv[2]);
-    int len = strlen(p);
-    memset(field,0,32);
-    memset(num,0,6);
-    i=0;j=0;k=0;mode=0;
-    while(i<len){
-        if(p[i]=='['){ //start of index
-            mode=1;
-            field[j]=0;
-            root = cJSON_GetObjectItemCaseSensitive(root, field);
-            memset(field,0,32);
-            j=0;
-        }
-        if(p[i]==']'){
-            num[k]=0;
-            index=atoi(num);
-            root = cJSON_GetArrayItem(root, index);
-            memset(num,0,6);
-            k=0;
-        }
-        if(p[i]=='.'){ //new field separator
-            if(mode==0){
-                field[j]=0;
-                root = cJSON_GetObjectItemCaseSensitive(root, field);
-             memset(field,0,32);
-                j=0;
-            } else { //step past the dot after a close bracket
-                mode=0;
-            }
-        } else  {
-            if(mode==0)field[j++]=p[i];
-            else if(p[i]!='[')num[k++]=p[i];
-        }
-        i++;
-    }
-    root = cJSON_GetObjectItem(root, field);
-
-    if (cJSON_IsObject(root)){
-        cJSON_Delete(parse);
-        error("Not an item");
-        return;
-    }
-    if (cJSON_IsInvalid(root)){
-        cJSON_Delete(parse);
-        error("Not an item");
-        return;
-    }
-    if (cJSON_IsNumber(root))
-    {
-        tempd = root->valuedouble;
-
-        if((MMFLOAT)((int64_t)tempd)==tempd) IntToStr(a,(int64_t)tempd,10);
-        else FloatToStr(a, tempd, 0, STR_AUTO_PRECISION, ' ');   // set the string value to be saved
-        cJSON_Delete(parse);
-        sret=a;
-        sret=CtoM(sret);
-        targ=T_STR;
-        return;
-    }
-    if (cJSON_IsBool(root)){
-        int64_t tempint;
-        tempint=root->valueint;
-        cJSON_Delete(parse);
-        if(tempint)strcpy(sret,"true");
-        else strcpy(sret,"false");
-        sret=CtoM(sret);
-        targ=T_STR;
-        return;
-    }
-    if (cJSON_IsString(root)){
-        strcpy(a,root->valuestring);
-        cJSON_Delete(parse);
-        sret=a;
-        sret=CtoM(sret);
-        targ=T_STR;
-        return;
-    }
-}*/

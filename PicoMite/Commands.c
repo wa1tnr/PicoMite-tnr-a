@@ -82,7 +82,7 @@ int MMerrno;                                                        // the error
 const unsigned int CaseOption = 0xffffffff;	// used to store the case of the listed output
 
 
-void cmd_null(void) {
+void __not_in_flash_func(cmd_null)(void) {
 	// do nothing (this is just a placeholder for commands that have no action)
 }
 
@@ -198,6 +198,8 @@ void cmd_print(void) {
 		}
 	}
 	if(docrlf) MMfputs((unsigned char *)"\2\r\n", fnbr);								// print the terminating cr/lf unless it has been suppressed
+	if(PrintPixelMode!=0)SSPrintString("\033[m");
+	PrintPixelMode=0;
 }
 
 
@@ -470,10 +472,9 @@ void cmd_new(void) {
 	checkend(cmdline);
 	ClearProgram();
 	FlashLoad=0;
-	uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
 	uSec(250000);
 	disable_interrupts();
-	flash_range_erase(j, MAX_PROG_SIZE);
+	flash_range_erase(PROGSTART, MAX_PROG_SIZE);
 	enable_interrupts();
     memset(inpbuf,0,STRINGSIZE);
 	longjmp(mark, 1);							                    // jump back to the input prompt

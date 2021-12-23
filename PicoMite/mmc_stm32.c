@@ -108,7 +108,28 @@ int BacklightChannel=-1;
 #define CMD41  (41)			/* SEND_OP_COND (ACMD) */
 #define CMD55  (55)			/* APP_CMD */
 #define CMD58  (58)			/* READ_OCR */
+unsigned short Compute_CRC16_Simple(const unsigned char message[], const unsigned int length)
+{
+    const unsigned short generator = 0x1021; /* divisor is 16bit */
+    unsigned short crc = 0; /* CRC value is 16bit */
 
+  for (unsigned i = 0; i < length; i++) {
+        crc ^= ((unsigned short)message[i] << 8); /* move byte into MSB of 16bit CRC */
+
+        for (int i = 0; i < 8; i++)
+        {
+            if ((crc & 0x8000) != 0) /* test for MSB = bit 15 */
+            {
+                crc = (unsigned short)((crc << 1) ^ generator);
+            }
+            else
+            {
+                crc <<= 1;
+            }
+        }
+    }
+    return crc;
+} 
 unsigned char CRC7(const unsigned char message[], const unsigned int length) {
   const unsigned char poly = 0b10001001;
   unsigned char crc = 0;
@@ -584,15 +605,19 @@ BYTE send_cmd (
         }
 	}
 	/* Send command packet */
-		xchg_byte(0x40 | cmd);			/* Start + Command index */
-		xchg_byte((BYTE)(arg >> 24));	/* Argument[31..24] */
-		xchg_byte((BYTE)(arg >> 16));	/* Argument[23..16] */
-		xchg_byte((BYTE)(arg >> 8));		/* Argument[15..8] */
-		xchg_byte((BYTE)arg);			/* Argument[7..0] */
-		n = 0x01;						/* Dummy CRC + Stop */
-		if (cmd == CMD0) n = 0x95;		/* Valid CRC for CMD0(0) + Stop */
-		if (cmd == CMD8) n = 0x87;		/* Valid CRC for CMD8(0x1AA) + Stop */
-		xchg_byte(n);
+		BYTE command[6];
+		command[0]=(0x40 | cmd);			// Start + Command index
+		command[1]=(arg >> 24);	// Argument[31..24]
+		command[2]=(arg >> 16);	// Argument[23..16]
+		command[3]=(arg >> 8);		// Argument[15..8]
+		command[4]=(arg);			// Argument[7..0]
+		command[5]=(CRC7(command, 5)<<1) | 1;
+		xchg_byte(command[0]);			/* Start + Command index */
+		xchg_byte(command[1]);	/* Argument[31..24] */
+		xchg_byte(command[2]);	/* Argument[23..16] */
+		xchg_byte(command[3]);		/* Argument[15..8] */
+		xchg_byte(command[4]);			/* Argument[7..0] */
+		xchg_byte(command[5]);
 	/* Receive command response */
 	if (cmd == CMD12) xchg_byte(0xFF);	/* Skip a stuff byte on stop to read */
 	n = 100;							/* Wait for a valid response in timeout of 10 attempts */
@@ -935,6 +960,7 @@ void InitReservedIO(void) {
 		gpio_put(LCD_CD_PIN,GPIO_PIN_SET);
 		gpio_set_dir(LCD_CD_PIN, GPIO_OUT);
 		gpio_init(LCD_CS_PIN);
+		gpio_set_drive_strength(LCD_CS_PIN,GPIO_DRIVE_STRENGTH_12MA);
 		gpio_put(LCD_CS_PIN,Option.DISPLAY_TYPE!=ST7920 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 		gpio_set_dir(LCD_CS_PIN, GPIO_OUT);
 		gpio_init(LCD_Reset_PIN);
@@ -1116,13 +1142,15 @@ void InitReservedIO(void) {
 			SET_SPI_CLK=BitBangSetClk; 
 		}
 		gpio_init(SPI_CLK_PIN);
+		gpio_set_drive_strength(SD_CLK_PIN,GPIO_DRIVE_STRENGTH_12MA);
 		gpio_put(SPI_CLK_PIN,GPIO_PIN_RESET);
 		gpio_set_dir(SPI_CLK_PIN, GPIO_OUT);
-		gpio_set_slew_rate(SPI_CLK_PIN, GPIO_SLEW_RATE_SLOW);
+		gpio_set_slew_rate(SPI_CLK_PIN, GPIO_SLEW_RATE_FAST);
 		gpio_init(SPI_MOSI_PIN);
+		gpio_set_drive_strength(SD_MOSI_PIN,GPIO_DRIVE_STRENGTH_12MA);
 		gpio_put(SPI_MOSI_PIN,GPIO_PIN_RESET);
 		gpio_set_dir(SPI_MOSI_PIN, GPIO_OUT);
-		gpio_set_slew_rate(SPI_MOSI_PIN, GPIO_SLEW_RATE_SLOW);
+		gpio_set_slew_rate(SPI_MOSI_PIN, GPIO_SLEW_RATE_FAST);
 		gpio_init(SPI_MISO_PIN);
 		gpio_set_pulls(SPI_MISO_PIN,true,false);
 		gpio_set_dir(SPI_MISO_PIN, GPIO_IN);
@@ -1135,6 +1163,7 @@ void InitReservedIO(void) {
 		ExtCfg(Option.SD_CS, EXT_BOOT_RESERVED, 0);
 		SD_CS_PIN=PinDef[Option.SD_CS].GPno;
 		gpio_init(SD_CS_PIN);
+		gpio_set_drive_strength(SD_CS_PIN,GPIO_DRIVE_STRENGTH_12MA);
 		gpio_put(SD_CS_PIN,GPIO_PIN_SET);
 		gpio_set_dir(SD_CS_PIN, GPIO_OUT);
 		gpio_set_slew_rate(SD_CS_PIN, GPIO_SLEW_RATE_SLOW);
@@ -1147,13 +1176,15 @@ void InitReservedIO(void) {
 			ExtCfg(Option.SD_MOSI_PIN, EXT_BOOT_RESERVED, 0);
 			ExtCfg(Option.SD_MISO_PIN, EXT_BOOT_RESERVED, 0);
 			gpio_init(SD_CLK_PIN);
+			gpio_set_drive_strength(SD_CLK_PIN,GPIO_DRIVE_STRENGTH_12MA);
 			gpio_put(SD_CLK_PIN,GPIO_PIN_RESET);
 			gpio_set_dir(SD_CLK_PIN, GPIO_OUT);
-			gpio_set_slew_rate(SD_CLK_PIN, GPIO_SLEW_RATE_SLOW);
+			gpio_set_slew_rate(SD_CLK_PIN, GPIO_SLEW_RATE_FAST);
 			gpio_init(SD_MOSI_PIN);
+			gpio_set_drive_strength(SD_MOSI_PIN,GPIO_DRIVE_STRENGTH_12MA);
 			gpio_put(SD_MOSI_PIN,GPIO_PIN_RESET);
 			gpio_set_dir(SD_MOSI_PIN, GPIO_OUT);
-			gpio_set_slew_rate(SD_MOSI_PIN, GPIO_SLEW_RATE_SLOW);
+			gpio_set_slew_rate(SD_MOSI_PIN, GPIO_SLEW_RATE_FAST);
 			gpio_init(SD_MISO_PIN);
 			gpio_set_pulls(SD_MISO_PIN,true,false);
 			gpio_set_dir(SD_MISO_PIN, GPIO_IN);
@@ -1194,6 +1225,7 @@ void InitReservedIO(void) {
 		TOUCH_CS_PIN=PinDef[Option.TOUCH_CS].GPno;
 		TOUCH_IRQ_PIN=PinDef[Option.TOUCH_IRQ].GPno;
 		gpio_init(TOUCH_CS_PIN);
+		gpio_set_drive_strength(TOUCH_CS_PIN,GPIO_DRIVE_STRENGTH_12MA);
 		gpio_put(TOUCH_CS_PIN,GPIO_PIN_SET);
 		gpio_set_dir(TOUCH_CS_PIN, GPIO_OUT);
 		gpio_set_slew_rate(TOUCH_CS_PIN, GPIO_SLEW_RATE_SLOW);
@@ -1218,20 +1250,31 @@ void InitReservedIO(void) {
 		gpio_put(23,GPIO_PIN_RESET);
 		gpio_set_dir(23, GPIO_OUT);
 	}
-
 	if(Option.SerialConsole){
 //		printf("here\r\n");
 		ExtCfg(Option.SerialTX, EXT_BOOT_RESERVED, 0);
 		ExtCfg(Option.SerialRX, EXT_BOOT_RESERVED, 0);
 		gpio_set_function(PinDef[Option.SerialTX].GPno, GPIO_FUNC_UART);
 		gpio_set_function(PinDef[Option.SerialRX].GPno, GPIO_FUNC_UART);		
-		uart_init(Option.SerialConsole==1 ? uart0: uart1, 115200);
+		uart_init(Option.SerialConsole==1 ? uart0: uart1, Option.Baudrate);
 		uart_set_hw_flow(Option.SerialConsole==1 ? uart0: uart1, false, false);
 		uart_set_format(Option.SerialConsole==1 ? uart0: uart1, 8, 1, UART_PARITY_NONE);
 		uart_set_fifo_enabled(Option.SerialConsole==1 ? uart0: uart1,  false);
 		irq_set_exclusive_handler(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ, Option.SerialConsole==1 ? on_uart_irq0 : on_uart_irq1);
 		irq_set_enabled(Option.SerialConsole==1 ? UART0_IRQ : UART1_IRQ, true);
 		uart_set_irq_enables(Option.SerialConsole==1 ? uart0: uart1, true, false);
+	}
+	if(Option.KeyboardConfig!=NO_KEYBOARD){
+		ExtCfg(KEYBOARD_CLOCK, EXT_BOOT_RESERVED, 0);
+    	ExtCfg(KEYBOARD_DATA, EXT_BOOT_RESERVED, 0);
+		gpio_init(PinDef[KEYBOARD_CLOCK].GPno);
+		gpio_set_pulls(PinDef[KEYBOARD_CLOCK].GPno,true,false);
+		gpio_set_dir(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IN);
+		gpio_set_input_hysteresis_enabled(PinDef[KEYBOARD_CLOCK].GPno,true);
+		gpio_init(PinDef[KEYBOARD_DATA].GPno);
+		gpio_set_pulls(PinDef[KEYBOARD_DATA].GPno,true,false);
+		gpio_set_dir(PinDef[KEYBOARD_DATA].GPno, GPIO_IN);
+		gpio_set_input_hysteresis_enabled(PinDef[KEYBOARD_DATA].GPno,true);
 	}
 }
 

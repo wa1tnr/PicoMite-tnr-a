@@ -111,17 +111,25 @@ void fun_mmcharheight(void);
     #define swap(a, b) {int t = a; a = b; b = t;}
 
     #define DRAW_H_INCL
-    #define BLACK               RGB(0,    0,      0)
-    #define BLUE                RGB(0,    0,      255)
-    #define GREEN               RGB(0,    255,    0)
-    #define CYAN                RGB(0,    255,    255)
-    #define RED                 RGB(255,  0,      0)
-    #define MAGENTA             RGB(255,  0,      255)
-    #define YELLOW              RGB(255,  255,    0)
+    #define WHITE               RGB(255,  255,  255) //0b1111
+    #define YELLOW              RGB(255,  255,    0) //0b1110
+    #define LILAC               RGB(255,  128,  255) //0b1101
+    #define BROWN               RGB(255,  128,    0) //0b1100
+    #define FUCHSIA             RGB(255,  64,   255) //0b1011
+    #define RUST                RGB(255,  64,     0) //0b1010
+    #define MAGENTA             RGB(255,  0,    255) //0b1001
+    #define RED                 RGB(255,  0,      0) //0b1000
+    #define CYAN                RGB(0,    255,  255) //0b0111
+    #define GREEN               RGB(0,    255,    0) //0b0110
+    #define CERULEAN            RGB(0,    128,  255) //0b0101 
+    #define MIDGREEN            RGB(0,    128,    0) //0b0100
+    #define COBALT              RGB(0,    64,   255) //0b0011
+    #define MYRTLE              RGB(0,    64,     0) //0b0010
+    #define BLUE                RGB(0,    0,    255) //0b0001
+    #define BLACK               RGB(0,    0,      0) //0b0000
     #define BROWN               RGB(255,  128,    0)
     #define GRAY                RGB(128,  128,    128)
     #define LITEGRAY            RGB(210,  210,    210)
-    #define WHITE               RGB(255,  255,    255)
     #define ORANGE            	RGB(0xff,	0xA5,	0)
 	  #define PINK				        RGB(0xFF,	0xA0,	0xAB)
 	  #define GOLD				        RGB(0xFF,	0xD7,	0x00)
@@ -170,7 +178,6 @@ extern void DrawLine(int x1, int y1, int x2, int y2, int w, int c);
 extern void DrawBox(int x1, int y1, int x2, int y2, int w, int c, int fill);
 extern void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill);
 extern void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect);
-extern void DrawPixel(int x, int y, int c);
 extern void ClearScreen(int c);
 extern void SetFont(int fnt);
 extern void ResetDisplay(void);
@@ -183,13 +190,18 @@ extern void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int 
 extern void (*ScrollLCD) (int lines);
 extern void (*DrawBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
 extern void (*ReadBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
-#define FONT_BUILTIN_NBR     7
+#define FONT_BUILTIN_NBR     8
 #define FONT_TABLE_SIZE      16
+extern void DrawPixel(int x, int y, int c);
 extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
 extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
 extern void GUIPrintString(int x, int y, int fnt, int jh, int jv, int jo, int fc, int bc, char *str);
 extern void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fill) ;
 extern void cmd_guiMX170(void);
 extern unsigned char *FontTable[];
+extern int CurrentX, CurrentY;
+extern uint8_t FrameBuf[38400];
+extern int PrintPixelMode;
+extern int CMM1;
 #endif
 #endif

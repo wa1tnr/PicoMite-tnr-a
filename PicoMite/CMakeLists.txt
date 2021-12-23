@@ -34,12 +34,14 @@ add_executable(PicoMite
             GPS.c
             Audio.c
             CFunction.c
+			Keyboard.c
 )
 Pico_enable_stdio_usb(PicoMite 1)
 pico_enable_stdio_uart(PicoMite 0)
 pico_add_extra_outputs(PicoMite)
 target_compile_options(PicoMite PRIVATE -DPICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE=0)
-target_link_libraries(PicoMite pico_stdlib
+target_link_libraries(PicoMite
+		pico_stdlib
         hardware_flash
         hardware_irq
         hardware_adc
@@ -48,5 +50,4 @@ target_link_libraries(PicoMite pico_stdlib
         hardware_spi
 		hardware_dma
         hardware_exception
-        pico_multicore
 )

@@ -350,7 +350,7 @@ void SerialClose(int comnbr) {
 		if(UART1RXpin!=99)ExtCfg(UART1RXpin, EXT_NOT_CONFIG, 0);
 		if(UART1TXpin!=99)ExtCfg(UART1TXpin, EXT_NOT_CONFIG, 0);
 		if(com2Rx_buf!=NULL){FreeMemory(com2Rx_buf); com2Rx_buf=NULL;}
-		if(com1Tx_buf!=NULL){FreeMemory(com2Tx_buf); com2Tx_buf=NULL;}
+		if(com2Tx_buf!=NULL){FreeMemory(com2Tx_buf); com2Tx_buf=NULL;}
 	}
 }
 
@@ -361,8 +361,12 @@ Add a character to the serial output buffer.
 ****************************************************************************************************/
 unsigned char SerialPutchar(int comnbr, unsigned char c) {
 	if(comnbr == 1) {
+      	while(com1Tx_tail == ((com1Tx_head + 1) % TX_BUFFER_SIZE))    // wait if the buffer is full
+          if(MMAbort) {                                             // allow the user to abort a hung serial port
+              com1Tx_tail = com1Tx_head = 0;                        // clear the buffer
+              longjmp(mark, 1);                                     // and abort
+        }
         int empty=uart_is_writable(uart0);
-		if(com1Tx_tail == ((com1Tx_head + 1) % TX_BUFFER_SIZE)); //wait if buffer full
 		com1Tx_buf[com1Tx_head] = c;							// add the char
 		com1Tx_head = (com1Tx_head + 1) % TX_BUFFER_SIZE;		   // advance the head of the queue
 		if(empty){
@@ -371,8 +375,12 @@ unsigned char SerialPutchar(int comnbr, unsigned char c) {
 		}
 	}
 	else if(comnbr == 2) {
+      	while(com2Tx_tail == ((com2Tx_head + 1) % TX_BUFFER_SIZE))    // wait if the buffer is full
+          if(MMAbort) {                                             // allow the user to abort a hung serial port
+              com2Tx_tail = com2Tx_head = 0;                        // clear the buffer
+              longjmp(mark, 1);                                     // and abort
+        }
         int empty=uart_is_writable(uart1);
-		while(com2Tx_tail == ((com2Tx_head + 1) % TX_BUFFER_SIZE)); //wait if buffer full
 		com2Tx_buf[com2Tx_head] = c;							// add the char
 		com2Tx_head = (com2Tx_head + 1) % TX_BUFFER_SIZE;		   // advance the head of the queue
 		if(empty){

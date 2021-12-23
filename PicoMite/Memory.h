@@ -24,6 +24,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ************************************************************************************************************************/
 
 #include <stddef.h>
+#include "configuration.h"
 
 /**********************************************************************************
  the C language function associated with commands, functions or operators should be
@@ -95,6 +96,7 @@ extern unsigned char *DOS_ProgMemory;
 extern void *ReAllocMemory(void *addr, size_t msize);
 extern void FreeMemorySafe(void **addr);
 extern unsigned char *MMHeap;//=DOS_ProgMemory+Option.PROG_FLASH_SIZE;
+extern unsigned char Memory[MEMORY_SIZE];
 struct s_ctrl {
     short int x1, y1, x2, y2;           // the coordinates of the touch sensitive area
     int fc, bc;                         // foreground and background colours

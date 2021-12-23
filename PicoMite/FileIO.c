@@ -40,7 +40,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 extern const uint8_t *flash_target_contents;
 extern const uint8_t *flash_option_contents;
 extern const uint8_t *SavedVarsFlash;
-extern volatile int autorecover;
+extern const uint8_t *flash_progmemory;
 struct option_s Option;
 int dirflags;
 int GPSfnbr=0;
@@ -64,13 +64,12 @@ volatile union u_flash {
   uint64_t i64[32];
   uint8_t  i8[256];
   uint32_t  i32[64];
-} FlashWord;
-volatile int i8p=0;
+} MemWord;
+volatile int mi8p=0;
 volatile uint32_t realflashpointer;
 int FlashLoad=0;
 unsigned char *CFunctionFlash = NULL;
 unsigned char *CFunctionLibrary = NULL;
-void RestoreProg(void);
 #define SDbufferSize 512
 static char *SDbuffer[MAXOPENFILES+1]={NULL};
 int buffpointer[MAXOPENFILES+1]={0};
@@ -167,20 +166,17 @@ void ErrorThrow(int e) {
 }
 
 void cmd_flash(void){
-    char *p;
+    unsigned char *p;
     if((p = checkstring(cmdline, "ERASE ALL"))) {
+        if(CurrentLinePtr) error("Invalid in program");
         uint32_t j=FLASH_TARGET_OFFSET  + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE;
         uSec(250000);
         disable_interrupts();
-        flash_range_erase(j, MAX_PROG_SIZE*MAXFLASHSLOTS);
+        for(int i=0;i<MAXFLASHSLOTS;i++){
+            uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (i * MAX_PROG_SIZE);
+            flash_range_erase(j, MAX_PROG_SIZE);
+        }
         enable_interrupts();
-/*    } else if((p = checkstring(cmdline, "ERASE BACKUP"))) {
-        if(CurrentLinePtr) error("Invalid in program");
-        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
-        uSec(250000);
-        disable_interrupts();
-        flash_range_erase(j, MAX_PROG_SIZE);
-        enable_interrupts();*/
     } else if((p = checkstring(cmdline, "ERASE"))) {
         if(CurrentLinePtr) error("Invalid in program");
         int i=getint(p,1,MAXFLASHSLOTS);
@@ -189,9 +185,6 @@ void cmd_flash(void){
         disable_interrupts();
         flash_range_erase(j, MAX_PROG_SIZE);
         enable_interrupts();
-/*    } else if((p = checkstring(cmdline, "RESTORE BACKUP"))) {
-        if(CurrentLinePtr) error("Invalid in program");
-        RestoreProg();*/
     } else if((p = checkstring(cmdline, "OVERWRITE"))) {
         if(CurrentLinePtr) error("Invalid in program");
         int i=getint(p,1,MAXFLASHSLOTS);
@@ -203,69 +196,111 @@ void cmd_flash(void){
         j=(Option.PROG_FLASH_SIZE>>2);
         uSec(250000);
         int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-        while(j--)if(*pp++ != 0xFFFFFFFF)error("Already programmed");
+        while(j--)if(*pp++ != 0xFFFFFFFF){
+            error("Erase error");
+        }
         disable_interrupts();
-        flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE), ProgMemory, Option.PROG_FLASH_SIZE);
+        uint8_t *q=ProgMemory;
+        uint8_t *writebuff = GetTempMemory(4096);
+        for(int k=0; k<MAX_PROG_SIZE; k+=4096){
+            for(int j=0;j<4096;j++)writebuff[j]=*q++;
+            flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE + k), writebuff, 4096);
+        }
         enable_interrupts();
     } else if((p = checkstring(cmdline, "LIST"))) {
         int j,i,k;
         int *pp;
-        for(i=1;i<=10;i++){
-            k=0;
-            j=Option.PROG_FLASH_SIZE>>2;
-            pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-            while(j--)if(*pp++ != 0xFFFFFFFF){
-                char buff[STRINGSIZE]={0};
-                MMPrintString("Slot ");
-                PInt(i);
-                MMPrintString(" in use");
-                pp--;
-                if((unsigned char)*pp == T_NEWLINE){
-                    MMPrintString(": \"");
-                    llist(buff, (unsigned char *)pp); 
-                    MMPrintString(buff);
-                    MMPrintString("\"\r\n");
-                } else MMPrintString("\r\n");
-                k=1;
-                break;
-            }
-            if(k==0){
-                MMPrintString("Slot ");
-                PInt(i);
-                MMPrintString(" available\r\n");
-            }
-        } 
+        getargs(&p,3,",");
+        if(argc){
+            int i=getint(argv[0],1,MAXFLASHSLOTS);
+            ProgMemory=(char *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
+            if(argc==1)ListProgram((char *)ProgMemory, false);
+            else if(argc==3 && checkstring(argv[2], "ALL")) {
+            	ListProgram((char *)ProgMemory, true);
+            } else error("Syntax");
+            ProgMemory=Memory;
+        } else {
+            for(i=1;i<=MAXFLASHSLOTS;i++){
+                k=0;
+                j=Option.PROG_FLASH_SIZE>>2;
+                pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
+                while(j--)if(*pp++ != 0xFFFFFFFF){
+                    char buff[STRINGSIZE]={0};
+                    MMPrintString("Slot ");
+                    PInt(i);
+                    MMPrintString(" in use");
+                    pp--;
+                    if((unsigned char)*pp == T_NEWLINE){
+                        MMPrintString(": \"");
+                        llist(buff, (unsigned char *)pp); 
+                        MMPrintString(buff);
+                        MMPrintString("\"\r\n");
+                    } else MMPrintString("\r\n");
+                    k=1;
+                    break;
+                }
+                if(k==0){
+                    MMPrintString("Slot ");
+                    PInt(i);
+                    MMPrintString(" available\r\n");
+                }
+            } 
+        }
     } else if((p = checkstring(cmdline, "SAVE"))) {
-        int j=(Option.PROG_FLASH_SIZE>>2),i=getint(p,1,MAXFLASHSLOTS);
+        if(CurrentLinePtr) error("Invalid in program");
+        int i=getint(p,1,MAXFLASHSLOTS);
+        uint32_t *c=(uint32_t *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
+        if(*c !=0xFFFFFFFF)error("Already programmed");;
+        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE);
+        uSec(250000);
+        disable_interrupts();
+        flash_range_erase(j, MAX_PROG_SIZE);
+        enable_interrupts();
+        j=(Option.PROG_FLASH_SIZE>>2);
         uSec(250000);
         int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-        while(j--)if(*pp++ != 0xFFFFFFFF)error("Already programmed");
+        while(j--)if(*pp++ != 0xFFFFFFFF){
+            error("Erase error");
+        }
         disable_interrupts();
-        flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE), ProgMemory, Option.PROG_FLASH_SIZE);
+        uint8_t *q=ProgMemory;
+        uint8_t *writebuff = GetTempMemory(4096);
+        for(int k=0; k<MAX_PROG_SIZE; k+=4096){
+            for(int j=0;j<4096;j++)writebuff[j]=*q++;
+            flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE + k), writebuff, 4096);
+        }
         enable_interrupts();
     } else if((p = checkstring(cmdline, "LOAD"))) {
+        if(CurrentLinePtr) error("Invalid in program");
         int j=(Option.PROG_FLASH_SIZE>>2),i=getint(p,1,MAXFLASHSLOTS);
-        int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-        int *qq=(int *)ProgMemory;
-        while(j--)*qq++ = *pp++;
-        FlashLoad=i;
-        SaveProg();
+        disable_interrupts();
+        flash_range_erase(PROGSTART, MAX_PROG_SIZE);
+        enable_interrupts();
+        j=(Option.PROG_FLASH_SIZE>>2);
+        uSec(250000);
+        int *pp=(int *)flash_progmemory;
+        while(j--)if(*pp++ != 0xFFFFFFFF){
+            error("Erase error");
+        }
+        disable_interrupts();
+        uint8_t *q=(uint8_t *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
+        uint8_t *writebuff = GetTempMemory(4096);
+        for(int k=0; k<MAX_PROG_SIZE; k+=4096){
+            for(int j=0;j<4096;j++)writebuff[j]=*q++;
+            flash_range_program((PROGSTART + k), writebuff, 4096);
+        }
+        enable_interrupts();
+        FlashLoad=0;
     } else if((p = checkstring(cmdline, "CHAIN"))) {
         if(!CurrentLinePtr) error("Invalid at command prompt");
-        int j=(Option.PROG_FLASH_SIZE>>2),i=getint(p,1,MAXFLASHSLOTS);
-        int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-        int *qq=(int *)ProgMemory;
-        while(j--)*qq++ = *pp++;
+        int i=getint(p,1,MAXFLASHSLOTS);
+        ProgMemory=(char *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
         FlashLoad=i;
 	    PrepareProgram(true);
         nextstmt = (unsigned char *)ProgMemory;
     } else if((p = checkstring(cmdline, "RUN"))) {
-        int j=(Option.PROG_FLASH_SIZE>>2),i=getint(p,1,MAXFLASHSLOTS);
-        int *pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
-        int *qq=(int *)ProgMemory;
-        while(j--)*qq++ = *pp++;
-        FlashLoad=i;
-        SaveProg();
+        int i=getint(p,1,MAXFLASHSLOTS);
+        ProgMemory=(char *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
     	ClearRuntime();
 	    PrepareProgram(true);
         nextstmt = (unsigned char *)ProgMemory;
@@ -566,7 +601,7 @@ int FileLoadProgram(unsigned char *fname) {
     *p = 0;                                                         // terminate the string in RAM
     FileClose(fnbr);
     ClearSavedVars();                                               // clear any saved variables
-    SaveProgramToMemory(buf, false);
+    SaveProgramToFlash(buf, false);
     return true;
 }
 
@@ -602,27 +637,6 @@ void cmd_load(void) {
         nextstmt = ProgMemory;
     }
 }
-
-
-/*void cmd_load(void) {
-    if(CurrentLinePtr) error("Invalid in a program");
-    strcpy((char *)LastFile, (char *)GetFileName(cmdline, NULL));	                // get the file name and save into LastFile
-    if(*LastFile == 0) error("Cannot find file");
-	if(strchr((char *)LastFile, '.') == NULL) strcat((char *)LastFile, ".BAS");
-	ClearProgram();								                    // clear the program space
-	mergefile(LastFile, ProgMemory);						                // load
-	ProgramChanged = true;
-	longjmp(mark, 1);							                    // jump back to the input prompt
-}*/
-
-char fullpathname[FF_MAX_LFN];
-char fullfilepathname[FF_MAX_LFN];
-typedef struct sa_dlist {
-    char from[STRINGSIZE];
-    char to[STRINGSIZE];
-} a_dlist;
-a_dlist *dlist;
-
 
 char __not_in_flash_func(FileGetChar)(int fnbr) {
     char ch;
@@ -810,7 +824,7 @@ int BasicFileOpen(char *fname, int fnbr, int mode) {
         return true;
 }
 
-#define MAXFILES 200
+#define MAXFILES 1000
 typedef struct ss_flist {
     char fn[FF_MAX_LFN];
     int fs;
@@ -857,7 +871,7 @@ void cmd_files(void) {
   char *p, *q;
   int fcnt;
   char ts[STRINGSIZE] = "";
-  s_flist *flist;
+  static s_flist *flist=NULL;
     static DIR djd;
     static FILINFO fnod;
   if(CurrentLinePtr) error("Invalid in a program");
@@ -869,6 +883,8 @@ void cmd_files(void) {
       p = "*";
 
     if(!InitSDCard()) error((char *)FErrorMsg[1]);                  // setup the SD card
+    if(flist)FreeMemorySafe((void *)&flist);
+    ClearVars(0);
     flist=GetMemory(sizeof(s_flist)*MAXFILES);
      // print the current directory
     q = GetCWD();
@@ -982,7 +998,6 @@ void cmd_autosave(void) {
         else
             error("Syntax");
     }
-    autorecover=1;
     ClearProgram();                                                 // clear any leftovers from the previous program
     p = buf = GetMemory(EDIT_BUFFER_SIZE);
     CrunchData(&p, 0);                                              // initialise the crunch data subroutine
@@ -1008,7 +1023,7 @@ void cmd_autosave(void) {
     *p = 0;                                                         // terminate the string in RAM
     while(getConsole() != -1);                                      // clear any rubbish in the input
 //    ClearSavedVars();                                               // clear any saved variables
-    SaveProgramToMemory(buf, true);
+    SaveProgramToFlash(buf, true);
     FreeMemory(buf);
 }
 
@@ -1208,7 +1223,7 @@ void cmd_close(void) {
             }
   }
 }
-void CheckSDCard(void) {
+void __not_in_flash_func(CheckSDCard)(void) {
     if(Option.SD_CS==0)return;
     if(CurrentlyPlaying == P_NOTHING){
         if(diskchecktimer== 0) {
@@ -1233,11 +1248,11 @@ void LoadOptions(void) {
     while(i--)*qq++ = *pp++;
 }
 
-void ResetAllFlash(void) {
+void ResetOptions(void){
     disable_sd();
-//    disable_audio();
-//    disable_touch();
-//    disable_LCD();
+    disable_audio();
+    disable_systemi2c();
+    disable_systemspi();
     memset((void *)&Option.Autorun,0,512);
     Option.Autorun=0;
     Option.Height = SCREENHEIGHT;
@@ -1246,10 +1261,8 @@ void ResetAllFlash(void) {
     Option.DefaultFont = 0x01;
     Option.DefaultBrightness = 100;
     Option.MaxCtrls = 101;
-//    Option.ProgFlashSize = Option.PROG_FLASH_SIZE;
-    Option.DefaultFC = WHITE;
     Option.Baudrate = CONSOLE_BAUDRATE;
-    Option.CPU_Speed=125000;
+    Option.CPU_Speed=126000;
     Option.SD_CS=0;
     Option.SYSTEM_MOSI=0;
     Option.SYSTEM_MISO=0;
@@ -1257,6 +1270,7 @@ void ResetAllFlash(void) {
     Option.AUDIO_L=0;
     Option.AUDIO_R=0;
     Option.AUDIO_SLICE=99;
+    Option.DISPLAY_CONSOLE=1;
     Option.SDspeed=10;
     Option.DISPLAY_TYPE = 0;
     Option.DISPLAY_ORIENTATION = 0;
@@ -1280,8 +1294,8 @@ void ResetAllFlash(void) {
     Option.RTC_Data = 0;
     Option.RTC=0;
     Option.PWM=0;
-    Option.PROG_FLASH_SIZE=80*1024;
-    Option.HEAP_SIZE=80*1024;
+    Option.PROG_FLASH_SIZE=MAX_PROG_SIZE;
+    Option.HEAP_SIZE=MAX_PROG_SIZE;
     Option.MaxCtrls=0;
     Option.INT1pin=9;
     Option.INT2pin=10;
@@ -1290,53 +1304,60 @@ void ResetAllFlash(void) {
     Option.SD_CLK_PIN=0;
     Option.SD_MOSI_PIN=0;
     Option.SD_MISO_PIN=0;
+    Option.ColourCode=0;
+    Option.KeyboardConfig = NO_KEYBOARD;
     memset(Option.F5key,0,sizeof(Option.F5key));
     memset(Option.F6key,0,sizeof(Option.F6key));
     memset(Option.F7key,0,sizeof(Option.F7key));
     memset(Option.F8key,0,sizeof(Option.F8key));
     memset(Option.F9key,0,sizeof(Option.F9key));
     SaveOptions();
-    uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((10) * MAX_PROG_SIZE);
     uSec(250000);
+}
+void ResetAllFlash(void) {
+    ClearSavedVars();
+    ResetOptions();
     disable_interrupts();
-    flash_range_erase(j, MAX_PROG_SIZE);
+    flash_range_erase(PROGSTART, MAX_PROG_SIZE);
     enable_interrupts();
 }
 void FlashWriteBlock(void){
     int i;
     uint32_t address=realflashpointer-256;
-    uint8_t *there = (uint8_t *)address+XIP_BASE;
-    if(address % 256)error("Flash write address");
-    for(i=0;i<256;i++){
-    	if(there[i]!=0xFF) error("flash not erased");
-    }
-    disable_interrupts();
-    flash_range_program(address , (const uint8_t *)&FlashWord.i8[0], 256);
-    enable_interrupts();
-
-	for(i=0;i<64;i++)FlashWord.i32[i]=0xFFFFFFFF;
+//    if(address % 32)error("Memory write address");
+    flash_range_program((const uint32_t)address,(const char*)&MemWord.i64[0],256);
+	for(i=0;i<64;i++)MemWord.i32[i]=0xFFFFFFFF;
 }
-// write a byte to flash
-// this will buffer four bytes so that the write to flash can be a word
 void FlashWriteByte(unsigned char b) {
 	realflashpointer++;
-	FlashWord.i8[i8p]=b;
-	i8p++;
-	i8p %= 256;
-	if(i8p==0){
+	MemWord.i8[mi8p]=b;
+	mi8p++;
+	mi8p %= 256;
+	if(mi8p==0){
 		FlashWriteBlock();
 	}
 }
+void FlashWriteWord(unsigned int i) {
+	FlashWriteByte(i & 0xFF);
+	FlashWriteByte((i>>8) & 0xFF);
+	FlashWriteByte((i>>16) & 0xFF);
+	FlashWriteByte((i>>24) & 0xFF);
+}
 
-
-
-// flush any bytes in the buffer to flash
-void FlashWriteClose(void) {
-	  while(i8p != 0) {
-		  FlashWriteByte(0xff);
+void FlashWriteAlign(void) {
+	  while(mi8p != 0) {
+		  FlashWriteByte(0x0);
 	  }
 }
 
+
+
+void FlashWriteClose(void){
+	  while(mi8p != 0) {
+		  FlashWriteByte(0xff);
+	  }
+
+}
 
 /*******************************************************************************************************************
  The variables are stored in a reserved flash area (which in total is 2K).
@@ -1521,38 +1542,4 @@ void SaveOptions(void){
     disable_interrupts();
     flash_range_program(FLASH_TARGET_OFFSET , (const uint8_t *)&Option, 512);
     enable_interrupts();
-    uSec(10000);
- }
- void SaveProg(void){
-        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
-        uSec(250000);
-        disable_interrupts();
-        flash_range_erase(j, MAX_PROG_SIZE);
-        enable_interrupts();
-        j=(Option.PROG_FLASH_SIZE>>2);
-        uSec(250000);
-        int *pp=(int *)(flash_target_contents+MAXFLASHSLOTS*MAX_PROG_SIZE);
-        while(j--)if(*pp++ != 0xFFFFFFFF)error("Flash erase problem");
-        disable_interrupts();
-        flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE), ProgMemory, Option.PROG_FLASH_SIZE);
-        enable_interrupts();
-
- }
- void RestoreProg(void){
-    int j=(Option.PROG_FLASH_SIZE>>2);
-    int *pp=(int *)(flash_target_contents+MAXFLASHSLOTS*MAX_PROG_SIZE);
-    char *p=(char *)pp;
-    if(*p==1){
-        int *qq=(int *)ProgMemory;
-        while(j--)*qq++ = *pp++;
-    } else {
-        if(*p!=0xff){
-            uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (MAXFLASHSLOTS * MAX_PROG_SIZE);
-            uSec(250000);
-            disable_interrupts();
-            flash_range_erase(j, MAX_PROG_SIZE);
-            enable_interrupts();
-        }
-//        error("Nothing to restore");
-    }
- }
+}

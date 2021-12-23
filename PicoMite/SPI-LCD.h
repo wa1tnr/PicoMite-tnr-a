@@ -258,13 +258,14 @@ extern void set_cs(void);
 #define ST7789A         12
 #define ST7789B         13
 #define ILI9488W        14
-#define N5110			15
+#define GC9A01          15
+#define N5110			16
 #define BufferedPanel	N5110
-#define SSD1306SPI      16
-#define ST7920			17
-#define GDEH029A1		18
-#define TOUCH           19
-#define ILI9488Read     20
+#define SSD1306SPI      17
+#define ST7920			18
+#define GDEH029A1		19
+#define TOUCH           20
+#define ILI9488Read     21
 #define DISP_USER       25
 #define TFT_NOP 0x00
 #define TFT_SWRST 0x01
@@ -297,7 +298,47 @@ extern void set_cs(void);
 #define TFT_MAD_GS 0x01
 
 #define TFT_IDXRD 0x00 // ILI9341 only, indexed control register read
+#define GC9A01_TFTWIDTH 240
+#define GC9A01_TFTHEIGHT 240
 
+#define GC9A01_RST_DELAY 120    ///< delay ms wait for reset finish
+#define GC9A01_SLPIN_DELAY 120  ///< delay ms wait for sleep in finish
+#define GC9A01_SLPOUT_DELAY 120 ///< delay ms wait for sleep out finish
+
+#define GC9A01_NOP 0x00
+#define GC9A01_SWRESET 0x01
+#define GC9A01_RDDID 0x04
+#define GC9A01_RDDST 0x09
+
+#define GC9A01_SLPIN 0x10
+#define GC9A01_SLPOUT 0x11
+#define GC9A01_PTLON 0x12
+#define GC9A01_NORON 0x13
+
+#define GC9A01_INVOFF 0x20
+#define GC9A01_INVON 0x21
+#define GC9A01_DISPOFF 0x28
+#define GC9A01_DISPON 0x29
+
+#define GC9A01_CASET 0x2A
+#define GC9A01_RASET 0x2B
+#define GC9A01_RAMWR 0x2C
+#define GC9A01_RAMRD 0x2E
+
+#define GC9A01_PTLAR 0x30
+#define GC9A01_COLMOD 0x3A
+#define GC9A01_MADCTL 0x36
+
+#define GC9A01_MADCTL_MY 0x80
+#define GC9A01_MADCTL_MX 0x40
+#define GC9A01_MADCTL_MV 0x20
+#define GC9A01_MADCTL_ML 0x10
+#define GC9A01_MADCTL_RGB 0x00
+
+#define GC9A01_RDID1 0xDA
+#define GC9A01_RDID2 0xDB
+#define GC9A01_RDID3 0xDC
+#define GC9A01_RDID4 0xDD
 
 #define LANDSCAPE       1
 #define PORTRAIT        2

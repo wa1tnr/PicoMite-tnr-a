@@ -49,6 +49,7 @@ extern struct s_vartbl {                               // structure of the varia
     }  __attribute__ ((aligned (8))) val;
 } __attribute__ ((aligned (8))) s_vartbl_val;
 extern const uint8_t *SavedVarsFlash;
+extern const uint8_t *flash_progmemory;
 
 // memory management parameters
 
@@ -56,8 +57,9 @@ extern const uint8_t *SavedVarsFlash;
 // this is simple memory management because DOS has plenty of memory
 unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
 unsigned char *DOS_ProgMemory=Memory;
+unsigned char __attribute__ ((aligned (32))) CTRLS[500 * sizeof(struct s_ctrl)];
 unsigned char *MMHeap;//=DOS_ProgMemory+Option.PROG_FLASH_SIZE;
-struct s_ctrl *Ctrl;
+struct s_ctrl *Ctrl=NULL;
 unsigned char  DOS_vartbl[MAXVARS * sizeof(struct s_vartbl)];
 //unsigned char MMHeap[Option.HEAP_SIZE];
 unsigned int mmap[(sizeof(Memory)/PAGESIZE) / PAGESPERWORD];
@@ -423,21 +425,17 @@ void m_alloc(int type) {
     switch(type) {
         case M_PROG:    // this is called initially in InitBasic() to set the base pointer for program memory
                         // everytime the program size is adjusted up or down this must be called to check for memory overflow
-                        ProgMemory = Memory;
-                        memset(ProgMemory,0xFF,Option.PROG_FLASH_SIZE);
-                        MMHeap=ProgMemory+Option.PROG_FLASH_SIZE;  
+                        ProgMemory = (uint8_t *)flash_progmemory;
+                        MMHeap=Memory;  
                         memset(MMHeap,0,Option.HEAP_SIZE);
-                        ProgMemory[0] = ProgMemory[1] = ProgMemory[3] = ProgMemory[4] = 0;
-                        if(Option.MaxCtrls) Ctrl=(struct s_ctrl *)(MMHeap+Option.HEAP_SIZE);
+                        if(Option.MaxCtrls) Ctrl=(struct s_ctrl *)CTRLS;
                         else Ctrl=NULL;
                         break;
                         
         case M_VAR:     // this must be called to initialises the variable memory pointer
                         // everytime the variable table is increased this must be called to verify that enough memory is free
                         vartbl = (struct s_vartbl *)DOS_vartbl;
-//#if defined use_hash
                         memset(vartbl,0,MAXVARS * sizeof(struct s_vartbl));
-//#endif
                         break;
     }
 }
@@ -505,7 +503,9 @@ void __not_in_flash_func(ClearSpecificTempMemory)(void *addr) {
 
 
 // test the stack for overflow - this is a NULL function in the DOS version
-void TestStackOverflow(void) {}
+void TestStackOverflow(void) {
+
+}
 
 
 

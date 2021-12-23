@@ -29,7 +29,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 void xmodemTransmit(char *p, int fnbr);
 void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch);
 int FindFreeFileNbr(void);
-extern volatile int autorecover;
 
 
 void cmd_xmodem(void) {
@@ -60,7 +59,7 @@ void cmd_xmodem(void) {
         if(rcv) {
             xmodemReceive(buf, EDIT_BUFFER_SIZE, 0, crunch);
             ClearSavedVars();                                       // clear any saved variables
-            SaveProgramToMemory(buf, true);
+            SaveProgramToFlash(buf, true);
         } else {
             // we must copy program memory into RAM expanding tokens as we go
             fromp  = ProgMemory;
@@ -112,9 +111,7 @@ int _inbyte(int timeout) {
 
 
 // for the MX470 we don't want any XModem data echoed to the LCD panel
-//#if defined(MX470)
-//#define putConsole(c) SerUSBPutC(c)
-//#endif
+#define MMputchar(c,d) SerialConsolePutC(c,d)
 
 
 /***********************************************************************************************
@@ -174,7 +171,6 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
     unsigned char packetno = 1;
     int i, c;
     int retry, retrans = MAXRETRANS;
-    autorecover=1;
     CrunchData((unsigned char **)&sp, 0);                                         // initialise the crunch subroutine
 
         // first establish communication with the remote
@@ -204,9 +200,9 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
             }
         }
         flushinput();
-        MMputchar(CAN,1);;
-        MMputchar(CAN,1);;
-        MMputchar(CAN,1);;
+        MMputchar(CAN,1);
+        MMputchar(CAN,1);
+        MMputchar(CAN,1);
         error("Remote did not respond");                            // no sync
 
     start_recv:
@@ -243,17 +239,17 @@ void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch) {
             }
             if (--retrans <= 0) {
                 flushinput();
-                MMputchar(CAN,1);;
-                MMputchar(CAN,1);;
-                MMputchar(CAN,1);;
+                MMputchar(CAN,1);
+                MMputchar(CAN,1);
+                MMputchar(CAN,1);
                 error("Too many errors");
             }
-            MMputchar(ACK,1);;
+            MMputchar(ACK,1);
             continue;
         }
     reject:
         flushinput();
-        MMputchar(NAK,1);;
+        MMputchar(NAK,1);
     }
 }
 

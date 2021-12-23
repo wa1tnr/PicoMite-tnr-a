@@ -67,7 +67,6 @@ void fun_epoch(void);
 void fun_datetime(void);
 void fun_json(void);
 void cmd_update(void);
-//void fun_backup(void);
 
 #endif
 
@@ -97,7 +96,6 @@ void cmd_update(void);
 	{ (unsigned char *)"CSub",           T_CMD,              0, cmd_cfunction},
 	{ (unsigned char *)"End CSub",       T_CMD,              0, cmd_null     },
 	{ (unsigned char *)"Update Firmware",       T_CMD,              0, cmd_update     },
-//	{ (unsigned char *)"Test",			T_CMD,				0, cmd_test 	},
 
 #endif
 
@@ -160,7 +158,7 @@ void cmd_update(void);
     extern int TickPeriod[NBRSETTICKS];
     extern volatile int TickTimer[NBRSETTICKS];
     extern unsigned char *TickInt[NBRSETTICKS];
-
+	extern volatile unsigned char TickActive[NBRSETTICKS];
 	extern unsigned int CurrentCpuSpeed;
 	extern unsigned int PeripheralBusSpeed;
 	extern unsigned char *OnKeyGOSUB;
@@ -168,5 +166,8 @@ void cmd_update(void);
 	extern unsigned int GetPeekAddr(unsigned char *p);
 	extern unsigned int GetPokeAddr(unsigned char *p);
 	extern void disable_sd(void);
+	extern void disable_systemspi(void);
+	extern void disable_systemi2c(void);
+	extern void disable_audio(void);
 #endif
 #endif

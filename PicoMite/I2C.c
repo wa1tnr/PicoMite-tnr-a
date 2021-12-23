@@ -351,14 +351,15 @@ int DoRtcI2C(int addr) {
 
 
 void RtcGetTime(void) {
-    char buff[7];                                                   // Received data is stored here
+    char *buff=GetTempMemory(STRINGSIZE);                                                   // Received data is stored here
     int DS1307;
 	if(I2C0locked){
 		I2C_Sendlen = 1;                                                // send one byte
 		I2C_Rcvlen = 0;
-		*I2C_Send_Buffer = 0;                                           // the first register to read
+		I2C_Status = 0;
+		I2C_Send_Buffer[0] = 0;                                           // the first register to read
 		if(!(DS1307 = DoRtcI2C(0x68))) {
-			*I2C_Send_Buffer = 2;                                       // the first register is different for the PCF8563
+			I2C_Send_Buffer[0] = 2;                                       // the first register is different for the PCF8563
 			if(!DoRtcI2C(0x51)) goto error_exit;
 		}
 		I2C_Rcvbuf_String = buff;                                       // we want a string of bytes
@@ -370,9 +371,10 @@ void RtcGetTime(void) {
 	} else {
 		I2C2_Sendlen = 1;                                                // send one byte
 		I2C2_Rcvlen = 0;
-		*I2C2_Send_Buffer = 0;                                           // the first register to read
+		I2C2_Status = 0;
+		I2C2_Send_Buffer[0] = 0;                                           // the first register to read
 		if(!(DS1307 = DoRtcI2C(0x68))) {
-			*I2C2_Send_Buffer = 2;                                       // the first register is different for the PCF8563
+			I2C2_Send_Buffer[0] = 2;                                       // the first register is different for the PCF8563
 			if(!DoRtcI2C(0x51)) goto error_exit;
 		}
 		I2C2_Rcvbuf_String = buff;                                       // we want a string of bytes
@@ -474,7 +476,6 @@ void cmd_rtc(void) {
 			}
 		} else {
 			if(argc == 1) {
-				// single argument - assume the data is in DATETIME2 format used by GUI FORMATBOX
 				// single argument - assume the data is in DATETIME2 format used by GUI FORMATBOX
 				p = getCstring(argv[0]);
 				if(!(p[2] == '/' || p[2] == '-' )|| !(p[11] == ':' || p[13] == ':')) error("Date/time format");
@@ -810,6 +811,9 @@ void i2cReceive(unsigned char *p) {
 	addr = getinteger(argv[0]);
 	i2c_options = getint(argv[2],0,1);
 	I2C_Status = 0;
+    I2C_Rcvbuf_Float = NULL;
+    I2C_Rcvbuf_Int = NULL;
+    I2C_Rcvbuf_String = NULL;
 	if(i2c_options & 0x01) I2C_Status = I2C_Status_BusHold;
 	I2C_Addr = addr;
 	rcvlen = getinteger(argv[4]);
@@ -836,13 +840,10 @@ void i2cReceive(unsigned char *p) {
                 error("Insufficient space in array");
         }
         I2C_Rcvbuf_Int = (long long int *)ptr;
-        I2C_Rcvbuf_Float = NULL;
     } else if(vartbl[VarIndex].type & T_STR) {
         if(vartbl[VarIndex].dims[0] != 0) error("Invalid variable");
         *(char *)ptr = rcvlen;
         I2C_Rcvbuf_String = (char *)ptr + 1;
-        I2C_Rcvbuf_Float = NULL;
-        I2C_Rcvbuf_Int = NULL;
     } else error("Invalid variable");
 	I2C_Rcvlen = rcvlen;
 
@@ -859,6 +860,12 @@ void i2cReceiveSlave(unsigned char *p, int channel) {
     MMFLOAT *rcvdlenFloat=NULL;
 	long long int *rcvdlenInt=NULL;
 	int count=1;
+    I2C_Rcvbuf_Float = NULL;
+    I2C_Rcvbuf_Int = NULL;
+    I2C_Rcvbuf_String = NULL;
+    I2C2_Rcvbuf_Float = NULL;
+    I2C2_Rcvbuf_Int = NULL;
+    I2C2_Rcvbuf_String = NULL;
 	getargs(&p, 5, ",");
 	if(argc != 5) error("Invalid syntax");
 	if(!((I2C_Status & I2C_Status_Slave && channel==0) || (I2C2_Status & I2C_Status_Slave && channel==1)))error("I2C slave not open");
@@ -885,13 +892,10 @@ void i2cReceiveSlave(unsigned char *p, int channel) {
                 error("Insufficient space in array");
         }
         I2C_Rcvbuf_Int = (long long int *)ptr;
-        I2C_Rcvbuf_Float = NULL;
     } else if(vartbl[VarIndex].type & T_STR) {
         if(vartbl[VarIndex].dims[0] != 0) error("Invalid variable");
         *(char *)ptr = rcvlen;
         I2C_Rcvbuf_String = (char *)ptr + 1;
-        I2C_Rcvbuf_Float = NULL;
-        I2C_Rcvbuf_Int = NULL;
     } else error("Invalid variable");
     ptr = findvar(argv[4], V_FIND);
     if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
@@ -953,6 +957,9 @@ void i2c2Receive(unsigned char *p) {
 	I2C2_Status = 0;
 	if(i2c2_options & 0x01) I2C2_Status = I2C_Status_BusHold;
 	I2C2_Addr = addr;
+    I2C2_Rcvbuf_Float = NULL;
+    I2C2_Rcvbuf_Int = NULL;
+    I2C2_Rcvbuf_String = NULL;
 	rcvlen = getinteger(argv[4]);
 	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
 
@@ -977,13 +984,10 @@ void i2c2Receive(unsigned char *p) {
                 error("Insufficient space in array");
         }
         I2C2_Rcvbuf_Int = (long long int *)ptr;
-        I2C2_Rcvbuf_Float = NULL;
     } else if(vartbl[VarIndex].type & T_STR) {
         if(vartbl[VarIndex].dims[0] != 0) error("Invalid variable");
         *(char *)ptr = rcvlen;
         I2C2_Rcvbuf_String = (char *)ptr + 1;
-        I2C2_Rcvbuf_Float = NULL;
-        I2C2_Rcvbuf_Int = NULL;
     } else error("Invalid variable");
 	I2C2_Rcvlen = rcvlen;
 
@@ -1094,7 +1098,7 @@ Send and/or Receive data - master mode
 ***************************************************************************************************/
 void i2c_masterCommand(int timer) {
 //	unsigned char start_type,
-	unsigned char i,i2caddr=I2C_Addr,*I2C_Rcv_Buffer=GetTempMemory(STRINGSIZE);
+	unsigned char i,i2caddr=I2C_Addr;
 	if(I2C_Sendlen){
 		int i2cret=i2c_write_timeout_us(i2c0, (uint8_t)i2caddr, (uint8_t *)I2C_Send_Buffer, I2C_Sendlen,(I2C_Status == I2C_Status_BusHold ? true:false), I2C_Timeout*1000);
 		mmI2Cvalue=0;
@@ -1102,6 +1106,7 @@ void i2c_masterCommand(int timer) {
 		if(i2cret==PICO_ERROR_TIMEOUT)mmI2Cvalue=2;
 	}
 	if(I2C_Rcvlen){
+		unsigned char *I2C_Rcv_Buffer=GetTempMemory(STRINGSIZE);
 		int i2cret=i2c_read_timeout_us(i2c0, (uint8_t)i2caddr, (uint8_t *)I2C_Rcv_Buffer, I2C_Rcvlen, (I2C_Status == I2C_Status_BusHold ? true:false), I2C_Timeout*1000);
 		mmI2Cvalue=0;
 		if(i2cret==PICO_ERROR_GENERIC)mmI2Cvalue=1;
@@ -1125,16 +1130,15 @@ void i2c_masterCommand(int timer) {
 
 void i2c2_masterCommand(int timer) {
 //	unsigned char start_type,
-	unsigned char i,i2c2addr=I2C2_Addr,*I2C2_Rcv_Buffer=GetTempMemory(STRINGSIZE);
+	unsigned char i,i2c2addr=I2C2_Addr;
 	if(I2C2_Sendlen){
-//		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)i2c2addr, I2C2_Send_Buffer, I2C2_Sendlen, I2C2_Timeout);
 		int i2cret=i2c_write_timeout_us(i2c1, (uint8_t)i2c2addr, (uint8_t *)I2C2_Send_Buffer, I2C2_Sendlen,(I2C2_Status == I2C_Status_BusHold ? true:false), I2C2_Timeout*1000);
 		mmI2Cvalue=0;
 		if(i2cret==PICO_ERROR_GENERIC)mmI2Cvalue=1;
 		if(i2cret==PICO_ERROR_TIMEOUT)mmI2Cvalue=2;
 	}
 	if(I2C2_Rcvlen){
-//		mmI2Cvalue=HAL_I2C_Master_Receive(&hi2c2, (uint16_t)i2c2addr, (uint8_t *)I2C2_Rcv_Buffer, I2C2_Rcvlen, I2C2_Timeout);
+		unsigned char *I2C2_Rcv_Buffer=GetTempMemory(STRINGSIZE);
 		int i2cret=i2c_read_timeout_us(i2c1, (uint8_t)i2c2addr, (uint8_t *)I2C2_Rcv_Buffer, I2C2_Rcvlen, (I2C2_Status == I2C_Status_BusHold ? true:false), I2C2_Timeout*1000);
 		mmI2Cvalue=0;
 		if(i2cret==PICO_ERROR_GENERIC)mmI2Cvalue=1;

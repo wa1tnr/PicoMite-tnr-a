@@ -42,6 +42,7 @@ const struct Displays display_details[]={
 		{"ST7789_135", LCD_SPI_SPEED, 240, 135, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7789_320", 20000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9488W", 40000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"GC9A01", LCD_SPI_SPEED, 240, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"N5110", NOKIA_SPI_SPEED, 84, 48, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"SSD1306SPI", LCD_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7920", ST7920_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_HIGH, SPI_PHASE_2EDGE},
@@ -49,7 +50,6 @@ const struct Displays display_details[]={
 		{"", TOUCH_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ILI9488Read", 12000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"ST7789Read", 6000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
@@ -160,6 +160,8 @@ void ConfigDisplaySPI(unsigned char *p) {
         Option.DISPLAY_TYPE = ILI9488W;
     } else if(checkstring(argv[0], "ILI9341")) {
         Option.DISPLAY_TYPE = ILI9341;
+    } else if(checkstring(argv[0], "GC9A01")) {
+        Option.DISPLAY_TYPE = GC9A01;
     } else if(checkstring(argv[0], "N5110")) {
         Option.DISPLAY_TYPE = N5110;
     } else if(checkstring(argv[0], "SSD1306SPI")) {
@@ -495,6 +497,64 @@ void InitDisplaySPI(int InitOnly) {
          }
          break;
 
+    case GC9A01:
+            ResetController();
+			spi_write_command(0xEF);
+			spi_write_cd(0xEB,1,0x14);
+			spi_write_command(0xFE);
+			spi_write_command(0xEF);
+			spi_write_cd(0xEB,1,0x14);
+			spi_write_cd(0x84,1,0x40);
+			spi_write_cd(0x85,1,0xFF);
+			spi_write_cd(0x86,1,0xFF);
+			spi_write_cd(0x87,1,0xFF);
+			spi_write_cd(0x88,1,0x0A);
+			spi_write_cd(0x89,1,0x21);
+			spi_write_cd(0x8A,1,0x00);
+			spi_write_cd(0x8B,1,0x80);
+			spi_write_cd(0x8C,1,0x01);
+			spi_write_cd(0x8D,1,0x01);
+			spi_write_cd(0x8E,1,0xFF);
+			spi_write_cd(0x8F,1,0xFF);
+			spi_write_cd(0xB6,2,0x00,0x20);
+			spi_write_cd(0x3A,1,0x05);
+			spi_write_cd(0x90,4,0x08, 0x08, 0x08, 0x08);
+			spi_write_cd(0xBD,1,0x06);
+			spi_write_cd(0xBC,1,0x00);
+			spi_write_cd(0xFF,3,0x60, 0x01, 0x04);
+			spi_write_cd(0xC3,1,0x13);
+			spi_write_cd(0xC4,1,0x13);
+			spi_write_cd(0xC9,1,0x22);
+			spi_write_cd(0xBE,1,0x11);
+			spi_write_cd(0xE1,2,0x10,0x0E);
+			spi_write_cd(0xDF,3,0x21, 0x0c, 0x02);
+			spi_write_cd(0xF0,6,0x45, 0x09, 0x08, 0x08, 0x26, 0x2A);
+			spi_write_cd(0xF1,6,0x43, 0x70, 0x72, 0x36, 0x37, 0x6F);
+			spi_write_cd(0xF2,6,0x45, 0x09, 0x08, 0x08, 0x26, 0x2A);
+			spi_write_cd(0xF3,6,0x43, 0x70, 0x72, 0x36, 0x37, 0x6F);
+			spi_write_cd(0xED,2,0x1B, 0x0B);
+			spi_write_cd(0xAE,1,0x77);
+			spi_write_cd(0xCD,1,0x63);
+			spi_write_cd(0x70,9, 0x07, 0x07, 0x04, 0x0E, 0x0F, 0x09, 0x07, 0x08, 0x03);
+			spi_write_cd(0xE8,1,0x34);
+			spi_write_cd(0x62,12, 0x18, 0x0D, 0x71, 0xED, 0x70, 0x70, 0x18, 0x0F, 0x71, 0xEF, 0x70, 0x70);
+			spi_write_cd(0x63,12, 0x18, 0x11, 0x71, 0xF1, 0x70, 0x70, 0x18, 0x13, 0x71, 0xF3, 0x70, 0x70);
+			spi_write_cd(0x64,7, 0x28, 0x29, 0xF1, 0x01, 0xF1, 0x00, 0x07);
+			spi_write_cd(0x66,10, 0x3C, 0x00, 0xCD, 0x67, 0x45, 0x45, 0x10, 0x00, 0x00, 0x00);
+			spi_write_cd(0x67,10, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x01, 0x54, 0x10, 0x32, 0x98);
+			spi_write_cd(0x74,7, 0x10, 0x85, 0x80, 0x00, 0x00, 0x4E, 0x00);
+			spi_write_cd(0x98,2,0x3e, 0x07);
+			spi_write_command(0x35);
+			spi_write_command(GC9A01_SLPOUT);
+			uSec(10000);
+			spi_write_command(GC9A01_DISPON);
+         switch(Option.DISPLAY_ORIENTATION) {
+             case LANDSCAPE:     spi_write_cd(GC9A01_MADCTL,1,0x08); break;
+             case PORTRAIT:      spi_write_cd(GC9A01_MADCTL,1,0x60); break;
+             case RLANDSCAPE:    spi_write_cd(GC9A01_MADCTL,1,0xc8); break;
+             case RPORTRAIT:     spi_write_cd(GC9A01_MADCTL,1,0xa8); break;
+         }
+         break;
        case ILI9163:
             ResetController();
             spi_write_command(ILI9341_SOFTRESET);                           //software reset
@@ -910,6 +970,10 @@ void DrawRectangleSPI(int x1, int y1, int x2, int y2, int c){
 			col[0]= ((c >> 16) & 0b11111000) | ((c >> 13) & 0b00000111);
 			col[1] = ((c >>  5) & 0b11100000) | ((c >>  3) & 0b00011111);
 		}
+		if(Option.DISPLAY_TYPE == GC9A01){
+			col[0]=~col[0];
+			col[1]=~col[1];
+		}
 		SPIqueue(col);
 	} else {
 		int i,t,y;
@@ -941,6 +1005,10 @@ void DrawRectangleSPI(int x1, int y1, int x2, int y2, int c){
 			p=LCDBuffer;
 			col[0]= ((c >> 16) & 0b11111000) | ((c >> 13) & 0b00000111);
 			col[1] = ((c >>  5) & 0b11100000) | ((c >>  3) & 0b00011111);
+			if(Option.DISPLAY_TYPE == GC9A01){
+				col[0]=~col[0];
+				col[1]=~col[1];
+			}
 			for(t=0;t<i;t+=2){p[t]=col[0];p[t+1]=col[1];}
 			for(t=y1;t<=y2;t++)xmit_byte_multi(p,i);
 		}
@@ -990,6 +1058,12 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
 		b[0] = ((bc >> 16) & 0b11111000) | ((bc >> 13) & 0b00000111);
 		b[1] = ((bc >>  5) & 0b11100000) | ((bc >>  3) & 0b00011111);
 	}
+		if(Option.DISPLAY_TYPE == GC9A01){
+			f[0]=~f[0];
+			b[0]=~b[0];
+			f[1]=~f[1];
+			b[1]=~b[1];
+		}
 
     DefineRegionSPI(XStart, y1, XEnd, YEnd, 1);
 
@@ -999,6 +1073,7 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
         for(j = 0; j < scale; j++) {                                // repeat lines to scale the font
             if(vertCoord++ < 0) continue;                           // we are above the top of the screen
             if(vertCoord > VRes) {                                  // we have extended beyond the bottom of the screen
+    			ClearCS(Option.LCD_CS);                                       //set CS high
                 if(p != NULL) FreeMemory(p);
                 return;
             }
@@ -1111,6 +1186,10 @@ void DrawBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
 		} else {
 			q[0]= ((c.rgb >> 16) & 0b11111000) | ((c.rgb >> 13) & 0b00000111);
 			q[1] = ((c.rgb >>  5) & 0b11100000) | ((c.rgb >>  3) & 0b00011111);
+		}
+		if(Option.DISPLAY_TYPE == GC9A01){
+			q[0]=~q[0];
+			q[1]=~q[1];
 		}
 		SPIqueue(q);
     }
