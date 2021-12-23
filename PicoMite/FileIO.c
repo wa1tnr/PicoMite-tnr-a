@@ -226,7 +226,7 @@ void cmd_flash(void){
                 pp=(int *)(flash_target_contents+(i-1)*MAX_PROG_SIZE);
                 while(j--)if(*pp++ != 0xFFFFFFFF){
                     char buff[STRINGSIZE]={0};
-                    MMPrintString("Slot ");
+                    MMPrintString(" Slot ");
                     PInt(i);
                     MMPrintString(" in use");
                     pp--;
@@ -240,7 +240,7 @@ void cmd_flash(void){
                     break;
                 }
                 if(k==0){
-                    MMPrintString("Slot ");
+                    MMPrintString(" Slot ");
                     PInt(i);
                     MMPrintString(" available\r\n");
                 }
@@ -263,11 +263,11 @@ void cmd_flash(void){
             error("Erase error");
         }
         disable_interrupts();
-        uint8_t *q=ProgMemory;
-        uint8_t *writebuff = GetTempMemory(4096);
-        for(int k=0; k<MAX_PROG_SIZE; k+=4096){
-            for(int j=0;j<4096;j++)writebuff[j]=*q++;
-            flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE + k), writebuff, 4096);
+        uint32_t save=0,*q=(uint32_t *)ProgMemory;
+        uint32_t *writebuff = (uint32_t *)GetTempMemory(4096);
+        for(int k=0; k<MAX_PROG_SIZE; k+=1024){
+            for(int j=0;j<1024;j++)writebuff[j]=*q++;
+            flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE + k), (uint8_t *)writebuff, 4096);
         }
         enable_interrupts();
     } else if((p = checkstring(cmdline, "LOAD"))) {
@@ -1262,7 +1262,7 @@ void ResetOptions(void){
     Option.DefaultBrightness = 100;
     Option.MaxCtrls = 101;
     Option.Baudrate = CONSOLE_BAUDRATE;
-    Option.CPU_Speed=126000;
+    Option.CPU_Speed=125000;
     Option.SD_CS=0;
     Option.SYSTEM_MOSI=0;
     Option.SYSTEM_MISO=0;
@@ -1270,7 +1270,7 @@ void ResetOptions(void){
     Option.AUDIO_L=0;
     Option.AUDIO_R=0;
     Option.AUDIO_SLICE=99;
-    Option.DISPLAY_CONSOLE=1;
+    Option.DISPLAY_CONSOLE=0;
     Option.SDspeed=10;
     Option.DISPLAY_TYPE = 0;
     Option.DISPLAY_ORIENTATION = 0;
@@ -1321,6 +1321,13 @@ void ResetAllFlash(void) {
     flash_range_erase(PROGSTART, MAX_PROG_SIZE);
     enable_interrupts();
 }
+void FlashWriteInit(int region){
+	for(int i=0;i<64;i++)MemWord.i32[i]=0xFFFFFFFF;
+    mi8p=0;
+    if(region==PROGRAM_FLASH)realflashpointer=(uint32_t)PROGSTART;
+    else if(region==SAVED_VARS_FLASH)realflashpointer=(uint32_t)(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE);
+    disable_interrupts();
+}
 void FlashWriteBlock(void){
     int i;
     uint32_t address=realflashpointer-256;
@@ -1348,15 +1355,16 @@ void FlashWriteAlign(void) {
 	  while(mi8p != 0) {
 		  FlashWriteByte(0x0);
 	  }
+	  FlashWriteWord(0xFFFFFFFF);
 }
 
 
 
 void FlashWriteClose(void){
-	  while(mi8p != 0) {
-		  FlashWriteByte(0xff);
-	  }
-
+	while(mi8p != 0) {
+		FlashWriteByte(0xff);
+	}
+    enable_interrupts();
 }
 
 /*******************************************************************************************************************
@@ -1478,8 +1486,8 @@ void cmd_var(void) {
 
 
         // initialise for writing to the flash
-//        FlashWriteInit(SAVED_VARS_FLASH);
         ClearSavedVars();
+        FlashWriteInit(SAVED_VARS_FLASH);
         // now write the variables in RAM recovered from the var save list
         while(buf < bufp){
         	FlashWriteByte(*buf++);
@@ -1529,8 +1537,7 @@ void cmd_var(void) {
 void ClearSavedVars(void) {
     uSec(250000);
     disable_interrupts();
-    realflashpointer=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE;
-    flash_range_erase(realflashpointer , SAVEDVARS_FLASH_SIZE);
+    flash_range_erase(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE , SAVEDVARS_FLASH_SIZE);
     enable_interrupts();
 }
 void SaveOptions(void){

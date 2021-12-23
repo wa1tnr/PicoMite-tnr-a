@@ -144,7 +144,11 @@ extern void FlashWriteWord(unsigned int i);
 extern void FlashWriteByte(unsigned char b);
 extern void FlashWriteAlign(void);
 extern void FlashWriteClose(void);
+extern void FlashWriteInit(int region);
 extern volatile uint32_t realflashpointer;
+#define SAVED_OPTIONS_FLASH 4
+#define SAVED_VARS_FLASH 2
+#define PROGRAM_FLASH 1
 
 #ifdef __cplusplus
 }

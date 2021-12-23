@@ -960,6 +960,11 @@ void PFltComma(MMFLOAT n) {
 }
 void sigbus(void){
     MMPrintString("Error: Invalid address - resetting\r\n");
+	uSec(250000);
+	disable_interrupts();
+	flash_range_erase(PROGSTART, MAX_PROG_SIZE);
+	enable_interrupts();
+    memset(inpbuf,0,STRINGSIZE);
     SoftReset();
 }
 
@@ -1135,8 +1140,7 @@ void SaveProgramToFlash(unsigned char *pm, int msg) {
     int nbr, i, j, n, SaveSizeAddr;
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave, retvalue;
     memcpy(buf, tknbuf, STRINGSIZE);                                // save the token buffer because we are going to use it
-    realflashpointer=(uint32_t)PROGSTART;
-    disable_interrupts();
+    FlashWriteInit(PROGRAM_FLASH);
     flash_range_erase(realflashpointer, MAX_PROG_SIZE);
     j=MAX_PROG_SIZE/4;
     int *pp=(int *)(flash_progmemory);
@@ -1326,7 +1330,7 @@ void SaveProgramToFlash(unsigned char *pm, int msg) {
              p--;
          } else {
              endtoken = GetCommandValue("End CSub");
-             FlashWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
+             FlashWriteWord((unsigned int)(p-flash_progmemory));               // if a CFunction/CSub save a relative pointer to the declaration
              fontnbr = 0;
          }
             SaveSizeAddr = realflashpointer;                                // save where we are so that we can write the CFun size in here
@@ -1406,7 +1410,6 @@ void SaveProgramToFlash(unsigned char *pm, int msg) {
     exiterror:
         FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
         FlashWriteClose();
-        enable_interrupts();
         error("Not enough memory");
 }
 

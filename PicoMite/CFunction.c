@@ -44,7 +44,7 @@ extern struct s_vartbl {                               // structure of the varia
 // used by CallCFunction() below to find a CFunction or CSub in program flash or the library
 unsigned int *FindCFunction(unsigned int *p, unsigned char *CmdPtr) {
     while(*p != 0xffffffff) {
-        if(*p++ == (unsigned int)CmdPtr) return p;
+        if(*p++ == (unsigned int)(CmdPtr-ProgMemory)) return p;
         p += (*p + 4) / sizeof(unsigned int);
     }
     return p;

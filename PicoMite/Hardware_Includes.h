@@ -27,7 +27,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
-//#include "hardware/rtc.h"
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
 //#include "pico/multicore.h"
@@ -164,7 +163,7 @@ extern volatile unsigned int GPSTimer;
 extern int AUDIO_L_PIN, AUDIO_R_PIN, AUDIO_SLICE;
 extern uint16_t AUDIO_WRAP;
 extern int PromptFont, PromptFC, PromptBC;                             // the font and colours selected at the prompt
-
+extern const uint8_t *flash_progmemory;
 // console related I/O
 int MMInkey(void);
 int MMgetchar(void);

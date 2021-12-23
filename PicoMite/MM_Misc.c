@@ -2461,7 +2461,7 @@ void cmd_poke(void) {
 // only used by fun_peek() below
 unsigned int GetCFunAddr(int *ip, int i) {
     while(*ip != 0xffffffff) {
-        if(*ip++ == (unsigned int)subfun[i]) {                      // if we have a match
+        if(*ip++ == (unsigned int)(subfun[i]-ProgMemory)) {                      // if we have a match
             ip++;                                                   // step over the size word
             i = *ip++;                                              // get the offset
             return (unsigned int)(ip + i);                          // return the entry point
