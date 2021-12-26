@@ -29,7 +29,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/clocks.h"
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
-//#include "pico/multicore.h"
+#ifdef PICOMITEVGA
+#include "pico/multicore.h"
+#endif
 
 
 
@@ -311,8 +313,10 @@ void UnloadFont(int);
 #include "SPI.h"
 #include "Serial.h"
 #include "SPI-LCD.h"
-#include "Touch.h"
-#include "GUI.h"
+#ifndef PICOMITEVGA
+	#include "Touch.h"
+	#include "GUI.h"
+#endif
 #include "GPS.h"
 #include "Audio.h"
 #include "PS2Keyboard.h"

@@ -1275,6 +1275,7 @@ void cmd_ireturn(void){
     if(LocalIndex)    ClearVars(LocalIndex--);                        // delete any local variables
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
     *CurrentInterruptName = 0;                                        // for static vars we are not in an interrupt
+#ifndef PICOMITEVGA
     if(DelayedDrawKeyboard) {
         DrawKeyboard(1);                                            // the pop-up GUI keyboard should be drawn AFTER the pen down interrupt
         DelayedDrawKeyboard = false;
@@ -1283,6 +1284,7 @@ void cmd_ireturn(void){
         DrawFmtBox(1);                                              // the pop-up GUI keyboard should be drawn AFTER the pen down interrupt
         DelayedDrawFmtBox = false;
     }
+#endif
 }
 
 
@@ -1347,9 +1349,56 @@ void printoptions(void){
         MMPrintString((char *)PinDef[Option.SerialTX].pinname);MMputchar(',',1);
         MMPrintString((char *)PinDef[Option.SerialRX].pinname);PRet();
     }
+#ifdef PICOMITEVGA
+    if(Option.CPU_Speed==252000)PO2Str("CPU", "TURBO ON");
+    if(Option.DISPLAY_TYPE)PO2Str("COLOUR VGA", "ON");
+    if(Option.Height != 40 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
+#else
     if(Option.CPU_Speed!=125000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
-    if(Option.Autorun>0 && Option.Autorun<=10) PO2Int("AUTORUN", Option.Autorun);
-    if(Option.Autorun==11)PO2Str("AUTORUN", "ON");
+    if(Option.DISPLAY_CONSOLE == true) PO2Str("LCDPANEL", "CONSOLE");
+    if(Option.Height != 24 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
+    if(Option.DISPLAY_TYPE == DISP_USER) PO3Int("LCDPANEL USER", DisplayHRes, DisplayVRes);
+    if(Option.DISPLAY_TYPE > I2C_PANEL && Option.DISPLAY_TYPE < DISP_USER) {
+        i=Option.DISPLAY_ORIENTATION;
+        if(Option.DISPLAY_TYPE==ST7789 || Option.DISPLAY_TYPE == ST7789A)i=(i+2) % 4;
+        PO("LCDPANEL"); MMPrintString((char *)display_details[Option.DISPLAY_TYPE].name); MMPrintString(", "); MMPrintString((char *)OrientList[(int)i - 1]);
+        MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_CD].pinname);
+        MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_Reset].pinname);
+        if(Option.DISPLAY_TYPE!=ST7920){
+            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_CS].pinname);
+        }
+        if(Option.DISPLAY_TYPE==GDEH029A1){
+            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.E_INKbusy].pinname);
+        }
+        if(!(Option.DISPLAY_TYPE<=I2C_PANEL || Option.DISPLAY_TYPE>=BufferedPanel ) && Option.DISPLAY_BL){
+            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.DISPLAY_BL].pinname);
+        }
+        if(Option.DISPLAY_TYPE==SSD1306SPI && Option.I2Coffset)PIntComma(Option.I2Coffset);
+        if(Option.DISPLAY_TYPE==N5110 && Option.LCDVOP!=0xC8)PIntComma(Option.LCDVOP);
+        MMPrintString("\r\n");
+    }
+    if(Option.DISPLAY_TYPE > 0 && Option.DISPLAY_TYPE <= I2C_PANEL) {
+        PO("LCDPANEL"); MMPrintString((char *)display_details[Option.DISPLAY_TYPE].name); MMPrintString(", "); MMPrintString((char *)OrientList[(int)i - 1]);
+        if(Option.DISPLAY_TYPE==SSD1306I2C && Option.I2Coffset)PIntComma(Option.I2Coffset);
+        MMPrintString("\r\n");
+    }
+    if(Option.MaxCtrls)PO2Int("GUI CONTROLS", Option.MaxCtrls);
+    if(Option.TOUCH_CS) {
+        PO("TOUCH"); 
+        MMPrintString((char *)PinDef[Option.TOUCH_CS].pinname);MMputchar(',',1);;
+        MMPrintString((char *)PinDef[Option.TOUCH_IRQ].pinname);
+        if(Option.TOUCH_Click) {
+            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.TOUCH_Click].pinname);
+        }
+        MMPrintString("\r\n");
+        if(Option.TOUCH_XZERO != 0 || Option.TOUCH_YZERO != 0) {
+            MMPrintString("GUI CALIBRATE "); PInt(Option.TOUCH_SWAPXY); PIntComma(Option.TOUCH_XZERO); PIntComma(Option.TOUCH_YZERO);
+            PIntComma(Option.TOUCH_XSCALE * 10000); PIntComma(Option.TOUCH_YSCALE * 10000); MMPrintString("\r\n");
+        }
+    }
+#endif
+    if(Option.Autorun>0 && Option.Autorun<=MAXFLASHSLOTS) PO2Int("AUTORUN", Option.Autorun);
+    if(Option.Autorun==MAXFLASHSLOTS+1)PO2Str("AUTORUN", "ON");
     if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
     if(Option.Invert == true) PO2Str("CONSOLE", "INVERT");
     if(Option.Invert == 2) PO2Str("CONSOLE", "AUTO");
@@ -1357,7 +1406,6 @@ void printoptions(void){
     if(Option.PWM == true) PO2Str("POWER PWM", "ON");
     if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase]);
     if(Option.Tab != 2) PO2Int("TAB", Option.Tab);
-    if(Option.Height != 24 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
     if(Option.KeyboardConfig != NO_KEYBOARD) PO2Str("KEYBOARD", KBrdList[(int)Option.KeyboardConfig]);
     if(Option.SD_CS){
         PO("SDCARD");
@@ -1386,47 +1434,8 @@ void printoptions(void){
         MMPrintString((char *)PinDef[Option.AUDIO_R].pinname);MMPrintString(", on PWM channel ");
         PInt(Option.AUDIO_SLICE);MMPrintString("\r\n");
     }
-    if(Option.DISPLAY_TYPE == DISP_USER) PO3Int("LCDPANEL USER", DisplayHRes, DisplayVRes);
-    if(Option.DISPLAY_TYPE > I2C_PANEL && Option.DISPLAY_TYPE < DISP_USER) {
-        i=Option.DISPLAY_ORIENTATION;
-        if(Option.DISPLAY_TYPE==ST7789 || Option.DISPLAY_TYPE == ST7789A)i=(i+2) % 4;
-        PO("LCDPANEL"); MMPrintString((char *)display_details[Option.DISPLAY_TYPE].name); MMPrintString(", "); MMPrintString((char *)OrientList[(int)i - 1]);
-        MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_CD].pinname);
-        MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_Reset].pinname);
-        if(Option.DISPLAY_TYPE!=ST7920){
-            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.LCD_CS].pinname);
-        }
-        if(Option.DISPLAY_TYPE==GDEH029A1){
-            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.E_INKbusy].pinname);
-        }
-        if(!(Option.DISPLAY_TYPE<=I2C_PANEL || Option.DISPLAY_TYPE>=BufferedPanel ) && Option.DISPLAY_BL){
-            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.DISPLAY_BL].pinname);
-        }
-        if(Option.DISPLAY_TYPE==SSD1306SPI && Option.I2Coffset)PIntComma(Option.I2Coffset);
-        if(Option.DISPLAY_TYPE==N5110 && Option.LCDVOP!=0xC8)PIntComma(Option.LCDVOP);
-        MMPrintString("\r\n");
-    }
-    if(Option.DISPLAY_TYPE > 0 && Option.DISPLAY_TYPE <= I2C_PANEL) {
-        PO("LCDPANEL"); MMPrintString((char *)display_details[Option.DISPLAY_TYPE].name); MMPrintString(", "); MMPrintString((char *)OrientList[(int)i - 1]);
-        if(Option.DISPLAY_TYPE==SSD1306I2C && Option.I2Coffset)PIntComma(Option.I2Coffset);
-        MMPrintString("\r\n");
-    }
     if(Option.RTC)PO2Str("RTC AUTO", "ENABLED");
-    if(Option.MaxCtrls)PO2Int("GUI CONTROLS", Option.MaxCtrls);
-    if(Option.PROG_FLASH_SIZE!=MAX_PROG_SIZE)PO4Int("MEMORY", Option.PROG_FLASH_SIZE>>10, Option.HEAP_SIZE>>10,MRoundUpK2(Option.MaxCtrls*sizeof(struct s_ctrl))>>10);
-    if(Option.TOUCH_CS) {
-        PO("TOUCH"); 
-        MMPrintString((char *)PinDef[Option.TOUCH_CS].pinname);MMputchar(',',1);;
-        MMPrintString((char *)PinDef[Option.TOUCH_IRQ].pinname);
-        if(Option.TOUCH_Click) {
-            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.TOUCH_Click].pinname);
-        }
-        MMPrintString("\r\n");
-        if(Option.TOUCH_XZERO != 0 || Option.TOUCH_YZERO != 0) {
-            MMPrintString("GUI CALIBRATE "); PInt(Option.TOUCH_SWAPXY); PIntComma(Option.TOUCH_XZERO); PIntComma(Option.TOUCH_YZERO);
-            PIntComma(Option.TOUCH_XSCALE * 10000); PIntComma(Option.TOUCH_YSCALE * 10000); MMPrintString("\r\n");
-        }
-    }
+
     if(Option.INT1pin!=9 || Option.INT2pin!=10 || Option.INT3pin!=11 || Option.INT4pin!=12){
         PO("COUNT"); MMPrintString((char *)PinDef[Option.INT1pin].pinname);
         MMputchar(',',1);;MMPrintString((char *)PinDef[Option.INT2pin].pinname);
@@ -1438,6 +1447,7 @@ void printoptions(void){
     if(*Option.F7key)PO2Str("F7", Option.F7key);
     if(*Option.F8key)PO2Str("F8", Option.F8key);
     if(*Option.F9key)PO2Str("F9", Option.F9key);
+    if(Option.DefaultFont!=1)PO3Int("DEFAULT FONT",(Option.DefaultFont>>4)+1, Option.DefaultFont & 0xF);
 
 }
 int checkslice(int pin1,int pin2){
@@ -1590,6 +1600,22 @@ void cmd_option(void) {
         SoftReset();
 	}
 
+    tp=checkstring(cmdline, "DEFAULT FONT");
+    if(tp){
+    	getargs(&tp, 3, ",");
+    	int j=1,i=getint(argv[0],1,FONT_BUILTIN_NBR);
+    	if(i==6)error("Invalid default font");
+    	i--;
+    	if(argc==3)j=getint(argv[2],1,4);
+    	Option.DefaultFont=(i<<4) | j ;
+        SaveOptions();
+        SetFont(Option.DefaultFont);
+        memset(inpbuf,0,STRINGSIZE);
+        longjmp(mark,1);
+//        _excep_code = RESET_COMMAND;
+//        SoftReset();
+    }
+
     tp = checkstring(cmdline, "BAUDRATE");
     if(tp) {
         if(CurrentLinePtr) error("Invalid in a program");
@@ -1657,29 +1683,44 @@ void cmd_option(void) {
         SaveOptions(); return; 
     }
 
-    tp = checkstring(cmdline, "CASE");
+#ifdef PICOMITEVGA
+    tp = checkstring(cmdline, "LEGACY");
     if(tp) {
-        if(checkstring(tp, "LOWER"))    { Option.Listcase = CONFIG_LOWER; SaveOptions(); return; }
-        if(checkstring(tp, "UPPER"))    { Option.Listcase = CONFIG_UPPER; SaveOptions(); return; }
-        if(checkstring(tp, "TITLE"))    { Option.Listcase = CONFIG_TITLE; SaveOptions(); return; }
+        if(checkstring(tp, "OFF"))      { CMM1=0; return;  }
+        if(checkstring(tp, "ON"))      { CMM1=1; return;  }
+        error("Syntax");
     }
 
-    tp = checkstring(cmdline, "TAB");
+    tp = checkstring(cmdline, "CPU TURBO");
     if(tp) {
-        if(checkstring(tp, "2"))        { Option.Tab = 2; SaveOptions(); return; }
-		if(checkstring(tp, "3"))		{ Option.Tab = 3; SaveOptions(); return; }
-        if(checkstring(tp, "4"))        { Option.Tab = 4; SaveOptions(); return; }
-        if(checkstring(tp, "8"))        { Option.Tab = 8; SaveOptions(); return; }
+        if(checkstring(tp, "ON")){
+            Option.CPU_Speed = 252000; 
+        }  
+        else if(checkstring(tp, "OFF")) {
+            Option.CPU_Speed = 126000; 
+        }
+        else error("Syntax");
+        SaveOptions();
+        _excep_code = RESET_COMMAND;
+        SoftReset();
     }
-    tp = checkstring(cmdline, "VCC");
+
+    tp = checkstring(cmdline, "COLOUR VGA");
     if(tp) {
-        MMFLOAT f;
-        f = getnumber(tp);
-        if(f > 3.6) error("VCC too high");
-        if(f < 1.8) error("VCC too low");
-        VCC=f;
-        return;
+        if(checkstring(tp, "ON")){
+            Option.DISPLAY_TYPE=1; 
+            Option.DefaultFont=(6<<4) | 1 ;
+        } else if(checkstring(tp, "OFF")) {
+            Option.DISPLAY_TYPE=0;
+            Option.DefaultFont= 1 ;
+        }
+        else error("Syntax");
+        SaveOptions();
+        _excep_code = RESET_COMMAND;
+        SoftReset();
     }
+
+#else
     tp = checkstring(cmdline,"GUI CONTROLS");
     if(tp) {
         getargs(&tp, 1, ",");
@@ -1688,16 +1729,6 @@ void cmd_option(void) {
         _excep_code = RESET_COMMAND;
         SoftReset();
     }
-
-    tp = checkstring(cmdline, "PIN");
-    if(tp) {
-        int i;
-        i = getint(tp, 0, 99999999);
-        Option.PIN = i;
-        SaveOptions();
-        return;
-    }
-
     tp = checkstring(cmdline, "DISPLAY");
     if(tp) {
         getargs(&tp, 3, ",");
@@ -1726,6 +1757,21 @@ void cmd_option(void) {
 		}
 		if(checkstring(tp, "OFF"))		{ Option.Refresh = 0; return; }
 	}
+    if(tp == NULL) tp = checkstring(cmdline, "LCDPANEL CONSOLE");
+    if(tp) {
+        if(checkstring(tp, "ON"))       { 
+        	if(!(Option.DISPLAY_TYPE==ST7789B || Option.DISPLAY_TYPE==ILI9488 || Option.DISPLAY_TYPE==ILI9341))error("Display does not support console");
+        	Option.DISPLAY_CONSOLE = true; 
+        }
+        else if(checkstring(tp, "OFF"))      { 
+        	Option.DISPLAY_CONSOLE = false; 
+        }
+        else error("Syntax");
+        SaveOptions();
+        _excep_code = RESET_COMMAND;
+        SoftReset();
+    }
+
     tp = checkstring(cmdline, "LCDPANEL");
     if(tp) {
         getargs(&tp, 13, ",");
@@ -1741,6 +1787,7 @@ void cmd_option(void) {
             return;
         }
     }
+    
     tp = checkstring(cmdline, "LCDPANEL");
     if(tp) {
     	if(CurrentLinePtr) error("Invalid in a program");
@@ -1748,7 +1795,8 @@ void cmd_option(void) {
             Option.LCD_CD = Option.LCD_CS = Option.LCD_Reset = Option.DISPLAY_TYPE = HRes = VRes = 0;
             DrawRectangle = (void (*)(int , int , int , int , int ))DisplayNotSet;
             DrawBitmap =  (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
-        } else {
+			Option.DISPLAY_CONSOLE = false;
+		} else {
             if(Option.DISPLAY_TYPE && !CurrentLinePtr) error("Display already configured");
             ConfigDisplaySPI(tp);
             if(!Option.DISPLAY_TYPE)ConfigDisplayI2C(tp);
@@ -1773,6 +1821,40 @@ void cmd_option(void) {
         SoftReset();
         return;
   }
+#endif
+    tp = checkstring(cmdline, "CASE");
+    if(tp) {
+        if(checkstring(tp, "LOWER"))    { Option.Listcase = CONFIG_LOWER; SaveOptions(); return; }
+        if(checkstring(tp, "UPPER"))    { Option.Listcase = CONFIG_UPPER; SaveOptions(); return; }
+        if(checkstring(tp, "TITLE"))    { Option.Listcase = CONFIG_TITLE; SaveOptions(); return; }
+    }
+
+    tp = checkstring(cmdline, "TAB");
+    if(tp) {
+        if(checkstring(tp, "2"))        { Option.Tab = 2; SaveOptions(); return; }
+		if(checkstring(tp, "3"))		{ Option.Tab = 3; SaveOptions(); return; }
+        if(checkstring(tp, "4"))        { Option.Tab = 4; SaveOptions(); return; }
+        if(checkstring(tp, "8"))        { Option.Tab = 8; SaveOptions(); return; }
+    }
+    tp = checkstring(cmdline, "VCC");
+    if(tp) {
+        MMFLOAT f;
+        f = getnumber(tp);
+        if(f > 3.6) error("VCC too high");
+        if(f < 1.8) error("VCC too low");
+        VCC=f;
+        return;
+    }
+
+    tp = checkstring(cmdline, "PIN");
+    if(tp) {
+        int i;
+        i = getint(tp, 0, 99999999);
+        Option.PIN = i;
+        SaveOptions();
+        return;
+    }
+
     tp = checkstring(cmdline, "POWER");
     if(tp) {
         if(checkstring(tp, "PWM"))  Option.PWM = true;
@@ -1848,7 +1930,11 @@ void cmd_option(void) {
     if(tp) {
         int pin1,pin2,channel=-1;
         if(checkstring(tp, "DISABLE")){
+#ifdef PICOMITEVGA
+        if(Option.RTC_Clock || Option.RTC_Data)error("In use");
+#else
         if(Option.DISPLAY_TYPE == SSD1306I2C || Option.DISPLAY_TYPE == SSD1306I2C32 || Option.RTC_Clock || Option.RTC_Data)error("In use");
+#endif
             disable_systemi2c();
             SaveOptions();
             _excep_code = RESET_COMMAND;
@@ -1933,6 +2019,7 @@ void cmd_option(void) {
         SaveOptions();
         return;
     }
+#ifndef PICOMITEVGA
     tp = checkstring(cmdline, "SYSTEM SPI");
     if(tp) {
         int pin1,pin2,pin3;
@@ -1973,6 +2060,7 @@ void cmd_option(void) {
         SoftReset();
         return;
     }
+#endif
 	tp = checkstring(cmdline, "SDCARD");
     int pin1, pin2, pin3, pin4;
     if(tp) {
@@ -1982,7 +2070,11 @@ void cmd_option(void) {
             return;                                // this will restart the processor ? only works when not in debug
         }
     	getargs(&tp,7,",");
+#ifdef PICOMITEVGA
+        if(!(argc==7))error("Syntax");
+#else
         if(!(argc==1 || argc==7))error("Syntax");
+#endif
         if(Option.SD_CS)error("SDcard already configured");
         if(argc==1 && !Option.SYSTEM_CLK)error("System SPI not configured");
         unsigned char code;
@@ -2031,7 +2123,11 @@ void cmd_option(void) {
 
 void fun_device(void){
   sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command
+#ifdef PICOMITEVGA
+    strcpy(sret, "PicoMiteVGA");
+#else
     strcpy(sret, "PicoMite");
+#endif
     CtoM(sret);
     targ = T_STR;
 }
@@ -2171,13 +2267,14 @@ void fun_info(void){
         if(checkstring(ep, "AUTORUN")){
             if(Option.Autorun == false)strcpy(sret,"Off");
             else strcpy(sret,"On");
+#ifndef PICOMITEVGA
         } else if(checkstring(ep, "LCDPANEL")){
             strcpy(sret,display_details[Option.DISPLAY_TYPE].name);
-
         } else if(checkstring(ep, "TOUCH")){
             if(Option.TOUCH_CS == false)strcpy(sret,"Disabled");
             else if(Option.TOUCH_XZERO == TOUCH_NOT_CALIBRATED)strcpy(sret,"Not calibrated");
             else strcpy(sret,"Ready");
+#endif
         } else if(checkstring(ep,"ID")){
             strcpy(sret,id_out);
 	    } else if(checkstring(ep, "DEVICE")){
@@ -2393,8 +2490,6 @@ void cmd_poke(void) {
         uint32_t a=GetPokeAddr(p);
         uint8_t *padd=(uint8_t *)(a);
         *padd = getinteger(argv[2]);
-//        padd = (uint8_t *)((uint32_t)padd & 0xFFFFFFE0);
-//        SCB_CleanDCache_by_Addr((uint32_t *)padd, 32);
         return;
     }
     if((p = checkstring(argv[0], "SHORT"))) {
@@ -2403,8 +2498,6 @@ void cmd_poke(void) {
     	if(a % 2)error("Address not divisible by 2");
     	uint16_t *padd=(uint16_t *)(a);
         *padd = getinteger(argv[2]);
- //       padd = (uint16_t *)((uint32_t)padd & 0xFFFFFFE0);
- //       SCB_CleanDCache_by_Addr((uint32_t *)padd, 32);
         return;
     }
 
@@ -2414,8 +2507,6 @@ void cmd_poke(void) {
         if(a % 4)error("Address not divisible by 4");
         uint32_t *padd=(uint32_t *)(a);
         *padd = getinteger(argv[2]);
-//        padd = (uint32_t *)((uint32_t)padd & 0xFFFFFFE0);
-//        SCB_CleanDCache_by_Addr((uint32_t *)padd, 32);
         return;
     }
 
@@ -2425,8 +2516,6 @@ void cmd_poke(void) {
         if(a % 8)error("Address not divisible by 8");
         uint64_t *padd=(uint64_t *)(a);
         *padd = getinteger(argv[2]);
-//        padd = (uint64_t *)((uint32_t)padd & 0xFFFFFFE0);
-//        SCB_CleanDCache_by_Addr((uint32_t *)padd, 32);
         return;
     }
     if((p = checkstring(argv[0], "FLOAT"))) {
@@ -2435,8 +2524,6 @@ void cmd_poke(void) {
         if(a % 8)error("Address not divisible by 8");
         MMFLOAT *padd=(MMFLOAT *)(a);
         *padd = getnumber(argv[2]);
-//        padd = (MMFLOAT *)((uint32_t)padd & 0xFFFFFFE0);
-//        SCB_CleanDCache_by_Addr((uint32_t *)padd, 32);
         return;
     }
 
@@ -2606,6 +2693,7 @@ int checkdetailinterrupts(void) {
         intaddr = OnKeyGOSUB;                                       // set the next stmt to the interrupt location
         goto GotAnInterrupt;
     }
+#ifndef PICOMITEVGA
     if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
         intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
         gui_int_down = false;
@@ -2617,6 +2705,7 @@ int checkdetailinterrupts(void) {
         gui_int_up = false;
         goto GotAnInterrupt;
     }
+#endif
     if(ADCInterrupt && dmarunning){
         if(!dma_channel_is_busy(dma_chan)){
             __compiler_memory_barrier();
@@ -2749,9 +2838,11 @@ GotAnInterrupt:
     return 1;
 }
 int __not_in_flash_func(check_interrupt)(void) {
+#ifndef PICOMITEVGA
     if(!(DelayedDrawKeyboard || DelayedDrawFmtBox || calibrate) )ProcessTouch();
-    CheckSDCard();
     if(CheckGuiFlag) CheckGui();                                    // This implements a LED flash
+#endif
+    CheckSDCard();
     if(Option.KeyboardConfig)CheckKeyboard();
     if(!InterruptUsed) return 0;                                    // quick exit if there are no interrupts set
     if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0; // skip if we are in an interrupt or in immediate mode

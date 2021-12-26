@@ -57,7 +57,9 @@ extern const uint8_t *flash_progmemory;
 // this is simple memory management because DOS has plenty of memory
 unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
 unsigned char *DOS_ProgMemory=Memory;
+#ifndef PICOMITEVGA
 unsigned char __attribute__ ((aligned (32))) CTRLS[500 * sizeof(struct s_ctrl)];
+#endif
 unsigned char *MMHeap;//=DOS_ProgMemory+Option.PROG_FLASH_SIZE;
 struct s_ctrl *Ctrl=NULL;
 unsigned char  DOS_vartbl[MAXVARS * sizeof(struct s_vartbl)];
@@ -428,8 +430,12 @@ void m_alloc(int type) {
                         ProgMemory = (uint8_t *)flash_progmemory;
                         MMHeap=Memory;  
                         memset(MMHeap,0,Option.HEAP_SIZE);
+#ifdef PICOMITEVGA
+						Ctrl=NULL;
+#else
                         if(Option.MaxCtrls) Ctrl=(struct s_ctrl *)CTRLS;
                         else Ctrl=NULL;
+#endif
                         break;
                         
         case M_VAR:     // this must be called to initialises the variable memory pointer

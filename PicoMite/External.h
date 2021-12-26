@@ -77,7 +77,9 @@ void cmd_bitbang(void);
 //	{ (unsigned char *)"WS2812",              T_CMD,			0, cmd_WS2812        },
 //	{ (unsigned char *)"SYNC",              T_CMD,			0, cmd_sync        },
 	{ (unsigned char *)"PWM",		T_CMD,		0, cmd_pwm		},
+#ifndef PICOMITEVGA
 	{ (unsigned char *)"Backlight",		T_CMD,		0, cmd_backlight		},
+#endif
 #endif
 
 

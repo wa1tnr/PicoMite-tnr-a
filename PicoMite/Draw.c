@@ -71,6 +71,9 @@ typedef struct _BMPDECODER
     #include "Inconsola.h"
     #include "ArialNumFontPlus.h"
     #include "Font_8x6.h"
+#ifdef PICOMITEVGA
+    #include "Include.h"
+#endif
     #include "smallfont.h"
 
     unsigned char *FontTable[FONT_TABLE_SIZE] = {   (unsigned char *)font1,
@@ -89,7 +92,6 @@ typedef struct _BMPDECODER
                                                     NULL,
                                                     NULL,
                                                     NULL,
-
                                                 };
 
 /***************************************************************************/
@@ -102,7 +104,9 @@ int low_y=480, high_y=0, low_x=800, high_x=0;
 int PrintPixelMode=0;
 
 int CurrentX=0, CurrentY=0;                                             // the current default position for the next char to be written
-//int gui_font_width, gui_font_height;
+#ifdef PICOMITEVGA
+int gui_font_width, gui_font_height;
+#endif
 int DisplayHRes, DisplayVRes;                                       // the physical characteristics of the display
 char * blitbuffptr[MAXBLITBUF];                                  //Buffer pointers for the BLIT command
 int CMM1=0;
@@ -112,7 +116,9 @@ int HRes = 0, VRes = 0;
 int lastx,lasty;
 const int colourmap[16]={BLACK,BLUE,GREEN,CYAN,RED,MAGENTA,YELLOW,WHITE,MYRTLE,COBALT,MIDGREEN,CERULEAN,RUST,FUCHSIA,BROWN,LILAC};
 // pointers to the drawing primitives
-//void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNotSet;
+#ifdef PICOMITEVGA
+void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNotSet;
+#endif
 void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c) = (void (*)(int , int , int , int , int ))DisplayNotSet;
 void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap) = (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
 void (*ScrollLCD) (int lines) = (void (*)(int ))DisplayNotSet;
@@ -122,11 +128,13 @@ void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fil
 // these are the GUI commands that are common to the MX170 and MX470 versions
 // in the case of the MX170 this function is called directly by MMBasic when the GUI command is used
 // in the case of the MX470 it is called by MX470GUI in GUI.c
+const int colours[16]={0x00,0xFF,0x4000,0x40ff,0x8000,0x80ff,0xff00,0xffff,0xff0000,0xff00FF,0xff4000,0xff40ff,0xff8000,0xff80ff,0xffff00,0xffffff};
 void cmd_guiMX170(void) {
     unsigned char *p;
 
+#ifndef PICOMITEVGA
   if(Option.DISPLAY_TYPE == 0) error("Display not configured");
-
+#endif
     // display a bitmap stored in an integer or string
     if((p = checkstring(cmdline, "BITMAP"))) {
         int x, y, fc, bc, h, w, scale, t, bytes;
@@ -162,11 +170,12 @@ void cmd_guiMX170(void) {
         DrawBitmap(x, y, w, h, scale, fc, bc, (unsigned char *)s);
         return;
     }
+#ifndef PICOMITEVGA
     if((p = checkstring(cmdline, "BEEP"))) {
         if(Option.TOUCH_Click == 0) error("Click option not set");
         ClickTimer = getint(p, 0, INT_MAX) + 1;
       return;
-  }
+  	}
 
     if((p = checkstring(cmdline, "CALIBRATE"))) {
         int tlx, tly, trx, try, blx, bly, brx, bry, midy;
@@ -229,7 +238,7 @@ void cmd_guiMX170(void) {
         }
         return;
     }
-
+#endif
     if((p = checkstring(cmdline, "TEST"))) {
         if((checkstring(p, "LCDPANEL"))) {
             int t;
@@ -237,9 +246,10 @@ void cmd_guiMX170(void) {
             while(getConsole() < '\r') {
                 DrawCircle(rand() % HRes, rand() % VRes, (rand() % t) + t/5, 1, 1, rgb((rand() % 8)*256/8, (rand() % 8)*256/8, (rand() % 8)*256/8), 1);
             }
-//            ClearScreen(gui_bcolour);
+            ClearScreen(gui_bcolour);
             return;
         }
+#ifndef PICOMITEVGA
         if((checkstring(p, "TOUCH"))) {
             int x, y;
             ClearScreen(gui_bcolour);
@@ -251,10 +261,12 @@ void cmd_guiMX170(void) {
             ClearScreen(gui_bcolour);
             return;
         }
+#endif
     }
 
 
     if((p = checkstring(cmdline, "RESET"))) {
+#ifndef PICOMITEVGA
         if((checkstring(p, "LCDPANEL"))) {
             InitDisplaySPI(true);
             InitDisplayI2C(true);
@@ -264,6 +276,7 @@ void cmd_guiMX170(void) {
             }
             return;
         }
+#endif
     }
 
 
@@ -342,12 +355,39 @@ void  getargaddress (unsigned char *p, long long int **ip, MMFLOAT **fp, int *n)
 int rgb(int r, int g, int b) {
     return RGB(r, g, b);
 }
+void getcoord(char *p, int *x, int *y) {
+	unsigned char *tp, *ttp;
+	char b[STRINGSIZE];
+	char savechar;
+	tp = getclosebracket(p);
+	savechar=*tp;
+	*tp = 0;														// remove the closing brackets
+	strcpy(b, p);													// copy the coordinates to the temp buffer
+	*tp = savechar;														// put back the closing bracket
+	ttp = b+1;
+	// kludge (todo: fix this)
+	{
+		getargs(&ttp, 3, ",");										// this is a macro and must be the first executable stmt in a block
+		if(argc != 3) error("Invalid Syntax");
+		*x = getinteger(argv[0]);
+		*y = getinteger(argv[2]);
+	}
+}
 
+int getColour(char *c, int minus){
+	int colour;
+	if(CMM1){
+		colour = getint(c,(minus ? -1: 0),15);
+		if(colour>=0)colour=colourmap[colour];
+	} else colour=getint(c,(minus ? -1: 0),0xFFFFFFF);
+	return colour;
 
+}
+#ifndef PICOMITEVGA
 void DrawPixel(int x, int y, int c) {
     DrawRectangle(x, y, x, y, c);
 }
-
+#endif
 void ClearScreen(int c) {
     DrawRectangle(0, 0, HRes - 1, VRes - 1, c);
 }
@@ -407,12 +447,16 @@ void DrawLine(int x1, int y1, int x2, int y2, int w, int c) {
 
     if(y1 == y2) {
         DrawRectangle(x1, y1, x2, y2 + w - 1, c);                   // horiz line
+#ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
+#endif
         return;
     }
     if(x1 == x2) {
         DrawRectangle(x1, y1, x2 + w - 1, y2, c);                   // vert line
+#ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
+#endif
         return;
     }
     int  dx, dy, sx, sy, err, e2;
@@ -432,7 +476,9 @@ void DrawLine(int x1, int y1, int x2, int y2, int w, int c) {
         }
     }
     DrawBuffered(0, 0, 0, 1);
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
@@ -515,7 +561,9 @@ void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill) {
     DrawRectangle(x1 + radius - 1, y2,  x2 - radius + 1, y2, c);    // botom side
     DrawRectangle(x1, y1 + radius, x1, y2 - radius, c);             // left side
     DrawRectangle(x2, y1 + radius, x2, y2 - radius, c);             // right side
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 
 }
 
@@ -641,7 +689,9 @@ void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect
 	   }
    }
 
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
@@ -768,7 +818,9 @@ void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fil
 	            DrawLine(x2, y2, x0, y0, 1, c);
 	        }
 	    }
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 	}
 }
 
@@ -1009,193 +1061,276 @@ void cmd_text(void) {
     if(argc > 11 && *argv[12]) fc = getint(argv[12], 0, WHITE);
     if(argc ==15) bc = getint(argv[14], -1, WHITE);
     GUIPrintString(x, y, ((font - 1) << 4) | scale, jh, jv, jo, fc, bc, s);
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
 
 void cmd_pixel(void) {
-    int x1, y1, c=0, n=0 ,i, nc=0;
-    long long int *x1ptr, *y1ptr, *cptr;
-    MMFLOAT *x1fptr, *y1fptr, *cfptr;
-    getargs(&cmdline, 5,",");
-    if(!(argc == 3 || argc == 5)) error("Argument count");
-    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
-    if(n != 1) getargaddress(argv[2], &y1ptr, &y1fptr, &n);
-    if(n==1){ //just a single point
-        c = gui_fcolour;                                    // setup the defaults
-        x1 = getinteger(argv[0]);
-        y1 = getinteger(argv[2]);
-        if(argc == 5)
-            c = getint(argv[4], 0, WHITE);
-        else
-            c = gui_fcolour;
-        DrawPixel(x1, y1, c);
-    } else {
-        c = gui_fcolour;                                        // setup the defaults
-        if(argc == 5){
-            getargaddress(argv[4], &cptr, &cfptr, &nc); 
-            if(nc == 1) c = getint(argv[4], 0, WHITE);
-            else if(nc>1) {
-                if(nc < n) n=nc; //adjust the dimensionality
-                for(i=0;i<nc;i++){
-                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-                }
-            }
-        }
-        for(i=0;i<n;i++){
-            x1 = (x1fptr == NULL ? x1ptr[i] : (int)x1fptr[i]);
-            y1 = (y1fptr == NULL ? y1ptr[i] : (int)y1fptr[i]);
-            if(nc > 1) c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-            DrawPixel(x1, y1, c);
-        }
-    }
-    if(Option.Refresh)Display_Refresh();
+	if(CMM1){
+		int x, y, value;
+		getcoord(cmdline, &x, &y);
+		cmdline = getclosebracket(cmdline) + 1;
+		while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
+		if(!*cmdline) error("Invalid syntax");
+		++cmdline;
+		if(!*cmdline) error("Invalid syntax");
+		value = getColour(cmdline,0);
+		DrawPixel(x, y, value);
+		lastx = x; lasty = y;
+	} else {
+	    int x1, y1, c=0, n=0 ,i, nc=0;
+	    long long int *x1ptr, *y1ptr, *cptr;
+	    MMFLOAT *x1fptr, *y1fptr, *cfptr;
+	    getargs(&cmdline, 5,",");
+	    if(!(argc == 3 || argc == 5)) error("Argument count");
+	    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
+	    if(n != 1) getargaddress(argv[2], &y1ptr, &y1fptr, &n);
+	    if(n==1){ //just a single point
+	        c = gui_fcolour;                                    // setup the defaults
+	        x1 = getinteger(argv[0]);
+	        y1 = getinteger(argv[2]);
+	        if(argc == 5)
+	            c = getint(argv[4], 0, WHITE);
+	        else
+	            c = gui_fcolour;
+	        DrawPixel(x1, y1, c);
+	    } else {
+	        c = gui_fcolour;                                        // setup the defaults
+	        if(argc == 5){
+	            getargaddress(argv[4], &cptr, &cfptr, &nc); 
+	            if(nc == 1) c = getint(argv[4], 0, WHITE);
+	            else if(nc>1) {
+	                if(nc < n) n=nc; //adjust the dimensionality
+	                for(i=0;i<nc;i++){
+	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+	                }
+	            }
+	        }
+	        for(i=0;i<n;i++){
+	            x1 = (x1fptr == NULL ? x1ptr[i] : (int)x1fptr[i]);
+	            y1 = (y1fptr == NULL ? y1ptr[i] : (int)y1fptr[i]);
+	            if(nc > 1) c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+	            DrawPixel(x1, y1, c);
+	        }
+	    }
+		}
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
 void cmd_circle(void) {
-    int x, y, r, w=0, c=0, f=0, n=0 ,i, nc=0, nw=0, nf=0, na=0;
-    MMFLOAT a;
-    long long int *xptr, *yptr, *rptr, *fptr, *wptr, *cptr, *aptr;
-    MMFLOAT *xfptr, *yfptr, *rfptr, *ffptr, *wfptr, *cfptr, *afptr;
-    getargs(&cmdline, 13,",");
-    if(!(argc & 1) || argc < 5) error("Argument count");
-    getargaddress(argv[0], &xptr, &xfptr, &n);
-    if(n != 1) {
-        getargaddress(argv[2], &yptr, &yfptr, &n);
-        getargaddress(argv[4], &rptr, &rfptr, &n);
-    }
-    if(n==1){
-        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
-        x = getinteger(argv[0]);
-        y = getinteger(argv[2]);
-        r = getinteger(argv[4]);
-        if(argc > 5 && *argv[6]) w = getint(argv[6], 0, 100);
-        if(argc > 7 && *argv[8]) a = getnumber(argv[8]);
-        if(argc > 9 && *argv[10]) c = getint(argv[10], 0, WHITE);
-        if(argc > 11) f = getint(argv[12], -1, WHITE);
-        int save_refresh=Option.Refresh;
-        Option.Refresh=0;
-        DrawCircle(x, y, r, w, c, f, a);
-        Option.Refresh=save_refresh;
-    } else {
-        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
-        if(argc > 5 && *argv[6]) {
-            getargaddress(argv[6], &wptr, &wfptr, &nw); 
-            if(nw == 1) w = getint(argv[6], 0, 100);
-            else if(nw>1) {
-                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
-                for(i=0;i<nw;i++){
-                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
-                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
-                }
-            }
-        }
-        if(argc > 7 && *argv[8]){
-            getargaddress(argv[8], &aptr, &afptr, &na); 
-            if(na == 1) a = getnumber(argv[8]);
-            if(na > 1 && na < n) n=na; //adjust the dimensionality
-        }
-        if(argc > 9 && *argv[10]){
-            getargaddress(argv[10], &cptr, &cfptr, &nc); 
-            if(nc == 1) c = getint(argv[10], 0, WHITE);
-            else if(nc>1) {
-                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
-                for(i=0;i<nc;i++){
-                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-                }
-            }
-        }
-        if(argc > 11){
-            getargaddress(argv[12], &fptr, &ffptr, &nf); 
-            if(nf == 1) f = getint(argv[12], -1, WHITE);
-            else if(nf>1) {
-                if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
-                for(i=0;i<nf;i++){
-                    f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                    if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-                }
-            }
-        }
-        int save_refresh=Option.Refresh;
-        Option.Refresh=0;
-        for(i=0;i<n;i++){
-            x = (xfptr==NULL ? xptr[i] : (int)xfptr[i]);
-            y = (yfptr==NULL ? yptr[i] : (int)yfptr[i]);
-            r = (rfptr==NULL ? rptr[i] : (int)rfptr[i])-1;
-            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
-            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
-            if(nf > 1) f = (ffptr==NULL ? fptr[i] : (int)ffptr[i]);
-			if(na > 1) a = (afptr==NULL ? (MMFLOAT)aptr[i] : afptr[i]);
-            DrawCircle(x, y, r, w, c, f, a);
-        }
-        Option.Refresh=save_refresh;
-    }
-    if(Option.Refresh)Display_Refresh();
+	if(CMM1){
+		int x, y, radius, colour, fill;
+		float aspect;
+		getargs(&cmdline, 9, ",");
+		if(argc%2 == 0 || argc < 3) error("Invalid syntax");
+		if(*argv[0] != '(') error("Expected opening bracket");
+		if(toupper(*argv[argc - 1]) == 'F') {
+	    	argc -= 2;
+	    	fill = true;
+	    } else fill = false;
+		getcoord(argv[0] , &x, &y);
+		radius = getinteger(argv[2]);
+		if(radius == 0) return;                                         //nothing to draw
+		if(radius < 1) error("Invalid argument");
+		if(argc > 3 && *argv[4])colour = getColour(argv[4],0);
+		else colour = gui_fcolour;
+
+		if(argc > 5 && *argv[6])
+		    aspect = getnumber(argv[6]);
+		else
+		    aspect = 1;
+
+		DrawCircle(x, y, radius, (fill ? 0:1), colour, (fill ? colour : -1), aspect);
+		lastx = x; lasty = y;
+	} else {
+	    int x, y, r, w=0, c=0, f=0, n=0 ,i, nc=0, nw=0, nf=0, na=0;
+	    MMFLOAT a;
+	    long long int *xptr, *yptr, *rptr, *fptr, *wptr, *cptr, *aptr;
+	    MMFLOAT *xfptr, *yfptr, *rfptr, *ffptr, *wfptr, *cfptr, *afptr;
+	    getargs(&cmdline, 13,",");
+	    if(!(argc & 1) || argc < 5) error("Argument count");
+	    getargaddress(argv[0], &xptr, &xfptr, &n);
+	    if(n != 1) {
+	        getargaddress(argv[2], &yptr, &yfptr, &n);
+	        getargaddress(argv[4], &rptr, &rfptr, &n);
+	    }
+	    if(n==1){
+	        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
+	        x = getinteger(argv[0]);
+	        y = getinteger(argv[2]);
+	        r = getinteger(argv[4]);
+	        if(argc > 5 && *argv[6]) w = getint(argv[6], 0, 100);
+	        if(argc > 7 && *argv[8]) a = getnumber(argv[8]);
+	        if(argc > 9 && *argv[10]) c = getint(argv[10], 0, WHITE);
+	        if(argc > 11) f = getint(argv[12], -1, WHITE);
+	        int save_refresh=Option.Refresh;
+	        Option.Refresh=0;
+	        DrawCircle(x, y, r, w, c, f, a);
+	        Option.Refresh=save_refresh;
+	    } else {
+	        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
+	        if(argc > 5 && *argv[6]) {
+	            getargaddress(argv[6], &wptr, &wfptr, &nw); 
+	            if(nw == 1) w = getint(argv[6], 0, 100);
+	            else if(nw>1) {
+	                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
+	                for(i=0;i<nw;i++){
+	                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
+	                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
+	                }
+	            }
+	        }
+	        if(argc > 7 && *argv[8]){
+	            getargaddress(argv[8], &aptr, &afptr, &na); 
+	            if(na == 1) a = getnumber(argv[8]);
+	            if(na > 1 && na < n) n=na; //adjust the dimensionality
+	        }
+	        if(argc > 9 && *argv[10]){
+	            getargaddress(argv[10], &cptr, &cfptr, &nc); 
+	            if(nc == 1) c = getint(argv[10], 0, WHITE);
+	            else if(nc>1) {
+	                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
+	                for(i=0;i<nc;i++){
+	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+	                }
+	            }
+	        }
+	        if(argc > 11){
+	            getargaddress(argv[12], &fptr, &ffptr, &nf); 
+	            if(nf == 1) f = getint(argv[12], -1, WHITE);
+	            else if(nf>1) {
+	                if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
+	                for(i=0;i<nf;i++){
+	                    f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
+	                    if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+	                }
+	            }
+	        }
+	        int save_refresh=Option.Refresh;
+	        Option.Refresh=0;
+	        for(i=0;i<n;i++){
+	            x = (xfptr==NULL ? xptr[i] : (int)xfptr[i]);
+	            y = (yfptr==NULL ? yptr[i] : (int)yfptr[i]);
+	            r = (rfptr==NULL ? rptr[i] : (int)rfptr[i])-1;
+	            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
+	            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
+	            if(nf > 1) f = (ffptr==NULL ? fptr[i] : (int)ffptr[i]);
+				if(na > 1) a = (afptr==NULL ? (MMFLOAT)aptr[i] : afptr[i]);
+	            DrawCircle(x, y, r, w, c, f, a);
+	        }
+	        Option.Refresh=save_refresh;
+	    }
+	}
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
 void cmd_line(void) {
-    int x1, y1, x2, y2, w=0, c=0, n=0 ,i, nc=0, nw=0;
-    long long int *x1ptr, *y1ptr, *x2ptr, *y2ptr, *wptr, *cptr;
-    MMFLOAT *x1fptr, *y1fptr, *x2fptr, *y2fptr, *wfptr, *cfptr;
-    getargs(&cmdline, 11,",");
-    if(!(argc & 1) || argc < 7) error("Argument count");
-    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
-    if(n != 1) {
-        getargaddress(argv[2], &y1ptr, &y1fptr, &n);
-        getargaddress(argv[4], &x2ptr, &x2fptr, &n);
-        getargaddress(argv[6], &y2ptr, &y2fptr, &n);
-    }
-    if(n==1){
-        c = gui_fcolour;  w = 1;                                        // setup the defaults
-        x1 = getinteger(argv[0]);
-        y1 = getinteger(argv[2]);
-        x2 = getinteger(argv[4]);
-        y2 = getinteger(argv[6]);
-        if(argc > 7 && *argv[8]){
-            w = getint(argv[8], 1, 100);
-        }
-        if(argc == 11) c = getint(argv[10], 0, WHITE);
-        DrawLine(x1, y1, x2, y2, w, c);        
-    } else {
-        c = gui_fcolour;  w = 1;                                        // setup the defaults
-        if(argc > 7 && *argv[8]){
-            getargaddress(argv[8], &wptr, &wfptr, &nw); 
-            if(nw == 1) w = getint(argv[8], 0, 100);
-            else if(nw>1) {
-                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
-                for(i=0;i<nw;i++){
-                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
-                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
-                }
-            }
-        }
-        if(argc == 11){
-            getargaddress(argv[10], &cptr, &cfptr, &nc); 
-            if(nc == 1) c = getint(argv[10], 0, WHITE);
-            else if(nc>1) {
-                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
-                for(i=0;i<nc;i++){
-                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-                }
-            }
-        }
-        for(i=0;i<n;i++){
-            x1 = (x1fptr==NULL ? x1ptr[i] : (int)x1fptr[i]);
-            y1 = (y1fptr==NULL ? y1ptr[i] : (int)y1fptr[i]);
-            x2 = (x2fptr==NULL ? x2ptr[i] : (int)x2fptr[i]);
-            y2 = (y2fptr==NULL ? y2ptr[i] : (int)y2fptr[i]);
-            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
-            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
-            DrawLine(x1, y1, x2, y2, w, c);
-        }
-    }
-    if(Option.Refresh)Display_Refresh();
+	if(CMM1){
+		int x1, y1, x2, y2, colour, box, fill;
+		char *p;
+		getargs(&cmdline, 5, ",");
+
+		// check if it is actually a LINE INPUT command
+		if(argc < 1) error("Invalid syntax");
+		x1 = lastx; y1 = lasty; colour = gui_fcolour; box = false; fill = false;	// set the defaults for optional components
+		p = argv[0];
+		if(tokenfunction(*p) != op_subtract) {
+			// the start point is specified - get the coordinates and step over to where the minus token should be
+			if(*p != '(') error("Expected opening bracket");
+			getcoord(p , &x1, &y1);
+			p = getclosebracket(p) + 1;
+			skipspace(p);
+		}
+		if(tokenfunction(*p) != op_subtract) error("Invalid syntax");
+		p++;
+		skipspace(p);
+		if(*p != '(') error("Expected opening bracket");
+		getcoord(p , &x2, &y2);
+		if(argc > 1 && *argv[2]){
+			colour = getColour(argv[2],0);
+		}
+		if(argc == 5) {
+			box = (strchr(argv[4], 'b') != NULL || strchr(argv[4], 'B') != NULL);
+			fill = (strchr(argv[4], 'f') != NULL || strchr(argv[4], 'F') != NULL);
+		}
+		if(box)
+			DrawBox(x1, y1, x2, y2, 1, colour, (fill ? colour : -1));						// draw a box
+		else
+			DrawLine(x1, y1, x2, y2, 1, colour);								// or just a line
+
+		lastx = x2; lasty = y2;											// save in case the user wants the last value
+	} else {
+	    int x1, y1, x2, y2, w=0, c=0, n=0 ,i, nc=0, nw=0;
+	    long long int *x1ptr, *y1ptr, *x2ptr, *y2ptr, *wptr, *cptr;
+	    MMFLOAT *x1fptr, *y1fptr, *x2fptr, *y2fptr, *wfptr, *cfptr;
+	    getargs(&cmdline, 11,",");
+	    if(!(argc & 1) || argc < 7) error("Argument count");
+	    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
+	    if(n != 1) {
+	        getargaddress(argv[2], &y1ptr, &y1fptr, &n);
+	        getargaddress(argv[4], &x2ptr, &x2fptr, &n);
+	        getargaddress(argv[6], &y2ptr, &y2fptr, &n);
+	    }
+	    if(n==1){
+	        c = gui_fcolour;  w = 1;                                        // setup the defaults
+	        x1 = getinteger(argv[0]);
+	        y1 = getinteger(argv[2]);
+	        x2 = getinteger(argv[4]);
+	        y2 = getinteger(argv[6]);
+	        if(argc > 7 && *argv[8]){
+	            w = getint(argv[8], 1, 100);
+	        }
+	        if(argc == 11) c = getint(argv[10], 0, WHITE);
+	        DrawLine(x1, y1, x2, y2, w, c);        
+	    } else {
+	        c = gui_fcolour;  w = 1;                                        // setup the defaults
+	        if(argc > 7 && *argv[8]){
+	            getargaddress(argv[8], &wptr, &wfptr, &nw); 
+	            if(nw == 1) w = getint(argv[8], 0, 100);
+	            else if(nw>1) {
+	                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
+	                for(i=0;i<nw;i++){
+	                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
+	                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
+	                }
+	            }
+	        }
+	        if(argc == 11){
+	            getargaddress(argv[10], &cptr, &cfptr, &nc); 
+	            if(nc == 1) c = getint(argv[10], 0, WHITE);
+	            else if(nc>1) {
+	                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
+	                for(i=0;i<nc;i++){
+	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+	                }
+	            }
+	        }
+	        for(i=0;i<n;i++){
+	            x1 = (x1fptr==NULL ? x1ptr[i] : (int)x1fptr[i]);
+	            y1 = (y1fptr==NULL ? y1ptr[i] : (int)y1fptr[i]);
+	            x2 = (x2fptr==NULL ? x2ptr[i] : (int)x2fptr[i]);
+	            y2 = (y2fptr==NULL ? y2ptr[i] : (int)y2fptr[i]);
+	            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
+	            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
+	            DrawLine(x1, y1, x2, y2, w, c);
+	        }
+	    }
+	}
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
@@ -1272,7 +1407,9 @@ void cmd_box(void) {
 
         }
     }
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
@@ -1396,7 +1533,9 @@ void cmd_arc(void){
 	int x0, y0, x1, y1, x2, y2, xr, yr;
 	getargs(&cmdline, 13,",");
     if(!(argc == 11 || argc == 13)) error("Argument count");
-    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#ifndef PICOMITEVGA
+  if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#endif
     x = getinteger(argv[0]);
     y = getinteger(argv[2]);
     r1 = getinteger(argv[4]);
@@ -1461,7 +1600,9 @@ void cmd_arc(void){
 		}
 	}
 	Option.Refresh=save_refresh;
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 typedef struct {
     unsigned char red;
@@ -1831,7 +1972,37 @@ void cmd_rbox(void) {
             if(wi != 0 && h != 0) DrawRBox(x1, y1, x1 + wi + wmod, y1 + h + hmod, w, c, f);
         }
     }
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
+}
+// this function positions the cursor within a PRINT command
+void fun_at(void) {
+    char buf[27];
+	getargs(&ep, 5, ",");
+	if(commandfunction(cmdtoken) != cmd_print) error("Invalid function");
+//	if((argc == 3 || argc == 5)) error("Incorrect number of arguments");
+//	AutoLineWrap = false;
+	CurrentX = getinteger(argv[0]);
+	if(argc>=3  && *argv[2])CurrentY = getinteger(argv[2]);
+	if(argc == 5) {
+	    PrintPixelMode = getinteger(argv[4]);
+    	if(PrintPixelMode < 0 || PrintPixelMode > 7) {
+        	PrintPixelMode = 0;
+        	error("Number out of bounds");
+        }
+    } else
+	    PrintPixelMode = 0;
+
+    // BJR: VT100 set cursor location: <esc>[y;xf
+    //      where x and y are ASCII string integers.
+    //      Assumes overall font size of 6x12 pixels (480/80 x 432/36), including gaps between characters and lines
+
+    sprintf(buf, "\033[%d;%df", (int)CurrentY/(FontTable[gui_font >> 4][1] * (gui_font & 0b1111))+1, (int)CurrentX/(FontTable[gui_font >> 4][0] * (gui_font & 0b1111)));
+    SSPrintString(buf);								                // send it to the USB
+	if(PrintPixelMode==2 || PrintPixelMode==5)SSPrintString("\033[7m");
+    targ=T_STR;
+    sret = "\0";                                                    // normally pointing sret to a string in flash is illegal
 }
 
 
@@ -1919,18 +2090,24 @@ void cmd_triangle(void) {                                           // thanks to
             DrawTriangle(x1, y1, x2, y2, x3, y3, c, f);
         }
     }
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 void cmd_cls(void) {
+#ifndef PICOMITEVGA
     HideAllControls();
+#endif
     skipspace(cmdline);
     if(!(*cmdline == 0 || *cmdline == '\''))
         ClearScreen(getint(cmdline, 0, WHITE));
     else
         ClearScreen(gui_bcolour);
     CurrentX = CurrentY = 0;
-    if(Option.Refresh)Display_Refresh();
+#ifndef PICOMITEVGA
+        if(Option.Refresh)Display_Refresh();
+#endif
 }
 
 
@@ -1941,14 +2118,21 @@ void fun_rgb(void) {
         iret = rgb(getint(argv[0], 0, 255), getint(argv[2], 0, 255), getint(argv[4], 0, 255));
     else if(argc == 1) {
         if(checkstring(argv[0], "WHITE"))        iret = WHITE;
-        else if(checkstring(argv[0], "BLACK"))   iret = BLACK;
-        else if(checkstring(argv[0], "BLUE"))    iret = BLUE;
-        else if(checkstring(argv[0], "GREEN"))   iret = GREEN;
-        else if(checkstring(argv[0], "CYAN"))    iret = CYAN;
-        else if(checkstring(argv[0], "RED"))     iret = RED;
-        else if(checkstring(argv[0], "MAGENTA")) iret = MAGENTA;
         else if(checkstring(argv[0], "YELLOW"))  iret = YELLOW;
+        else if(checkstring(argv[0], "LILAC"))   iret = LILAC;
         else if(checkstring(argv[0], "BROWN"))   iret = BROWN;
+        else if(checkstring(argv[0], "FUCHSIA")) iret = FUCHSIA;
+        else if(checkstring(argv[0], "RUST"))    iret = RUST;
+        else if(checkstring(argv[0], "MAGENTA")) iret = MAGENTA;
+        else if(checkstring(argv[0], "RED"))     iret = RED;
+        else if(checkstring(argv[0], "CYAN"))    iret = CYAN;
+        else if(checkstring(argv[0], "GREEN"))   iret = GREEN;
+        else if(checkstring(argv[0], "CERULEAN"))iret = CERULEAN;
+        else if(checkstring(argv[0], "MIDGREEN"))iret = MIDGREEN;
+        else if(checkstring(argv[0], "COBALT"))  iret = COBALT;
+        else if(checkstring(argv[0], "MYRTLE"))  iret = MYRTLE;
+        else if(checkstring(argv[0], "BLUE"))    iret = BLUE;
+        else if(checkstring(argv[0], "BLACK"))   iret = BLACK;
         else if(checkstring(argv[0], "GRAY"))    iret = GRAY;
         else if(checkstring(argv[0], "GREY"))    iret = GRAY;
         else if(checkstring(argv[0], "LIGHTGRAY"))    iret = LITEGRAY;
@@ -2142,7 +2326,6 @@ void cmd_font(void) {
         SetFont(((getint(argv[0], 1, FONT_TABLE_SIZE) - 1) << 4) | getint(argv[2], 1, 15));
     else
         SetFont(((getint(argv[0], 1, FONT_TABLE_SIZE) - 1) << 4) | 1);
-#if defined(MX470)
     if(Option.DISPLAY_CONSOLE && !CurrentLinePtr) {                 // if we are at the command prompt on the LCD
         PromptFont = gui_font;
         if(CurrentY + gui_font_height >= VRes) {
@@ -2150,11 +2333,23 @@ void cmd_font(void) {
             CurrentY -= (CurrentY + gui_font_height - VRes);
         }
     }
-#endif
 }
 
 
 
+#ifdef PICOMITEVGA
+void cmd_colour(void) {
+    getargs(&cmdline, 3, ",");
+    if(argc < 1) error("Argument count");
+    gui_fcolour = getColour(argv[0], 0);
+    if(argc == 3)
+        gui_bcolour = getColour(argv[2], 0);
+    if(!CurrentLinePtr) {
+        PromptFC = gui_fcolour;
+        PromptBC = gui_bcolour;
+    }
+}
+#else
 void cmd_colour(void) {
     getargs(&cmdline, 3, ",");
     if(argc < 1) error("Argument count");
@@ -2164,24 +2359,27 @@ void cmd_colour(void) {
 
     last_fcolour = gui_fcolour;
     last_bcolour = gui_bcolour;
-#if defined(MX470)
     if(!CurrentLinePtr) {
         PromptFC = gui_fcolour;
         PromptBC = gui_bcolour;
     }
-#endif
 }
+#endif
 
 
 void fun_mmcharwidth(void) {
-    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#ifndef PICOMITEVGA
+  if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#endif
     iret = FontTable[gui_font >> 4][0] * (gui_font & 0b1111);
     targ = T_INT;
 }
 
 
 void fun_mmcharheight(void) {
-    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#ifndef PICOMITEVGA
+  if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+#endif
     iret = FontTable[gui_font >> 4][1] * (gui_font & 0b1111);
     targ = T_INT;
 }
@@ -2205,10 +2403,330 @@ void fun_mmcharheight(void) {
 ****************************************************************************************************/
 void cmd_refresh(void){
     low_y=0; high_y=DisplayVRes-1; low_x=0; high_x=DisplayHRes-1;
+#ifndef PICOMITEVGA
 	Display_Refresh();
+#endif
 }
 
 
+#ifdef PICOMITEVGA
+void DrawPixelMono(int x, int y, int c){
+    if(x<0 || y<0 || x>=HRes || y>=VRes)return;
+	uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>3))+(x>>3));
+	uint8_t bit = 1<<(x % 8);
+	if(c)*p |=bit;
+	else *p &= ~bit;
+}
+void DrawRectangleMono(int x1, int y1, int x2, int y2, int c){
+    int x,y,t, loc;
+    unsigned char mask;
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+            loc=(y*(HRes>>3))+(x>>3);
+            mask=1<<(x % 8); //get the bit position for this bit
+            if(c){
+            	FrameBuf[loc]|=mask;
+            } else {
+            	FrameBuf[loc]&=(~mask);
+            }
+        }
+    }
+}
+void DrawBitmapMono(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap){
+    int i, j, k, m, x, y, loc;
+    unsigned char mask;
+    if(x1>=HRes || y1>=VRes || x1+width*scale<0 || y1+height*scale<0)return;
+    for(i = 0; i < height; i++) {                                   // step thru the font scan line by line
+        for(j = 0; j < scale; j++) {                                // repeat lines to scale the font
+            for(k = 0; k < width; k++) {                            // step through each bit in a scan line
+                for(m = 0; m < scale; m++) {                        // repeat pixels to scale in the x axis
+                    x=x1 + k * scale + m ;
+                    y=y1 + i * scale + j ;
+                    mask=1<<(x % 8); //get the bit position for this bit
+                    if(x >= 0 && x < HRes && y >= 0 && y < VRes) {  // if the coordinates are valid
+                        loc=(y*(HRes>>3))+(x>>3);
+                        if((bitmap[((i * width) + k)/8] >> (((height * width) - ((i * width) + k) - 1) %8)) & 1) {
+                            if(fc){
+                            	FrameBuf[loc]|=mask;
+                             } else {
+                            	 FrameBuf[loc]&= ~mask;
+                             }
+                       } else {
+                            if(bc>0){
+                            	FrameBuf[loc]|=mask;
+                            } else if(bc==0) {
+                            	FrameBuf[loc]&= ~mask;
+                            }
+                        }
+                   }
+                }
+            }
+        }
+    }
+
+}
+
+void ScrollLCDMono(int lines){
+    if(lines==0)return;
+     if(lines >= 0) {
+        for(int i=0;i<VRes-lines;i++) {
+            int d=i*(HRes>>3),s=(i+lines)*(HRes>>3); 
+            for(int c=0;c<(HRes>>3);c++)FrameBuf[d+c]=FrameBuf[s+c];
+        }
+        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, 0); // erase the lines to be scrolled off
+    } else {
+    	lines=-lines;
+        for(int i=VRes-1;i>=lines;i--) {
+            int d=i*(HRes>>3),s=(i-lines)*(HRes>>3); 
+            for(int c=0;c<(HRes>>3);c++)FrameBuf[d+c]=FrameBuf[s+c];
+        }
+        DrawRectangle(0, 0, HRes - 1, lines - 1, 0); // erase the lines introduced at the top
+    }
+}
+void DrawBufferMono(int x1, int y1, int x2, int y2, unsigned char *p){
+	int x,y, t, loc;
+    unsigned char mask;
+    union colourmap
+    {
+    char rgbbytes[4];
+    unsigned int rgb;
+    } c;
+    // make sure the coordinates are kept within the display area
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+	        c.rgbbytes[0]=*p++; 
+	        c.rgbbytes[1]=*p++;
+	        c.rgbbytes[2]=*p++;
+            c.rgbbytes[3]=0;
+            loc=(y*(HRes>>3))+(x>>3);
+            mask=1<<(x % 8); //get the bit position for this bit
+            if(c.rgb){
+            	FrameBuf[loc]|=mask;
+            } else {
+            	FrameBuf[loc]&=(~mask);
+            }
+        }
+    }
+}
+void ReadBufferMono(int x1, int y1, int x2, int y2, unsigned char *c){
+    int x,y,t,loc;
+    uint8_t *pp;
+    unsigned char mask;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    int xx1=x1, yy1=y1, xx2=x2, yy2=y2;
+    if(x1 < 0) xx1 = 0;
+    if(x1 >= HRes) xx1 = HRes - 1;
+    if(x2 < 0) xx2 = 0;
+    if(x2 >= HRes) xx2 = HRes - 1;
+    if(y1 < 0) yy1 = 0;
+    if(y1 >= VRes) yy1 = VRes - 1;
+    if(y2 < 0) yy2 = 0;
+    if(y2 >= VRes) yy2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+            loc=(y*(HRes>>3))+(x>>3);
+            mask=1<<(x % 8); //get the bit position for this bit
+            if(FrameBuf[loc]&mask){
+                *c++=0xFF;
+                *c++=0xFF;
+                *c++=0xFF;
+            } else {
+                *c++=0x00;
+                *c++=0x00;
+                *c++=0x00;
+            }
+        }
+    }
+}
+void DrawPixelColour(int x, int y, int c){
+    if(x<0 || y<0 || x>=HRes || y>=VRes)return;
+    unsigned char colour = ((c & 0x800000)>> 20) | ((c & 0xC000)>>13) | ((c & 0x80)>>7);
+	uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+    if(x & 1){
+        *p &=0x0F;
+        *p |=(colour<<4);
+    } else {
+        *p &=0xF0;
+        *p |= colour;
+    }
+}
+void DrawRectangleColour(int x1, int y1, int x2, int y2, int c){
+    int x,y,t, loc;
+    unsigned char mask;
+    unsigned char colour = ((c & 0x800000)>> 20) | ((c & 0xC000)>>13) | ((c & 0x80)>>7);
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+	        uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+            if(x & 1){
+                *p &=0x0F;
+                *p |=(colour<<4);
+            } else {
+                *p &=0xF0;
+                *p |= colour;
+            }
+        }
+    }
+}
+void DrawBitmapColour(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap){
+    int i, j, k, m, x, y, loc;
+    unsigned char mask;
+    if(x1>=HRes || y1>=VRes || x1+width*scale<0 || y1+height*scale<0)return;
+    unsigned char fcolour = ((fc & 0x800000)>> 20) | ((fc & 0xC000)>>13) | ((fc & 0x80)>>7);
+    unsigned char bcolour = ((bc & 0x800000)>> 20) | ((bc & 0xC000)>>13) | ((bc & 0x80)>>7);
+
+    for(i = 0; i < height; i++) {                                   // step thru the font scan line by line
+        for(j = 0; j < scale; j++) {                                // repeat lines to scale the font
+            for(k = 0; k < width; k++) {                            // step through each bit in a scan line
+                for(m = 0; m < scale; m++) {                        // repeat pixels to scale in the x axis
+                    x=x1 + k * scale + m ;
+                    y=y1 + i * scale + j ;
+                    if(x >= 0 && x < HRes && y >= 0 && y < VRes) {  // if the coordinates are valid
+	                    uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+                        if((bitmap[((i * width) + k)/8] >> (((height * width) - ((i * width) + k) - 1) %8)) & 1) {
+                            if(x & 1){
+                                *p &=0x0F;
+                                *p |=(fcolour<<4);
+                            } else {
+                                *p &=0xF0;
+                                *p |= fcolour;
+                            }
+                        } else {
+                            if(bc>=0){
+                                if(x & 1){
+                                    *p &=0x0F;
+                                    *p |=(bcolour<<4);
+                                } else {
+                                    *p &=0xF0;
+                                    *p |= bcolour;
+                                }
+                            }
+                        }
+                   }
+                }
+            }
+        }
+    }
+
+}
+
+void ScrollLCDColour(int lines){
+    if(lines==0)return;
+     if(lines >= 0) {
+        for(int i=0;i<VRes-lines;i++) {
+            int d=i*(HRes>>1),s=(i+lines)*(HRes>>1); 
+            for(int c=0;c<(HRes>>1);c++)FrameBuf[d+c]=FrameBuf[s+c];
+        }
+        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, 0); // erase the lines to be scrolled off
+    } else {
+    	lines=-lines;
+        for(int i=VRes-1;i>=lines;i--) {
+            int d=i*(HRes>>1),s=(i-lines)*(HRes>>1); 
+            for(int c=0;c<(HRes>>1);c++)FrameBuf[d+c]=FrameBuf[s+c];
+        }
+        DrawRectangle(0, 0, HRes - 1, lines - 1, 0); // erase the lines introduced at the top
+    }
+}
+void DrawBufferColour(int x1, int y1, int x2, int y2, unsigned char *p){
+	int x,y, t;
+    union colourmap
+    {
+    char rgbbytes[4];
+    unsigned int rgb;
+    } c;
+    unsigned char fcolour;
+    uint8_t *pp;
+    // make sure the coordinates are kept within the display area
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+	        c.rgbbytes[0]=*p++; //this order swaps the bytes to match the .BMP file
+	        c.rgbbytes[1]=*p++;
+	        c.rgbbytes[2]=*p++;
+            fcolour = ((c.rgb & 0x800000)>> 20) | ((c.rgb & 0xC000)>>13) | ((c.rgb & 0x80)>>7);
+            pp=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+            if(x & 1){
+                *pp &=0x0F;
+                *pp |=(fcolour<<4);
+            } else {
+                *pp &=0xF0;
+                *pp |= fcolour;
+            }
+        }
+    }
+}
+void ReadBufferColour(int x1, int y1, int x2, int y2, unsigned char *c){
+    int x,y,t;
+    uint8_t *pp;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    int xx1=x1, yy1=y1, xx2=x2, yy2=y2;
+    if(x1 < 0) xx1 = 0;
+    if(x1 >= HRes) xx1 = HRes - 1;
+    if(x2 < 0) xx2 = 0;
+    if(x2 >= HRes) xx2 = HRes - 1;
+    if(y1 < 0) yy1 = 0;
+    if(y1 >= VRes) yy1 = VRes - 1;
+    if(y2 < 0) yy2 = 0;
+    if(y2 >= VRes) yy2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+	        pp=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+            if(x & 1){
+                t=colours[(*pp)>>4];
+            } else {
+                t=colours[(*pp)&0x0F];
+            }
+            *c++=(t&0xFF);
+            *c++=(t>>8)&0xFF;
+            *c++=t>>16;
+        }
+    }
+}
+#else
 // Draw a filled rectangle
 // this is the basic drawing primitive used by most drawing routines
 //    x1, y1, x2, y2 - the coordinates
@@ -2264,6 +2782,26 @@ void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, in
 }
 
 
+void ScrollLCDSPI(int lines){
+    if(lines==0)return;
+     unsigned char *buff=GetMemory(3*HRes);
+     if(lines >= 0) {
+        for(int i=0;i<VRes-lines;i++) {
+        	ReadBuffer(0, i+lines, HRes -1, i+lines, buff);
+			DrawBuffer(0, i, HRes - 1, i, buff);        	
+        }
+        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, 0); // erase the lines to be scrolled off
+    } else {
+    	lines=-lines;
+        for(int i=VRes-1;i>=lines;i--) {
+        	ReadBuffer(0, i-lines, HRes -1, i-lines, buff);
+			DrawBuffer(0, i, HRes - 1, i, buff);        	
+        }
+        DrawRectangle(0, 0, HRes - 1, lines - 1, 0); // erase the lines introduced at the top
+    }
+    FreeMemory(buff);
+}
+#endif
 
 /****************************************************************************************************
 
@@ -2289,23 +2827,40 @@ void SetFont(int fnt) {
     if(FontTable[fnt >> 4] == NULL) error("Invalid font number #%", (fnt >> 4)+1);
     gui_font_width = FontTable[fnt >> 4][0] * (fnt & 0b1111);
     gui_font_height = FontTable[fnt >> 4][1] * (fnt & 0b1111);
-#if defined(MX470)
-    if(Option.DISPLAY_CONSOLE) {
+   if(Option.DISPLAY_CONSOLE) {
         Option.Height = VRes/gui_font_height;
         Option.Width = HRes/gui_font_width;
     }
-#endif
     gui_font = fnt;
 }
 
 
 void ResetDisplay(void) {
-    if(!Option.DISPLAY_CONSOLE) {
         SetFont(Option.DefaultFont);
         gui_fcolour = Option.DefaultFC;
         gui_bcolour = Option.DefaultBC;
-    }
+#ifdef PICOMITEVGA
+        HRes=DISPLAY_TYPE ? 320 : 640;
+        VRes=DISPLAY_TYPE ? 240 : 480;
+        if(DISPLAY_TYPE){
+            DrawRectangle=DrawRectangleColour;
+            DrawBitmap= DrawBitmapColour;
+            ScrollLCD=ScrollLCDColour;
+            DrawBuffer=DrawBufferColour;
+            ReadBuffer=ReadBufferColour;
+            DrawPixel=DrawPixelColour;
+        } else {
+            DrawRectangle=DrawRectangleMono;
+            DrawBitmap= DrawBitmapMono;
+            ScrollLCD=ScrollLCDMono;
+            DrawBuffer=DrawBufferMono;
+            ReadBuffer=ReadBufferMono;
+            DrawPixel=DrawPixelMono;
+        }
+#endif
+#ifndef PICOMITEVGA
     ResetGUI();
+#endif
 }
 void hline(int x0, int x1, int y, int f, int ints_per_line, uint32_t *br) { //draw a horizontal line
     uint32_t w1, xx1, w0, xx0, x, xn, i;
@@ -2370,4 +2925,50 @@ void DrawFilledCircle(int x, int y, int radius, int r, int fill, int ints_per_li
 	            P+= 5 + 2*(a++ - b--);
 
         } while(a <= b);
+ }
+/******************************************************************************************
+ Print a char on the LCD display (SSD1963 and in landscape only).  It handles control chars
+ such as newline and will wrap at the end of the line and scroll the display if necessary.
+
+ The char is printed at the current location defined by CurrentX and CurrentY
+ *****************************************************************************************/
+void DisplayPutC(char c) {
+
+    if(!Option.DISPLAY_CONSOLE) return;
+    // if it is printable and it is going to take us off the right hand end of the screen do a CRLF
+    if(c >= FontTable[gui_font >> 4][2] && c < FontTable[gui_font >> 4][2] + FontTable[gui_font >> 4][3]) {
+        if(CurrentX + gui_font_width > HRes) {
+            DisplayPutC('\r');
+            DisplayPutC('\n');
+        }
+    }
+
+    // handle the standard control chars
+    switch(c) {
+        case '\b':  CurrentX -= gui_font_width;
+                    if(CurrentX < 0) CurrentX = 0;
+                    return;
+        case '\r':  CurrentX = 0;
+                    return;
+        case '\n':  CurrentY += gui_font_height;
+                    if(CurrentY + gui_font_height >= VRes) {
+                        ScrollLCD(CurrentY + gui_font_height - VRes);
+                        CurrentY -= (CurrentY + gui_font_height - VRes);
+                    }
+                    return;
+        case '\t':  do {
+                        DisplayPutC(' ');
+                    } while((CurrentX/gui_font_width) % 4 /******Option.Tab*/);
+                    return;
+    }
+    GUIPrintChar(gui_font, gui_fcolour, gui_bcolour, c, ORIENT_NORMAL);            // print it
+}
+void ShowCursor(int show) {
+  static int visible = false;
+    int newstate;
+    if(!Option.DISPLAY_CONSOLE) return;
+  newstate = ((CursorTimer <= CURSOR_ON) && show);                  // what should be the state of the cursor?
+  if(visible == newstate) return;                                   // we can skip the rest if the cursor is already in the correct state
+  visible = newstate;                                               // draw the cursor BELOW the font
+    DrawLine(CurrentX, CurrentY + gui_font_height-1, CurrentX + gui_font_width, CurrentY + gui_font_height-1, (gui_font_height<=8 ? 1 : 2), visible ? gui_fcolour : gui_bcolour);
 }

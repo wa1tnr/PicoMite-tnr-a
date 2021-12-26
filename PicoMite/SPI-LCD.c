@@ -26,6 +26,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include <stdarg.h>
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+int CurrentSPIDevice=NONE_SPI_DEVICE;
+#ifndef PICOMITEVGA
 const struct Displays display_details[]={
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
@@ -60,9 +62,6 @@ int LCD_CS_PIN=0;
 int LCD_CD_PIN=0;
 int LCD_Reset_PIN=0;
 int LCD_E_INKbusy=0;
-void DisplayNotSet(void) {
-    error("Display not configured");
-}
 
 unsigned char LCDBuffer[1440]={0};
 
@@ -95,7 +94,6 @@ const uint8_t GDEH029A1_DataEntryMode[] = {DATA_ENTRY_MODE_SETTING, 0x03};  // 2
 void SetCS(void);
 void DefineRegionSPI(int xstart, int ystart, int xend, int yend, int rw);
 void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
-int CurrentSPIDevice=NONE_SPI_DEVICE;
 extern const int SPISpeeds[];
 extern void spi_write_command(unsigned char command);
 extern void I2C_Send_Data(unsigned char* data, int n);
@@ -119,18 +117,6 @@ void ST7920command(unsigned char data);
 // type is the final tag for the pin in ExtCurrentConfig[]
 void SetAndReserve(int pin, int inp, int init, int type) {
     if(pin == 0) return;                                            // do nothing if not set
-/*    GPIO_InitTypeDef GPIO_InitDef;
-    if(inp) {
-		GPIO_InitDef.Mode = GPIO_MODE_INPUT;
-    } else {
-        PinSetBit(pin, init ? LATSET : LATCLR);                     // set LAT
-    	GPIO_InitDef.Mode = GPIO_MODE_OUTPUT_PP;
-    }
-	GPIO_InitDef.Pull = GPIO_NOPULL; //set as input with no pullup or down
-	GPIO_InitDef.Pin = PinDef[pin].bitnbr;
-	GPIO_InitDef.Speed = GPIO_SPEED_FREQ_HIGH;
-	HAL_GPIO_Init(PinDef[pin].sfr, &GPIO_InitDef);
-    ExtCurrentConfig[pin] = type;*/
 }
 
 
@@ -246,7 +232,10 @@ void InitDisplaySPI(int InitOnly) {
         	DrawRectangle = DrawRectangleSPI;
         	DrawBitmap = DrawBitmapSPI;
         	DrawBuffer = DrawBufferSPI;
-        	if(Option.DISPLAY_TYPE == ILI9341 || Option.DISPLAY_TYPE == ILI9488 || Option.DISPLAY_TYPE == ST7789B)ReadBuffer = ReadBufferSPI;
+        	if(Option.DISPLAY_TYPE == ILI9341 || Option.DISPLAY_TYPE == ILI9488 || Option.DISPLAY_TYPE == ST7789B){
+				ReadBuffer = ReadBufferSPI;
+				ScrollLCD = ScrollLCDSPI;
+			}
         } else {
             DrawRectangle = DrawRectangleMEM;
             DrawBitmap = DrawBitmapMEM;
@@ -1450,6 +1439,11 @@ void Display_Refresh(void){
     low_y=2000; high_y=0; low_x=2000; high_x=0;
 
 }
+#endif
+void DisplayNotSet(void) {
+    error("Display not configured");
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // These three functions allow the SPI port to be used by multiple drivers (LCD/touch/SD card)
@@ -1461,7 +1455,6 @@ void Display_Refresh(void){
 
 // config the SPI port for output
 // it will not touch the port if it has already been opened
-
 void SPISpeedSet(int device){
     if(CurrentSPIDevice != device){
 		if(device==SDFAST || device==SDSLOW) {
@@ -1469,8 +1462,11 @@ void SPISpeedSet(int device){
 			xmit_byte_multi=BitBangSendSPI;
 			rcvr_byte_multi=BitBangReadSPI;
 			SET_SPI_CLK=BitBangSetClk; 
+#ifndef PICOMITEVGA
 			SET_SPI_CLK(SD_SPI_SPEED, false, false);
+#endif
 		}
+#ifndef PICOMITEVGA
 		else {
 			if(PinDef[Option.SYSTEM_CLK].mode & SPI0SCK && PinDef[Option.SYSTEM_MOSI].mode & SPI0TX  && PinDef[Option.SYSTEM_MISO].mode & SPI0RX  ){
 				xchg_byte= HW0SwapSPI;
@@ -1491,9 +1487,11 @@ void SPISpeedSet(int device){
 			SET_SPI_CLK(display_details[device].speed, display_details[device].CPOL, display_details[device].CPHASE);
 		}
 		CurrentSPIDevice=device;
+#endif
     }
 }
 
+#ifndef PICOMITEVGA
 // set the chip select for SPI to high (disabled)
 void ClearCS(int pin) {
     if(pin) {
@@ -1501,4 +1499,4 @@ void ClearCS(int pin) {
     	else gpio_put(PinDef[pin].GPno,GPIO_PIN_RESET);
     }
 }
-
+#endif

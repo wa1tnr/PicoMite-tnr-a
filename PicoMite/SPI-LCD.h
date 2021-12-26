@@ -401,5 +401,6 @@ extern void __not_in_flash_func(BitBangSendSPI)(const BYTE *buff, int cnt);
 extern void __not_in_flash_func(HW0ReadSPI)(BYTE *buff, int cnt);
 extern void __not_in_flash_func(HW1ReadSPI)(BYTE *buff, int cnt);
 extern void __not_in_flash_func(BitBangReadSPI)(BYTE *buff, int cnt);
+extern void ScrollLCDSPI(int lines);
 #endif
 

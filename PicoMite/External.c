@@ -1460,6 +1460,7 @@ void PWMoff(int slice){
     }
     pwm_set_enabled(slice, false);
 }
+#ifndef PICOMITEVGA
 void cmd_backlight(void){
     if(!(Option.DISPLAY_TYPE<=I2C_PANEL || Option.DISPLAY_TYPE>=BufferedPanel ) && Option.DISPLAY_BL){
         MMFLOAT frequency=1000.0;
@@ -1493,7 +1494,9 @@ void cmd_backlight(void){
         spi_write_command(0x81);//SETCONTRAST
         spi_write_command((uint8_t)level);
     } else error("Backlight not set up");
-}    
+}
+#endif
+
 void cmd_pwm(void){
     char *tp;
     int div=1, high1, high2;
@@ -2397,6 +2400,7 @@ void ClearExternalIO(void) {
     ADCInterrupt=NULL;
     KeyInterrupt=NULL;
     keyselect=0;
+    CMM1=0;
 }
 
 

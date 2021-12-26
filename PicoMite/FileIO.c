@@ -1253,7 +1253,8 @@ void ResetOptions(void){
     disable_audio();
     disable_systemi2c();
     disable_systemspi();
-    memset((void *)&Option.Autorun,0,512);
+    memset((void *)&Option.Magic,0,512);
+    Option.Magic=0x7468215;
     Option.Autorun=0;
     Option.Height = SCREENHEIGHT;
     Option.Width = SCREENWIDTH;
@@ -1262,7 +1263,13 @@ void ResetOptions(void){
     Option.DefaultBrightness = 100;
     Option.MaxCtrls = 101;
     Option.Baudrate = CONSOLE_BAUDRATE;
+#ifdef PICOMITEVGA
+    Option.CPU_Speed=126000;
+    Option.DISPLAY_CONSOLE=1;
+#else
     Option.CPU_Speed=125000;
+    Option.DISPLAY_CONSOLE=0;
+#endif
     Option.SD_CS=0;
     Option.SYSTEM_MOSI=0;
     Option.SYSTEM_MISO=0;
@@ -1270,7 +1277,6 @@ void ResetOptions(void){
     Option.AUDIO_L=0;
     Option.AUDIO_R=0;
     Option.AUDIO_SLICE=99;
-    Option.DISPLAY_CONSOLE=0;
     Option.SDspeed=10;
     Option.DISPLAY_TYPE = 0;
     Option.DISPLAY_ORIENTATION = 0;
@@ -1318,7 +1324,10 @@ void ResetAllFlash(void) {
     ClearSavedVars();
     ResetOptions();
     disable_interrupts();
-    flash_range_erase(PROGSTART, MAX_PROG_SIZE);
+    for(int i=0;i<MAXFLASHSLOTS;i++){
+        uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (i * MAX_PROG_SIZE);
+        flash_range_erase(j, MAX_PROG_SIZE);
+    }
     enable_interrupts();
 }
 void FlashWriteInit(int region){

@@ -30,7 +30,11 @@ extern "C" {
 #define FLASH_TARGET_OFFSET (1024 * 1024)
 
 #define MMFLOAT double
+#ifdef PICOMITEVGA
+#define MEMORY_SIZE (108*1024) 
+#else
 #define MEMORY_SIZE (124*1024) 
+#endif
 #define MAX_PROG_SIZE MEMORY_SIZE
 #define SAVEDVARS_FLASH_SIZE 16384
 #define FLASH_ERASE_SIZE 4096

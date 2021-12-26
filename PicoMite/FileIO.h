@@ -54,6 +54,7 @@ void enable_interrupts(void);
 void ErrorCheck(int fnbr);
 extern int OptionFileErrorAbort;
 struct option_s {
+    int  Magic;
     char Autorun;
     char Tab;
     char Invert;
@@ -127,8 +128,8 @@ struct option_s {
     unsigned char SerialConsole;
     unsigned char SerialTX;
     unsigned char SerialRX;
-    char dummy2[70];
-     unsigned char F5key[MAXKEYLEN];
+    char dummy2[66];
+    unsigned char F5key[MAXKEYLEN];
     unsigned char F6key[MAXKEYLEN];
     unsigned char F7key[MAXKEYLEN];
     unsigned char F8key[MAXKEYLEN];

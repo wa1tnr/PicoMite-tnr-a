@@ -46,11 +46,17 @@ extern "C" {
 #include "pico/unique_id.h"
 #include <pico/bootrom.h>
 #include "hardware/irq.h"
-
 #include "class/cdc/cdc_device.h" 
+#ifdef PICOMITEVGA
+#include "Include.h"
+#define MES_SIGNON  "\rPicoMiteVGA MMBasic Version " VERSION "\r\n"\
+					"Copyright " YEAR " Geoff Graham\r\n"\
+					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
+#else
 #define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
+#endif
 #define USBKEEPALIVE 30000
 int ListCnt;
 int MMCharPos;
@@ -78,8 +84,9 @@ volatile unsigned int PauseTimer = 0;
 volatile unsigned int IntPauseTimer = 0;
 volatile unsigned int Timer1=0, Timer2=0;		                       //1000Hz decrement timer
 volatile unsigned int USBKeepalive=USBKEEPALIVE;
-//volatile int CursorTimer=0;               // used to time the flashing cursor
-
+#ifdef PICOMITEVGA
+volatile int CursorTimer=0;               // used to time the flashing cursor
+#endif
 volatile int ds18b20Timer = -1;
 volatile int second = 0;                                            // date/time counters
 volatile int minute = 0;
@@ -237,7 +244,11 @@ const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
 void __not_in_flash_func(routinechecks)(void){
     char alive[]="\033[?25h";
     int c;
+#ifdef PICOMITEVGA
+    if(Option.SerialConsole==0){
+#else
     if(tud_cdc_connected() && Option.SerialConsole==0){
+#endif
         if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
             ConsoleRxBuf[ConsoleRxBufHead] = c;
             if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -255,9 +266,11 @@ void __not_in_flash_func(routinechecks)(void){
     }
 	if(GPSchannel)processgps();
     CheckSDCard();
+#ifndef PICOMITEVGA
     if(!calibrate)ProcessTouch();
+#endif
     if(USBKeepalive==0){
-        MMPrintString(alive);
+        SSPrintString(alive);
     }
     if(clocktimer==0 && Option.RTC){
         RtcGetTime();
@@ -276,7 +289,7 @@ int __not_in_flash_func(getConsole)(void) {
 }
 
 void putConsole(int c, int flush) {
-//    DisplayPutC(c);
+    DisplayPutC(c);
     SerialConsolePutC(c, flush);
 }
 // put a character out to the serial console
@@ -717,11 +730,11 @@ void EditInputLine(void) {
 int MMgetchar(void) {
 	int c;
 	do {
-//		ShowCursor(1);
+		ShowCursor(1);
         CheckKeyboard();
 		c=MMInkey();
 	} while(c == -1);
-//	ShowCursor(0);
+	ShowCursor(0);
 	return c;
 }
 // print a string to the console interfaces
@@ -780,7 +793,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(Timer1)Timer1--;
         if(USBKeepalive)USBKeepalive--;
         if(diskchecktimer)diskchecktimer--;
-//	    if(++CursorTimer > CURSOR_OFF + CURSOR_ON) CursorTimer = 0;		// used to control cursor blink rate
+	    if(++CursorTimer > CURSOR_OFF + CURSOR_ON) CursorTimer = 0;		// used to control cursor blink rate
         if(InterruptUsed) {
             int i;
             for(i = 0; i < NBRSETTICKS; i++) if(TickActive[i])TickTimer[i]++;			// used in the interrupt tick
@@ -820,6 +833,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
             IrDevTmp = ((IrBits >> 16) & 0xffff);
             IrCmdTmp = ((IrBits >> 8) & 0xff);
         }
+#ifndef PICOMITEVGA
     // check on the touch panel, is the pen down?
 
     TouchTimer++;
@@ -843,7 +857,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         ClickTimer--;
         if(Option.TOUCH_Click) PinSetBit(Option.TOUCH_Click, ClickTimer ? LATSET : LATCLR);
     }
-
+#endif
     // now process the IR message, this includes handling auto repeat while the key is held down
     // IrTick counts how many mS since the key was first pressed
     // NextIrTick is used to time the auto repeat
@@ -911,7 +925,7 @@ void __not_in_flash_func(CheckAbort)(void) {
         WDTimer = 0;                                                // turn off the watchdog timer
         calibrate=0;
         memset(inpbuf,0,STRINGSIZE);
-//        ShowCursor(false);
+        ShowCursor(false);
         longjmp(mark, 1);                                           // jump back to the input prompt
     }
 }
@@ -968,15 +982,484 @@ void sigbus(void){
     SoftReset();
 }
 
-int main() {
+#ifdef PICOMITEVGA
+// ****************************************************************************
+//
+//                                  QVGA
+//
+// ****************************************************************************
+// VGA resolution:
+// - 640x480 pixels
+// - vertical frequency 60 Hz
+// - horizontal frequency 31.4685 kHz
+// - pixel clock 25.175 MHz
+//
+// QVGA resolution:
+// - 320x240 pixels
+// - vertical double image scanlines
+// - vertical frequency 60 Hz
+// - horizontal frequency 31.4685 kHz
+// - pixel clock 12.5875 MHz
+//
+// VGA vertical timings:
+// - 525 scanlines total
+// - line 1,2: (2) vertical sync
+// - line 3..35: (33) dark
+// - line 36..515: (480) image lines 0..479
+// - line 516..525: (10) dark
+//
+// VGA horizontal timings:
+// - 31.77781 total scanline in [us] (800 pixels, QVGA 400 pixels)
+// - 0.63556 H front porch (after image, before HSYNC) in [us] (16 pixels, QVGA 8 pixels)
+// - 3.81334 H sync pulse in [us] (96 pixels, QVGA 48 pixels)
+// - 1.90667 H back porch (after HSYNC, before image) in [us] (48 pixels, QVGA 24 pixels)
+// - 25.42224 H full visible in [us] (640 pixels, QVGA 320 pixels)
+// - 0.0397222625 us per pixel at VGA, 0.079444525 us per pixel at QVGA
+//
+// We want reach 25.175 pixel clock (at 640x480). Default system clock is 125 MHz, which is
+// approx. 5x pixel clock. We need 25.175*5 = 125.875 MHz. We use nearest frequency 126 MHz.
+//	126000, 1512000, 126, 6, 2,     // 126.00MHz, VC0=1512MHz, FBDIV=126, PD1=6, PD2=2
+//	126000, 504000, 42, 4, 1,       // 126.00MHz, VC0=504MHz, FBDIV=42, PD1=4, PD2=1
+//	sysclk=126.000000 MHz, vco=504 MHz, fbdiv=42, pd1=4, pd2=1
+//	sysclk=126.000000 MHz, vco=504 MHz, fbdiv=42, pd1=2, pd2=2
+//	sysclk=126.000000 MHz, vco=756 MHz, fbdiv=63, pd1=6, pd2=1
+//	sysclk=126.000000 MHz, vco=756 MHz, fbdiv=63, pd1=3, pd2=2
+//	sysclk=126.000000 MHz, vco=1008 MHz, fbdiv=84, pd1=4, pd2=2 !!!!!
+//	sysclk=126.000000 MHz, vco=1260 MHz, fbdiv=105, pd1=5, pd2=2
+//	sysclk=126.000000 MHz, vco=1512 MHz, fbdiv=126, pd1=6, pd2=2
+//	sysclk=126.000000 MHz, vco=1512 MHz, fbdiv=126, pd1=4, pd2=3
+// Pixel clock is now:
+//      5 system clock ticks per pixel at VGA ... pixel clock = 25.2 MHz, 0.039683 us per pixel
+//     10 system clock ticks per pixel at QVGA ... pixel clock = 12.6 MHz, 0.079365 us per pixel
+//
+// - active image is 640*5=3200 clock ticks = 25.3968 us (QVGA: 1600 clock ticks)
+// - total scanline is 126*31.77781=4004 clock ticks (QVGA: 2002 clock ticks)
+// - H front porch = 82 clock ticks (QVGA: 41 clock ticks)
+// - H sync pulse = 480 clock ticks (QVGA: 240 clock ticks)
+// - H back porch = 242 clock ticks (QVGA: 121 clock ticks)
+
+// in case of system clock = 125 MHz
+// - PIO clock = system clock / 2
+// - 5 PIO clocks per pixel = 10 system clocks per pixel
+// - PIO clock = 62.5 MHz
+// - pixel clock = 12.5 MHz
+// - active image (320 pixels): 320*5 = 1600 PIO clocks = 3200 system ticks = 25.6 us (2.2 pixels stays invisible)
+// - total scanline: 125*31.77781 = 3972 system clocks = 1986 PIO clocks
+// - H front porch = 34 PIO clk
+// - H sync = 238 PIO clk
+// - H back = 114 PIO clk
+
+
+// PIO command (jmp=program address, num=loop counter)
+#define QVGACMD(jmp, num) ( ((uint32_t)((jmp)+QVGAOff)<<27) | (uint32_t)(num))
+
+// display frame buffer
+ALIGNED uint8_t FrameBuf[FRAMESIZE];
+
+// pointer to current frame buffer
+uint8_t* pFrameBuf = FrameBuf;
+
+// QVGA PIO
+uint QVGAOff;	// offset of QVGA PIO program
+
+// Scanline data buffers (commands sent to PIO)
+uint32_t ScanLineImg[3];	// image: HSYNC ... back porch ... image command
+uint32_t ScanLineFp;		// front porch
+uint32_t ScanLineDark[2];	// dark: HSYNC ... back porch + dark + front porch
+uint32_t ScanLineSync[2];	// vertical sync: VHSYNC ... VSYNC(back porch + dark + front porch)
+
+// Scanline control buffers
+#define CB_MAX 8	// size of one scanline control buffer (1 link to data buffer requires 2x uint32_t)
+uint32_t ScanLineCB[2*CB_MAX]; // 2 control buffers
+int QVgaBufInx;		// current running control buffer
+uint32_t* ScanLineCBNext;	// next control buffer
+
+// handler variables
+volatile int QVgaScanLine; // current processed scan line 0... (next displayed scan line)
+volatile uint32_t QVgaFrame;	// frame counter
+
+// saved integer divider state
+
+// VGA DMA handler - called on end of every scanline
+void __not_in_flash_func(QVgaLine0)()
+{
+	// Clear the interrupt request for DMA control channel
+	dma_hw->ints0 = (1u << QVGA_DMA_PIO);
+
+	// update DMA control channel and run it
+	dma_channel_set_read_addr(QVGA_DMA_CB, ScanLineCBNext, true);
+
+	// save integer divider state
+//	hw_divider_save_state(&SaveDividerState);
+
+	// switch current buffer index (bufinx = current preparing buffer, MiniVgaBufInx = current running buffer)
+	int bufinx = QVgaBufInx;
+	QVgaBufInx = bufinx ^ 1;
+
+	// prepare control buffer to be processed
+	uint32_t* cb = &ScanLineCB[bufinx*CB_MAX];
+	ScanLineCBNext = cb;
+
+	// increment scanline (1..)
+	int line = QVgaScanLine; // current scanline
+	line++; 		// new current scanline
+	if (line >= QVGA_VTOT) // last scanline?
+	{
+		QVgaFrame++;	// increment frame counter
+		line = 0; 	// restart scanline
+	}
+	QVgaScanLine = line;	// store new scanline
+
+	// check scanline
+	line -= QVGA_VSYNC;
+	if (line < 0)
+	{
+		// VSYNC
+		*cb++ = 2;
+		*cb++ = (uint32_t)&ScanLineSync[0];
+	}
+	else
+	{
+		// front porch and back porch
+		line -= QVGA_VBACK;
+		if ((line < 0) || (line >= QVGA_VACT))
+		{
+			// dark line
+			*cb++ = 2;
+			*cb++ = (uint32_t)&ScanLineDark[0];
+		}
+
+		// image scanlines
+		else
+		{
+			// prepare image line
+
+			// HSYNC ... back porch ... image command
+			*cb++ = 3;
+			*cb++ = (uint32_t)&ScanLineImg[0];
+
+			// image data
+			*cb++ = 20;
+			*cb++ = (uint32_t)&pFrameBuf[line  * 80];
+
+			// front porch
+			*cb++ = 1;
+			*cb++ = (uint32_t)&ScanLineFp;
+		}
+	}
+
+	// end mark
+	*cb++ = 0;
+	*cb = 0;
+
+	// restore integer divider state
+//	hw_divider_restore_state(&SaveDividerState);
+}
+void __not_in_flash_func(QVgaLine1)()
+{
+	// Clear the interrupt request for DMA control channel
+	dma_hw->ints0 = (1u << QVGA_DMA_PIO);
+
+	// update DMA control channel and run it
+	dma_channel_set_read_addr(QVGA_DMA_CB, ScanLineCBNext, true);
+
+	// save integer divider state
+//	hw_divider_save_state(&SaveDividerState);
+
+	// switch current buffer index (bufinx = current preparing buffer, MiniVgaBufInx = current running buffer)
+	int bufinx = QVgaBufInx;
+	QVgaBufInx = bufinx ^ 1;
+
+	// prepare control buffer to be processed
+	uint32_t* cb = &ScanLineCB[bufinx*CB_MAX];
+	ScanLineCBNext = cb;
+
+	// increment scanline (1..)
+	int line = QVgaScanLine; // current scanline
+	line++; 		// new current scanline
+	if (line >= QVGA_VTOT) // last scanline?
+	{
+		QVgaFrame++;	// increment frame counter
+		line = 0; 	// restart scanline
+	}
+	QVgaScanLine = line;	// store new scanline
+
+	// check scanline
+	line -= QVGA_VSYNC;
+	if (line < 0)
+	{
+		// VSYNC
+		*cb++ = 2;
+		*cb++ = (uint32_t)&ScanLineSync[0];
+	}
+	else
+	{
+		// front porch and back porch
+		line -= QVGA_VBACK;
+		if ((line < 0) || (line >= QVGA_VACT))
+		{
+			// dark line
+			*cb++ = 2;
+			*cb++ = (uint32_t)&ScanLineDark[0];
+		}
+
+		// image scanlines
+		else
+		{
+			// prepare image line
+			line >>= 1;
+
+			// HSYNC ... back porch ... image command
+			*cb++ = 3;
+			*cb++ = (uint32_t)&ScanLineImg[0];
+
+			// image data
+			*cb++ = 40;
+			*cb++ = (uint32_t)&pFrameBuf[line  * 160];
+
+			// front porch
+			*cb++ = 1;
+			*cb++ = (uint32_t)&ScanLineFp;
+		}
+	}
+
+	// end mark
+	*cb++ = 0;
+	*cb = 0;
+
+	// restore integer divider state
+//	hw_divider_restore_state(&SaveDividerState);
+}
+
+// initialize QVGA PIO
+void QVgaPioInit()
+{
+	int i;
+
+	// load PIO program
+	QVGAOff = pio_add_program(QVGA_PIO, &qvga_program);
+    if(DISPLAY_TYPE){
+        QVGA_PIO->instr_mem[QVGAOff+13]=0x6204;
+        QVGA_PIO->instr_mem[QVGAOff+15]=0x6204;
+    }    
+
+
+	// configure GPIOs for use by PIO
+	for (i = QVGA_GPIO_FIRST; i <= QVGA_GPIO_LAST; i++) pio_gpio_init(QVGA_PIO, i);
+	pio_gpio_init(QVGA_PIO, QVGA_GPIO_HSYNC);
+	pio_gpio_init(QVGA_PIO, QVGA_GPIO_VSYNC);
+
+	// set pin direction to output
+	pio_sm_set_consecutive_pindirs(QVGA_PIO, QVGA_SM, QVGA_GPIO_FIRST, QVGA_GPIO_NUM, true);
+	pio_sm_set_consecutive_pindirs(QVGA_PIO, QVGA_SM, QVGA_GPIO_HSYNC, 2, true);
+
+	// negate HSYNC and VSYNC output
+	gpio_set_outover(QVGA_GPIO_HSYNC, GPIO_OVERRIDE_INVERT);
+	gpio_set_outover(QVGA_GPIO_VSYNC, GPIO_OVERRIDE_INVERT);
+
+	// prepare default PIO program config
+	pio_sm_config cfg = qvga_program_get_default_config(QVGAOff);
+
+	// map state machine's OUT and MOV pins	
+	sm_config_set_out_pins(&cfg, QVGA_GPIO_FIRST, QVGA_GPIO_NUM);
+
+	// set sideset pins (HSYNC and VSYNC)
+	sm_config_set_sideset_pins(&cfg, QVGA_GPIO_HSYNC);
+
+	// join FIFO to send only
+	sm_config_set_fifo_join(&cfg, PIO_FIFO_JOIN_TX);
+
+	// PIO clock divider
+	sm_config_set_clkdiv(&cfg, QVGA_CLKDIV);
+
+	// shift right, autopull, pull threshold
+	sm_config_set_out_shift(&cfg, true, true, 32);
+
+	// initialize state machine
+	pio_sm_init(QVGA_PIO, QVGA_SM, QVGAOff+qvga_offset_entry, &cfg);
+}
+
+// initialize scanline buffers
+void QVgaBufInit()
+{
+	// image scanline data buffer: HSYNC ... back porch ... image command
+	ScanLineImg[0] = QVGACMD(qvga_offset_hsync, QVGA_HSYNC-3); // HSYNC
+	ScanLineImg[1] = QVGACMD(qvga_offset_dark, QVGA_BP-4); // back porch
+	ScanLineImg[2] = QVGACMD(qvga_offset_output, HRes-2); // image
+
+	// front porch
+	ScanLineFp = QVGACMD(qvga_offset_dark, QVGA_FP-4); // front porch
+
+	// dark scanline: HSYNC ... back porch + dark + front porch
+	ScanLineDark[0] = QVGACMD(qvga_offset_hsync, QVGA_HSYNC-3); // HSYNC
+	ScanLineDark[1] = QVGACMD(qvga_offset_dark, QVGA_TOTAL-QVGA_HSYNC-4); // back porch + dark + front porch
+
+	// vertical sync: VHSYNC ... VSYNC(back porch + dark + front porch)
+	ScanLineSync[0] = QVGACMD(qvga_offset_vhsync, QVGA_HSYNC-3); // VHSYNC
+	ScanLineSync[1] = QVGACMD(qvga_offset_vsync, QVGA_TOTAL-QVGA_HSYNC-3); // VSYNC(back porch + dark + front porch)
+
+	// control buffer 1 - initialize to VSYNC
+	ScanLineCB[0] = 2; // send 2x uint32_t (send ScanLineSync)
+	ScanLineCB[1] = (uint32_t)&ScanLineSync[0]; // VSYNC data buffer
+	ScanLineCB[2] = 0; // stop mark
+	ScanLineCB[3] = 0; // stop mark
+
+	// control buffer 1 - initialize to VSYNC
+	ScanLineCB[CB_MAX+0] = 2; // send 2x uint32_t (send ScanLineSync)
+	ScanLineCB[CB_MAX+1] = (uint32_t)&ScanLineSync[0]; // VSYNC data buffer
+	ScanLineCB[CB_MAX+2] = 0; // stop mark
+	ScanLineCB[CB_MAX+3] = 0; // stop mark
+}
+
+// initialize QVGA DMA
+//   control blocks aliases:
+//                  +0x0        +0x4          +0x8          +0xC (Trigger)
+// 0x00 (alias 0):  READ_ADDR   WRITE_ADDR    TRANS_COUNT   CTRL_TRIG
+// 0x10 (alias 1):  CTRL        READ_ADDR     WRITE_ADDR    TRANS_COUNT_TRIG
+// 0x20 (alias 2):  CTRL        TRANS_COUNT   READ_ADDR     WRITE_ADDR_TRIG
+// 0x30 (alias 3):  CTRL        WRITE_ADDR    TRANS_COUNT   READ_ADDR_TRIG ... we use this!
+void QVgaDmaInit()
+{
+
+// ==== prepare DMA control channel
+
+	// prepare DMA default config
+	dma_channel_config cfg = dma_channel_get_default_config(QVGA_DMA_CB);
+
+	// increment address on read from memory
+	channel_config_set_read_increment(&cfg, true);
+
+	// increment address on write to DMA port
+	channel_config_set_write_increment(&cfg, true);
+
+	// each DMA transfered entry is 32-bits
+	channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+
+	// write ring - wrap to 8-byte boundary (TRANS_COUNT and READ_ADDR_TRIG of data DMA)
+	channel_config_set_ring(&cfg, true, 3);
+
+	// DMA configure
+	dma_channel_configure(
+		QVGA_DMA_CB,		// channel
+		&cfg,			// configuration
+		&dma_hw->ch[QVGA_DMA_PIO].al3_transfer_count, // write address
+		&ScanLineCB[0],		// read address - as first, control buffer 1 will be sent out
+		2,			// number of transfers in uint32_t (number of transfers per one request from data DMA)
+		false			// do not start yet
+	);
+
+// ==== prepare DMA data channel
+
+	// prepare DMA default config
+	cfg = dma_channel_get_default_config(QVGA_DMA_PIO);
+
+	// increment address on read from memory
+	channel_config_set_read_increment(&cfg, true);
+
+	// do not increment address on write to PIO
+	channel_config_set_write_increment(&cfg, false);
+
+	// each DMA transfered entry is 32-bits
+	channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+
+	// DMA data request for sending data to PIO
+	channel_config_set_dreq(&cfg, pio_get_dreq(QVGA_PIO, QVGA_SM, true));
+
+	// chain channel to DMA control block
+	channel_config_set_chain_to(&cfg, QVGA_DMA_CB);
+
+	// raise the IRQ flag when 0 is written to a trigger register (end of chain)
+	channel_config_set_irq_quiet(&cfg, true);
+
+	// set high priority
+	cfg.ctrl |= DMA_CH0_CTRL_TRIG_HIGH_PRIORITY_BITS;
+
+	// DMA configure
+	dma_channel_configure(
+		QVGA_DMA_PIO,		// channel
+		&cfg,			// configuration
+		&QVGA_PIO->txf[QVGA_SM], // write address
+		NULL,			// read address
+		0,			// number of transfers in uint32_t
+		false			// do not start immediately
+	);
+
+// ==== initialize IRQ0, raised from DMA data channel
+
+	// enable DMA channel IRQ0
+	dma_channel_set_irq0_enabled(QVGA_DMA_PIO, true);
+
+	// set DMA IRQ handler
+	if(DISPLAY_TYPE)irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine1);
+    else irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine0);
+
+	// set highest IRQ priority
+	irq_set_priority(DMA_IRQ_0, 0);
+}
+
+// initialize QVGA (can change system clock)
+void QVgaInit()
+{
+	// initialize PIO
+	QVgaPioInit();
+
+	// initialize scanline buffers
+	QVgaBufInit();
+
+	// initialize DMA
+	QVgaDmaInit();
+
+	// initialize parameters
+	QVgaScanLine = 0; // currently processed scanline
+	QVgaBufInx = 0; // at first, control buffer 1 will be sent out
+	QVgaFrame = 0; // current frame
+	ScanLineCBNext = &ScanLineCB[CB_MAX]; // send control buffer 2 next
+
+	// enable DMA IRQ
+	irq_set_enabled(DMA_IRQ_0, true);
+
+	// start DMA
+	dma_channel_start(QVGA_DMA_CB);
+
+	// run state machine
+	pio_sm_set_enabled(QVGA_PIO, QVGA_SM, true);
+}
+
+void (* volatile Core1Fnc)() = NULL; // core 1 remote function
+
+// QVGA core
+void __not_in_flash_func(QVgaCore)()
+{
+	// initialize QVGA
+	QVgaInit();
+
+	// infinite loop
+	while (true)
+	{
+		// data memory barrier
+		__dmb();
+        if (multicore_fifo_rvalid()) {
+            int command=multicore_fifo_pop_blocking();
+            if(command==0x5555){
+                irq_set_enabled(DMA_IRQ_0, false);
+            };
+            if(command==0xAAAA){
+                irq_set_enabled(DMA_IRQ_0, true);
+            }
+        } 
+    }
+}
+uint32_t core1stack[64];
+#endif
+int main(){
     static int ErrorInPrompt;
     repeating_timer_t timer;
     int i;
     LoadOptions();
-    if(Option.Baudrate == 0 ||
+    if(  Option.Baudrate == 0 ||
         !(Option.Tab==2 || Option.Tab==3 || Option.Tab==4 ||Option.Tab==8) ||
-        !(Option.Autorun>=0 && Option.Autorun<=11) ||
-        !(Option.CPU_Speed >=48000 && Option.CPU_Speed<=MAX_CPU)
+        !(Option.Autorun>=0 && Option.Autorun<=MAXFLASHSLOTS+1) ||
+        !(Option.Magic==0x7468215)
         ){
         ResetAllFlash();              // init the options if this is the very first startup
         _excep_code=0;
@@ -998,6 +1481,10 @@ int main() {
     systick_hw->csr = 0x5;
     systick_hw->rvr = 0x00FFFFFF;
     busy_wait_ms(100);
+#ifdef PICOMITEVGA
+    if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE ? 4	: 2);
+    else QVGA_CLKDIV=(Option.DISPLAY_TYPE ? 2	: 1);
+#endif
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
@@ -1021,13 +1508,19 @@ int main() {
     // negative timeout means exact delay (rather than delay between callbacks)
 	OptionErrorSkip = false;
 	InitBasic();
+#ifndef PICOMITEVGA
     InitDisplaySPI(0);
     InitDisplayI2C(0);
     InitTouch();
+#endif
+	ResetDisplay();
     ErrorInPrompt = false;
     exception_set_exclusive_handler(HARDFAULT_EXCEPTION,sigbus);
     while((i=getConsole())!=-1){}
-
+#ifdef PICOMITEVGA
+    multicore_launch_core1_with_stack(QVgaCore,core1stack,256);
+	memset(FrameBuf, 0, sizeof(FrameBuf));
+#endif
     if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == WATCHDOG_TIMEOUT)){
         if(Option.Autorun==0 ){
             if(!(_excep_code == RESET_COMMAND))MMPrintString(MES_SIGNON); //MMPrintString(b);                                 // print sign on message
@@ -1069,14 +1562,12 @@ int main() {
     }
     PromptFont = Option.DefaultFont;
     while(1) {
-#if defined(MX470)
     if(Option.DISPLAY_CONSOLE) {
         SetFont(PromptFont);
         gui_fcolour = PromptFC;
         gui_bcolour = PromptBC;
         if(CurrentX != 0) MMPrintString("\r\n");                    // prompt should be on a new line
     }
-#endif
         MMAbort = false;
         BreakKey = BREAK_KEY;
         EchoOption = true;

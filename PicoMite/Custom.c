@@ -53,7 +53,6 @@ extern struct s_vartbl {                               // structure of the varia
     }  __attribute__ ((aligned (8))) val;
 } __attribute__ ((aligned (8))) s_vartbl_val;
 
-
 /********************************************************************************************************************************************
  custom commands and functions
  each function is responsible for decoding a command
@@ -86,11 +85,13 @@ extern struct s_vartbl {                               // structure of the varia
 #include "pico/stdlib.h"
 #include "hardware/irq.h"
 #include "hardware/claim.h"
+#define PIO_NUM(pio) ((pio) == pio0 ? 0 : 1)
+#define CLKMIN ((Option.CPU_Speed*125)>>13)
+#define CLKMAX (Option.CPU_Speed *1000)
+
+#ifndef PICOMITEVGA
 #include "pio.h"
 #include "pio_instructions.h"
-#define PIO_NUM(pio) ((pio) == pio0 ? 0 : 1)
-
-// sanity check
 check_hw_layout(pio_hw_t, sm[0].clkdiv, PIO_SM0_CLKDIV_OFFSET);
 check_hw_layout(pio_hw_t, sm[1].clkdiv, PIO_SM1_CLKDIV_OFFSET);
 check_hw_layout(pio_hw_t, instr_mem[0], PIO_INSTR_MEM0_OFFSET);
@@ -336,9 +337,19 @@ void pio_sm_drain_tx_fifo(PIO pio, uint sm) {
         pio_sm_exec(pio, sm, instr);
     }
 }
+#else
+#include "hardware/pio.h"
+#include "hardware/pio_instructions.h"
+static inline uint32_t pio_sm_calc_wrap(uint wrap_target, uint wrap) {
+    uint32_t calc=0;
+    valid_params_if(PIO, wrap < PIO_INSTRUCTION_COUNT);
+    valid_params_if(PIO, wrap_target < PIO_INSTRUCTION_COUNT);
+    return  (calc & ~(PIO_SM0_EXECCTRL_WRAP_TOP_BITS | PIO_SM0_EXECCTRL_WRAP_BOTTOM_BITS)) |
+            (wrap_target << PIO_SM0_EXECCTRL_WRAP_BOTTOM_LSB) |
+            (wrap << PIO_SM0_EXECCTRL_WRAP_TOP_LSB);
+}
+#endif
 
-#define CLKMIN ((Option.CPU_Speed*125)>>13)
-#define CLKMAX (Option.CPU_Speed *1000)
 void cmd_pio(void){
     unsigned char *tp;
     tp = checkstring(cmdline, "EXECUTE");
@@ -347,7 +358,11 @@ void cmd_pio(void){
         getargs(&tp, (MAX_ARG_COUNT * 2) - 1, (unsigned char *)",");
         if((argc & 0x01) == 0) error("Syntax");
         if(argc<5)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         for(i = 4; i < argc; i += 2) {
             pio_sm_exec(pio, sm, getint(argv[i],0,65535));
@@ -360,7 +375,11 @@ void cmd_pio(void){
         getargs(&tp, (MAX_ARG_COUNT * 2) - 1, (unsigned char *)",");
         if((argc & 0x01) == 0) error("Syntax");
         if(argc<5)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         int count=getint(argv[4],0,MAX_ARG_COUNT-3);
         while(count--) {
@@ -378,7 +397,11 @@ void cmd_pio(void){
         getargs(&tp, (MAX_ARG_COUNT * 2) - 1, (unsigned char *)",");
         if((argc & 0x01) == 0) error("Syntax");
         if(argc<5)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         dd = GetReceiveDataBuffer(argv[4], &nbr);
         while(nbr--) {
@@ -392,7 +415,11 @@ void cmd_pio(void){
     if(tp){
         getargs(&tp,5,",");
         if(argc!=5)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int slot=getint(argv[2],0,31);
         int instruction=getint(argv[4],0,0xFFFF);
         pio->instr_mem[slot]=instruction;
@@ -402,7 +429,11 @@ void cmd_pio(void){
     tp = checkstring(cmdline, "CLEAR");
     if(tp){
         getargs(&tp,1,",");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         for(int sm=0;sm<4;sm++){
             hw_clear_bits(&pio->ctrl, 1 << (PIO_CTRL_SM_ENABLE_LSB + sm));
             pio->sm[sm].pinctrl=(5<<26);
@@ -421,7 +452,11 @@ void cmd_pio(void){
         void *prt1;
         program.length=32;
         program.origin=0;
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
 	    void *ptr1 = findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
         if(vartbl[VarIndex].type & T_INT) {
             if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
@@ -440,7 +475,11 @@ void cmd_pio(void){
     if(tp){
         getargs(&tp,3,",");
         if(argc!=3)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         pio_sm_set_enabled(pio, sm, true);
         pio_sm_restart(pio, sm);
@@ -450,7 +489,11 @@ void cmd_pio(void){
     if(tp){
         getargs(&tp,3,",");
         if(argc!=3)error("Syntax");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         pio_sm_set_enabled(pio, sm, false);
         return;
@@ -461,7 +504,11 @@ void cmd_pio(void){
         getargs(&tp,13,",");
         if(argc<5)error("Syntax");
         pio_sm_config mypio=pio_get_default_sm_config();
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         int sm=getint(argv[2],0,3);
         float clock=getnumber(argv[4]);
         if(clock<CLKMIN || clock> CLKMAX)error("Clock must be in range % to %",CLKMIN,CLKMAX);
@@ -540,7 +587,11 @@ void fun_pio(void){
      tp = checkstring(ep, "FSTAT");
     if(tp){
         getargs(&tp,1,",");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         iret=pio->fstat; // jmp pin
         targ=T_INT;
         return;
@@ -548,7 +599,11 @@ void fun_pio(void){
     tp = checkstring(ep, "FDEBUG");
     if(tp){
         getargs(&tp,1,",");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         iret=pio->fdebug; // jmp pin
         targ=T_INT;
         return;
@@ -556,7 +611,11 @@ void fun_pio(void){
     tp = checkstring(ep, "FLEVEL");
     if(tp){
         getargs(&tp,1,",");
+#ifdef PICOMITEVGA
+        PIO pio = (getint(argv[0],1,1) ? pio1: pio0);
+#else
         PIO pio = (getint(argv[0],0,1) ? pio1: pio0);
+#endif
         iret=pio->flevel; // jmp pin
         targ=T_INT;
         return;

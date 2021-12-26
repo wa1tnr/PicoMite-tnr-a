@@ -42,12 +42,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 //#else
 #define GUI_C_NORMAL            WHITE
 #define GUI_C_BCOLOUR           BLACK
-#define GUI_C_COMMENT           RGB(192, 192, 0)
+#define GUI_C_COMMENT           YELLOW
 #define GUI_C_KEYWORD           CYAN
-#define GUI_C_QUOTE             RGB(0, 200, 0)
-#define GUI_C_NUMBER            RGB(255, 128, 128)
-#define GUI_C_LINE              GRAY
-#define GUI_C_STATUS            (Option.ColourCode ? BROWN : gui_fcolour)
+#define GUI_C_QUOTE             GREEN
+#define GUI_C_NUMBER            RED
+#define GUI_C_LINE              MAGENTA
+#define GUI_C_STATUS            WHITE
 
 //======================================================================================
 //      Attribute               VT100 Code      VT 100 Colour       LCD Screen Colour
@@ -67,8 +67,10 @@ int StartEditChar = 0;
 
 #if !defined(LITE)
 
+void DisplayPutS(char *s) {
+    while(*s) DisplayPutC(*s++);
+}
 
-#if defined(MX470)
 
     int OriginalFC, OriginalBC;                                     // the original fore/background colours used by MMBasic
 
@@ -118,19 +120,6 @@ int StartEditChar = 0;
                                     break;
         }
 }
-#else
-
-    #define MX470Cursor(x,y)
-    #define SerUSBPutC(c)
-    #define SerUSBPutS(s)
-    #define MX470Display(fn)
-    #define MX470PutC(c)
-    #define MX470PutS(s,f,b)
-    #define MX470Scroll(n)
-    #define ShowCursor(n);
-
-
-#endif
 
 
 
@@ -176,13 +165,11 @@ void cmd_edit(void) {
     int y, x;
     checkend(cmdline);
     if(CurrentLinePtr) error("Invalid in a program");
-#if defined(MX470)
     if(Option.ColourCode) {
         gui_fcolour = WHITE;
         gui_bcolour = BLACK;
     }
     if(Option.DISPLAY_CONSOLE == true && gui_font_width > 16) error("Font is too large");
-#endif
     ClearRuntime();
     EdBuff = GetTempMemory(EDIT_BUFFER_SIZE);
     *EdBuff = 0;
@@ -556,12 +543,10 @@ void FullScreenEditor(void) {
               case F2:             // Save, exit and run
                             MMPrintString("\033[?1000l");                         // Tera Term turn off mouse click report in vt200 mode
                             MMPrintString("\0338\033[2J\033[H");                  // vt100 clear screen and home cursor
-                            #if defined(MX470)
                                 gui_fcolour = PromptFC;
                                 gui_bcolour = PromptBC;
                                 MX470Display(DISPLAY_CLS);                        // clear screen on the MX470 display only
                                 MX470Cursor(0, 0);                                // home the cursor
-                            #endif
                             BreakKey = BreakKeySave;
                             if(buf[0] != ESC && TextChanged) SaveProgramToFlash(EdBuff, true);
                             if(buf[0] == ESC || buf[0] == CTRLKEY('Q') || buf[0] == F1) return;
@@ -1082,7 +1067,6 @@ void printLine(int ln) {
     char *p;
     int i;
 
-#if defined(MX470)
     // we always colour code the output to the LCD panel on the MX470 (when used as the console)
     if(Option.DISPLAY_CONSOLE) {
         MX470PutC('\r');                                            // print on the MX470 display
@@ -1096,7 +1080,6 @@ void printLine(int ln) {
         MX470Display(CLEAR_TO_EOL);                                 // clear to the end of line on the MX470 display only
     }
     SetColour(NULL, false);
-#endif
 
     p = findLine(ln);
     if(Option.ColourCode) {
@@ -1259,14 +1242,12 @@ void SaveToProgMemory(void) {
     ClearProgram();
     StartEditPoint = (char *)(edy + cury);                            // record out position in case the editor is invoked again
     StartEditChar = edx + curx;
-#if defined(MX470)
     // bugfix for when the edit point is a space
     // the space could be at the end of a line which will be trimmed in SaveProgramToFlash() leaving StartEditChar referring to something not there
     // this is not a serious issue so fix the bug in the MX470 only because it has plenty of flash
     while(StartEditChar > 0 && txtp > EdBuff && *(--txtp) == ' ') {
         StartEditChar--;
     }
-#endif
 //    SaveProgramToFlash(EdBuff, true);
 }
 

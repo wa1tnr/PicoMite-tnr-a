@@ -57,6 +57,9 @@ void fun_mmhres(void);
 void fun_mmvres(void);
 void fun_mmcharwidth(void);
 void fun_mmcharheight(void);
+void fun_at(void);
+void fun_pixel(void);
+
 #endif
 
 
@@ -79,13 +82,16 @@ void fun_mmcharheight(void);
 	{ (unsigned char *)"CLS",            T_CMD,                      0, cmd_cls	},
 	{ (unsigned char *)"Font",           T_CMD,                      0, cmd_font	},
 	{ (unsigned char *)"Colour",         T_CMD,                      0, cmd_colour	},
-//	{ (unsigned char *)"Color",          T_CMD,                      0, cmd_colour	},
-	{ (unsigned char *)"Refresh",        T_CMD,                      0, cmd_refresh	},
-  { (unsigned char *)"Triangle",       T_CMD,                      0, cmd_triangle   },
+  	{ (unsigned char *)"Triangle",       T_CMD,                      0, cmd_triangle   },
 	{ (unsigned char *)"Arc",            T_CMD,                      0, cmd_arc	},
 	{ (unsigned char *)"Polygon",        T_CMD,                  	0, cmd_polygon	},
 	{ (unsigned char *)"Blit",           T_CMD,                      0, cmd_blit	},
-  { (unsigned char *)"GUI",            T_CMD,                      0, cmd_gui   },
+#ifdef PICOMITEVGA
+  	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_guiMX170   },
+#else
+  	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_gui   },
+	{ (unsigned char *)"Refresh",        T_CMD,                      0, cmd_refresh	},
+#endif
 
 #endif
 
@@ -94,9 +100,11 @@ void fun_mmcharheight(void);
  All other tokens (keywords, functions, operators) should be inserted in this table
 **********************************************************************************/
 #ifdef INCLUDE_TOKEN_TABLE
-	{ (unsigned char *)"RGB(",           T_FUN | T_INT,		0, fun_rgb	        },
-	{ (unsigned char *)"MM.HRes",	    T_FNA | T_INT,		0, fun_mmhres 	    },
-	{ (unsigned char *)"MM.VRes",	    T_FNA | T_INT,		0, fun_mmvres 	    },
+	{ (unsigned char *)"RGB(",           	T_FUN | T_INT,		0, fun_rgb	        },
+	{ (unsigned char *)"Pixel(",           	T_FUN | T_INT,		0, fun_pixel	        },
+	{ (unsigned char *)"MM.HRes",	    	T_FNA | T_INT,		0, fun_mmhres 	    },
+	{ (unsigned char *)"MM.VRes",	    	T_FNA | T_INT,		0, fun_mmvres 	    },
+	{ (unsigned char *)"@(",				T_FUN | T_STR,		0, fun_at		},
 //	{ (unsigned char *)"MM.FontWidth",   T_FNA | T_INT,		0, fun_mmcharwidth 	},
 //	{ (unsigned char *)"MM.FontHeight",  T_FNA | T_INT,		0, fun_mmcharheight },
 // the format is:
@@ -131,10 +139,10 @@ void fun_mmcharheight(void);
     #define GRAY                RGB(128,  128,    128)
     #define LITEGRAY            RGB(210,  210,    210)
     #define ORANGE            	RGB(0xff,	0xA5,	0)
-	  #define PINK				        RGB(0xFF,	0xA0,	0xAB)
-	  #define GOLD				        RGB(0xFF,	0xD7,	0x00)
-	  #define SALMON				      RGB(0xFA,	0x80,	0x72)
-	  #define BEIGE				        RGB(0xF5,	0xF5,	0xDC)
+	#define PINK				RGB(0xFF,	0xA0,	0xAB)
+	#define GOLD				RGB(0xFF,	0xD7,	0x00)
+	#define SALMON				RGB(0xFA,	0x80,	0x72)
+	#define BEIGE				RGB(0xF5,	0xF5,	0xDC)
 
     #define JUSTIFY_LEFT        0
     #define JUSTIFY_CENTER      1
@@ -192,12 +200,18 @@ extern void (*DrawBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
 extern void (*ReadBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
 #define FONT_BUILTIN_NBR     8
 #define FONT_TABLE_SIZE      16
+#ifdef PICOMITEVGA
+extern void (*DrawPixel)(int x1, int y1, int c);
+#else
 extern void DrawPixel(int x, int y, int c);
 extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
 extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
+#endif
+extern void DisplayPutC(char c);
 extern void GUIPrintString(int x, int y, int fnt, int jh, int jv, int jo, int fc, int bc, char *str);
 extern void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fill) ;
 extern void cmd_guiMX170(void);
+extern void ShowCursor(int show);
 extern unsigned char *FontTable[];
 extern int CurrentX, CurrentY;
 extern uint8_t FrameBuf[38400];

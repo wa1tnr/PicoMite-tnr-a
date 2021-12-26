@@ -949,6 +949,21 @@ DWORD get_fattime(void){
     return i;
 }
 void InitReservedIO(void) {
+#ifdef PICOMITEVGA
+	if(Option.DISPLAY_TYPE==0){
+		ExtCfg(21, EXT_BOOT_RESERVED, 0);
+		ExtCfg(22, EXT_BOOT_RESERVED, 0);
+		ExtCfg(26, EXT_BOOT_RESERVED, 0);
+	}
+	if(Option.DISPLAY_TYPE==1){
+		ExtCfg(21, EXT_BOOT_RESERVED, 0);
+		ExtCfg(22, EXT_BOOT_RESERVED, 0);
+		ExtCfg(24, EXT_BOOT_RESERVED, 0);
+		ExtCfg(25, EXT_BOOT_RESERVED, 0);
+		ExtCfg(26, EXT_BOOT_RESERVED, 0);
+		ExtCfg(27, EXT_BOOT_RESERVED, 0);
+	}
+#else
 	if(Option.LCD_CD){
 		ExtCfg(Option.LCD_CD, EXT_BOOT_RESERVED, 0);
 		ExtCfg(Option.LCD_CS, EXT_BOOT_RESERVED, 0);
@@ -1099,6 +1114,29 @@ void InitReservedIO(void) {
 			}
 		}
 	}
+	if(Option.TOUCH_CS){
+		ExtCfg(Option.TOUCH_CS, EXT_BOOT_RESERVED, 0);
+		ExtCfg(Option.TOUCH_IRQ, EXT_BOOT_RESERVED, 0);
+		TOUCH_CS_PIN=PinDef[Option.TOUCH_CS].GPno;
+		TOUCH_IRQ_PIN=PinDef[Option.TOUCH_IRQ].GPno;
+		gpio_init(TOUCH_CS_PIN);
+		gpio_set_drive_strength(TOUCH_CS_PIN,GPIO_DRIVE_STRENGTH_12MA);
+		gpio_put(TOUCH_CS_PIN,GPIO_PIN_SET);
+		gpio_set_dir(TOUCH_CS_PIN, GPIO_OUT);
+		gpio_set_slew_rate(TOUCH_CS_PIN, GPIO_SLEW_RATE_SLOW);
+		gpio_init(TOUCH_IRQ_PIN);
+		gpio_pull_up(TOUCH_IRQ_PIN);
+		gpio_set_dir(TOUCH_IRQ_PIN, GPIO_IN);
+		gpio_set_input_hysteresis_enabled(TOUCH_IRQ_PIN,true);
+		if(Option.TOUCH_Click){
+			ExtCfg(Option.TOUCH_Click, EXT_BOOT_RESERVED, 0);
+			TOUCH_Click_PIN=PinDef[Option.TOUCH_Click].GPno;
+			gpio_init(TOUCH_Click_PIN);
+			gpio_put(TOUCH_Click_PIN,GPIO_PIN_RESET);
+			gpio_set_dir(TOUCH_Click_PIN, GPIO_OUT);
+		}
+	}
+#endif
 	if(Option.SYSTEM_I2C_SDA){
 		ExtCfg(Option.SYSTEM_I2C_SCL, EXT_BOOT_RESERVED, 0);
 		ExtCfg(Option.SYSTEM_I2C_SDA, EXT_BOOT_RESERVED, 0);
@@ -1218,28 +1256,6 @@ void InitReservedIO(void) {
     	irq_set_enabled(PWM_IRQ_WRAP, true);
 		irq_set_priority(PWM_IRQ_WRAP,255);
 		pwm_set_enabled(AUDIO_SLICE, true);
-	}
-	if(Option.TOUCH_CS){
-		ExtCfg(Option.TOUCH_CS, EXT_BOOT_RESERVED, 0);
-		ExtCfg(Option.TOUCH_IRQ, EXT_BOOT_RESERVED, 0);
-		TOUCH_CS_PIN=PinDef[Option.TOUCH_CS].GPno;
-		TOUCH_IRQ_PIN=PinDef[Option.TOUCH_IRQ].GPno;
-		gpio_init(TOUCH_CS_PIN);
-		gpio_set_drive_strength(TOUCH_CS_PIN,GPIO_DRIVE_STRENGTH_12MA);
-		gpio_put(TOUCH_CS_PIN,GPIO_PIN_SET);
-		gpio_set_dir(TOUCH_CS_PIN, GPIO_OUT);
-		gpio_set_slew_rate(TOUCH_CS_PIN, GPIO_SLEW_RATE_SLOW);
-		gpio_init(TOUCH_IRQ_PIN);
-		gpio_pull_up(TOUCH_IRQ_PIN);
-		gpio_set_dir(TOUCH_IRQ_PIN, GPIO_IN);
-		gpio_set_input_hysteresis_enabled(TOUCH_IRQ_PIN,true);
-		if(Option.TOUCH_Click){
-			ExtCfg(Option.TOUCH_Click, EXT_BOOT_RESERVED, 0);
-			TOUCH_Click_PIN=PinDef[Option.TOUCH_Click].GPno;
-			gpio_init(TOUCH_Click_PIN);
-			gpio_put(TOUCH_Click_PIN,GPIO_PIN_RESET);
-			gpio_set_dir(TOUCH_Click_PIN, GPIO_OUT);
-		}
 	}
 	if(Option.PWM){
 		gpio_init(23);

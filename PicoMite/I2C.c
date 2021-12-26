@@ -137,6 +137,7 @@ void I2C_Send_Data(unsigned char* data, int n){
 	if(i2cret==PICO_ERROR_GENERIC)mmI2Cvalue=1;
 	if(i2cret==PICO_ERROR_TIMEOUT)mmI2Cvalue=2;
 }
+#ifndef PICOMITEVGA
 void ConfigDisplayI2C(unsigned char *p) {
     getargs(&p, 5, ",");
     if(!(argc == 3 || argc == 5)) error("Argument count");
@@ -210,6 +211,7 @@ void InitDisplayI2C(int InitOnly){
 		Display_Refresh();
     }
 }
+#endif
 
 void cmd_i2c(void) {
     unsigned char *p;//, *pp;
