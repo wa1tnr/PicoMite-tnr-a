@@ -1117,7 +1117,7 @@ void cmd_pixel(void) {
 	            DrawPixel(x1, y1, c);
 	        }
 	    }
-		}
+	}
 #ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
 #endif
@@ -2651,14 +2651,14 @@ void ScrollLCDColour(int lines){
             int d=i*(HRes>>1),s=(i+lines)*(HRes>>1); 
             for(int c=0;c<(HRes>>1);c++)FrameBuf[d+c]=FrameBuf[s+c];
         }
-        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, 0); // erase the lines to be scrolled off
+        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, PromptBC); // erase the lines to be scrolled off
     } else {
     	lines=-lines;
         for(int i=VRes-1;i>=lines;i--) {
             int d=i*(HRes>>1),s=(i-lines)*(HRes>>1); 
             for(int c=0;c<(HRes>>1);c++)FrameBuf[d+c]=FrameBuf[s+c];
         }
-        DrawRectangle(0, 0, HRes - 1, lines - 1, 0); // erase the lines introduced at the top
+        DrawRectangle(0, 0, HRes - 1, lines - 1, PromptBC); // erase the lines introduced at the top
     }
 }
 void DrawBufferColour(int x1, int y1, int x2, int y2, unsigned char *p){
@@ -2790,14 +2790,14 @@ void ScrollLCDSPI(int lines){
         	ReadBuffer(0, i+lines, HRes -1, i+lines, buff);
 			DrawBuffer(0, i, HRes - 1, i, buff);        	
         }
-        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, 0); // erase the lines to be scrolled off
+        DrawRectangle(0, VRes-lines, HRes - 1, VRes - 1, gui_bcolour); // erase the lines to be scrolled off
     } else {
     	lines=-lines;
         for(int i=VRes-1;i>=lines;i--) {
         	ReadBuffer(0, i-lines, HRes -1, i-lines, buff);
 			DrawBuffer(0, i, HRes - 1, i, buff);        	
         }
-        DrawRectangle(0, 0, HRes - 1, lines - 1, 0); // erase the lines introduced at the top
+        DrawRectangle(0, 0, HRes - 1, lines - 1, gui_bcolour); // erase the lines introduced at the top
     }
     FreeMemory(buff);
 }
@@ -2836,9 +2836,12 @@ void SetFont(int fnt) {
 
 
 void ResetDisplay(void) {
-        SetFont(Option.DefaultFont);
-        gui_fcolour = Option.DefaultFC;
-        gui_bcolour = Option.DefaultBC;
+    SetFont(Option.DefaultFont);
+    gui_fcolour = Option.DefaultFC;
+    gui_bcolour = Option.DefaultBC;
+    PromptFont = Option.DefaultFont;
+    PromptFC = Option.DefaultFC;
+    PromptBC = Option.DefaultBC;
 #ifdef PICOMITEVGA
         HRes=DISPLAY_TYPE ? 320 : 640;
         VRes=DISPLAY_TYPE ? 240 : 480;
@@ -2947,6 +2950,7 @@ void DisplayPutC(char c) {
     switch(c) {
         case '\b':  CurrentX -= gui_font_width;
                     if(CurrentX < 0) CurrentX = 0;
+                    DrawRectangle(CurrentX, CurrentY, CurrentX+gui_font_width-1, CurrentY+gui_font_height-1,gui_bcolour);
                     return;
         case '\r':  CurrentX = 0;
                     return;

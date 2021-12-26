@@ -246,7 +246,7 @@ extern void set_cs(void);
 #define SDSLOW          1
 #define SSD1306I2C      2
 #define SSD1306I2C32    3
-#define I2C_PANEL       3    // anything less than or equal to I2C_PANEL is handled by the I2C driver
+#define I2C_PANEL       SSD1306I2C32    // anything less than or equal to I2C_PANEL is handled by the I2C driver
 #define ILI9163         4
 #define ILI9341         5
 #define ST7735          6
@@ -265,7 +265,8 @@ extern void set_cs(void);
 #define ST7920			18
 #define GDEH029A1		19
 #define TOUCH           20
-#define ILI9488Read     21
+#define SPIReadSpeed    21
+#define ST7789RSpeed 22
 #define DISP_USER       25
 #define TFT_NOP 0x00
 #define TFT_SWRST 0x01

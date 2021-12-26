@@ -1682,6 +1682,50 @@ void cmd_option(void) {
         Option.Autorun=getint(tp,0,MAXFLASHSLOTS);
         SaveOptions(); return; 
     }
+    tp = checkstring(cmdline, "LCDPANEL NOCONSOLE");
+    if(tp){
+        Option.Height = SCREENHEIGHT; Option.Width = SCREENWIDTH;
+        Option.DISPLAY_CONSOLE = 0;
+        Option.ColourCode = false;
+        Option.DefaultFC = WHITE;
+        Option.DefaultBC = BLACK;
+        SetFont((Option.DefaultFont = 0x01));
+        Option.DefaultBrightness = 100;
+        if(!CurrentLinePtr) {
+            SaveOptions();
+            ClearScreen(Option.DefaultBC);
+        }
+        return;
+    }
+    tp = checkstring(cmdline, "LCDPANEL CONSOLE");
+    if(tp) {
+#ifndef PICOMITEVGA
+        if(!(Option.DISPLAY_TYPE==ST7789B || Option.DISPLAY_TYPE==ILI9488 || Option.DISPLAY_TYPE==ILI9341))error("Display does not support console");
+        if(!Option.DISPLAY_ORIENTATION== DISPLAY_LANDSCAPE) error("Landscape only");
+#endif
+        skipspace(tp);
+        Option.DefaultFC = WHITE;
+        Option.DefaultBC = BLACK;
+        Option.DefaultBrightness = 100;
+        if(!(*tp == 0 || *tp == '\'')) {
+            getargs(&tp, 7, ",");                              // this is a macro and must be the first executable stmt in a block
+            if(argc > 0) {
+                if(*argv[0] == '#') argv[0]++;                  // skip the hash if used
+                Option.DefaultFont=(((getint(argv[0], 1, FONT_BUILTIN_NBR) - 1) << 4) | 1);
+            }
+            if(argc > 2) Option.DefaultFC = getint(argv[2], BLACK, WHITE);
+            if(argc > 4) Option.DefaultBC = getint(argv[4], BLACK, WHITE);
+            if(Option.DefaultFC == Option.DefaultBC) error("Same colours");
+            if(argc > 6) Option.DefaultBrightness = getint(argv[6], 2, 100);
+        }
+        Option.DISPLAY_CONSOLE = true; 
+        ResetDisplay();
+        if(!CurrentLinePtr) {
+            SaveOptions();
+            ClearScreen(Option.DefaultBC);
+        }
+        return;
+    }
 
 #ifdef PICOMITEVGA
     tp = checkstring(cmdline, "LEGACY");
@@ -1757,35 +1801,20 @@ void cmd_option(void) {
 		}
 		if(checkstring(tp, "OFF"))		{ Option.Refresh = 0; return; }
 	}
-    if(tp == NULL) tp = checkstring(cmdline, "LCDPANEL CONSOLE");
-    if(tp) {
-        if(checkstring(tp, "ON"))       { 
-        	if(!(Option.DISPLAY_TYPE==ST7789B || Option.DISPLAY_TYPE==ILI9488 || Option.DISPLAY_TYPE==ILI9341))error("Display does not support console");
-        	Option.DISPLAY_CONSOLE = true; 
+    tp = checkstring(cmdline, "LCDPANEL NOCONSOLE");
+    if(tp){
+        Option.Height = SCREENHEIGHT; Option.Width = SCREENWIDTH;
+        Option.DISPLAY_CONSOLE = 0;
+        Option.ColourCode = false;
+        Option.DefaultFC = WHITE;
+        Option.DefaultBC = BLACK;
+        SetFont((Option.DefaultFont = 0x01));
+        Option.DefaultBrightness = 100;
+        if(!CurrentLinePtr) {
+            SaveOptions();
+            ClearScreen(Option.DefaultBC);
         }
-        else if(checkstring(tp, "OFF"))      { 
-        	Option.DISPLAY_CONSOLE = false; 
-        }
-        else error("Syntax");
-        SaveOptions();
-        _excep_code = RESET_COMMAND;
-        SoftReset();
-    }
-
-    tp = checkstring(cmdline, "LCDPANEL");
-    if(tp) {
-        getargs(&tp, 13, ",");
-        if(str_equal(argv[0], "USER")) {
-            if(Option.DISPLAY_TYPE) error("Display already configured");
-            if(argc != 5) error("Argument count");
-            HRes = DisplayHRes = getint(argv[2], 1, 10000);
-            VRes = DisplayVRes = getint(argv[4], 1, 10000);
-            Option.DISPLAY_TYPE = DISP_USER;
-            // setup the pointers to the drawing primitives
-            DrawRectangle = DrawRectangleUser;
-            DrawBitmap = DrawBitmapUser;
-            return;
-        }
+        return;
     }
     
     tp = checkstring(cmdline, "LCDPANEL");

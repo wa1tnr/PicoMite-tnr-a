@@ -28,7 +28,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "Hardware_Includes.h"
 int CurrentSPIDevice=NONE_SPI_DEVICE;
 #ifndef PICOMITEVGA
-const struct Displays display_details[]={
+const struct Displays display_details[26]={
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"SSD1306I2C", 400, 128, 64, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
@@ -50,9 +50,8 @@ const struct Displays display_details[]={
 		{"ST7920", ST7920_SPI_SPEED, 128, 64, 1, 1, SPI_POLARITY_HIGH, SPI_PHASE_2EDGE},
 		{"GDEH029A1", EINK_SPI_SPEED, 128, 296, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"", TOUCH_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"ILI9488Read", 12000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"ST7789Read", 6000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
-		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"SPIReadSpeed", 12000000, 480, 320, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
+		{"ST7789RSpeed", 6000000, 320, 240, 16, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"User", 0, 0, 0, 0, 0, 0 ,0},
@@ -726,7 +725,7 @@ void InitDisplaySPI(int InitOnly) {
     }
     if(!InitOnly) {
     	ResetDisplay();
-    	ClearScreen(0);
+    	ClearScreen(Option.DISPLAY_CONSOLE ? Option.DefaultBC : 0);
     	if(Option.Refresh)Display_Refresh();
     }
 }
@@ -1102,6 +1101,7 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
     if(p != NULL) FreeMemory(p);
 
 }
+const unsigned char map32[256];
 void ReadBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     int r, N, t;
     unsigned char h,l;
@@ -1120,14 +1120,13 @@ void ReadBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     N=(x2- x1+1) * (y2- y1+1) * 3;
     if(Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE==ST7789B )spi_write_cd(ILI9341_PIXELFORMAT,1,0x66); //change to RDB666 for read
     DefineRegionSPI(x1, y1, x2, y2, 0);
-	if(Option.DISPLAY_TYPE==ILI9488)SPISpeedSet(ILI9488Read); //need to slow SPI for read on this display
-	rcvr_byte_multi((uint8_t *)p, 1);
+	SPISpeedSet( Option.DISPLAY_TYPE==ST7789B ? ST7789RSpeed : SPIReadSpeed); //need to slow SPI for read on this display
 	if(Option.DISPLAY_TYPE==ST7789B)rcvr_byte_multi((uint8_t *)p, 1);
     r=0;
 	rcvr_byte_multi((uint8_t *)p,N);
 	gpio_put(LCD_CD_PIN,GPIO_PIN_RESET);
     ClearCS(Option.LCD_CS);                  //set CS high
-	if(Option.DISPLAY_TYPE==ILI9488)SPISpeedSet(ILI9488);
+	SPISpeedSet(Option.DISPLAY_TYPE);
     // revert to non enhanced SPI mode
     if(Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE==ST7789B )spi_write_cd(ILI9341_PIXELFORMAT,1,0x55); //change back to rdb565
     r=0;

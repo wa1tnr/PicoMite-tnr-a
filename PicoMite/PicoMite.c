@@ -1560,7 +1560,6 @@ int main(){
             }       
         }
     }
-    PromptFont = Option.DefaultFont;
     while(1) {
     if(Option.DISPLAY_CONSOLE) {
         SetFont(PromptFont);
