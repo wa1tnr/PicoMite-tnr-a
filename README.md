@@ -15,6 +15,10 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03b3
+
+Merge of VGA and standard codesets
+
 V5.07.03b2
 
 YOU MUST LOAD clear_flash BEFORE LOADING THIS VERSION. 
