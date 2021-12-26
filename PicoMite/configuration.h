@@ -77,7 +77,7 @@ extern "C" {
 #define FNV_offset_basis    2166136261
 #define use_hash
 #define DISKCHECKRATE       500                    //check for removal of SDcard every 500mSec
-#define EDIT_BUFFER_SIZE    Option.HEAP_SIZE-1024// this is the maximum RAM that we can get
+#define EDIT_BUFFER_SIZE    Option.HEAP_SIZE-1024-3*HRes// this is the maximum RAM that we can get
 #define SCREENWIDTH     80
 #define SCREENHEIGHT    24                          // this is the default and it can be changed using the OPTION command
 #define CONSOLE_BAUDRATE        115200               // only applies to the serial console
