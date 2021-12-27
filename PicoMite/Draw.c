@@ -105,7 +105,7 @@ int PrintPixelMode=0;
 
 int CurrentX=0, CurrentY=0;                                             // the current default position for the next char to be written
 #ifdef PICOMITEVGA
-int gui_font_width, gui_font_height;
+int gui_font_width, gui_font_height, last_bcolour, last_fcolour;
 #endif
 int DisplayHRes, DisplayVRes;                                       // the physical characteristics of the display
 char * blitbuffptr[MAXBLITBUF];                                  //Buffer pointers for the BLIT command
@@ -1081,43 +1081,43 @@ void cmd_pixel(void) {
 		DrawPixel(x, y, value);
 		lastx = x; lasty = y;
 	} else {
-	    int x1, y1, c=0, n=0 ,i, nc=0;
-	    long long int *x1ptr, *y1ptr, *cptr;
-	    MMFLOAT *x1fptr, *y1fptr, *cfptr;
-	    getargs(&cmdline, 5,",");
-	    if(!(argc == 3 || argc == 5)) error("Argument count");
-	    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
-	    if(n != 1) getargaddress(argv[2], &y1ptr, &y1fptr, &n);
-	    if(n==1){ //just a single point
-	        c = gui_fcolour;                                    // setup the defaults
-	        x1 = getinteger(argv[0]);
-	        y1 = getinteger(argv[2]);
-	        if(argc == 5)
-	            c = getint(argv[4], 0, WHITE);
-	        else
-	            c = gui_fcolour;
-	        DrawPixel(x1, y1, c);
-	    } else {
-	        c = gui_fcolour;                                        // setup the defaults
-	        if(argc == 5){
-	            getargaddress(argv[4], &cptr, &cfptr, &nc); 
-	            if(nc == 1) c = getint(argv[4], 0, WHITE);
-	            else if(nc>1) {
-	                if(nc < n) n=nc; //adjust the dimensionality
-	                for(i=0;i<nc;i++){
-	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-	                }
-	            }
-	        }
-	        for(i=0;i<n;i++){
-	            x1 = (x1fptr == NULL ? x1ptr[i] : (int)x1fptr[i]);
-	            y1 = (y1fptr == NULL ? y1ptr[i] : (int)y1fptr[i]);
-	            if(nc > 1) c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-	            DrawPixel(x1, y1, c);
-	        }
-	    }
-	}
+        int x1, y1, c=0, n=0 ,i, nc=0;
+        long long int *x1ptr, *y1ptr, *cptr;
+        MMFLOAT *x1fptr, *y1fptr, *cfptr;
+        getargs(&cmdline, 5,",");
+        if(!(argc == 3 || argc == 5)) error("Argument count");
+        getargaddress(argv[0], &x1ptr, &x1fptr, &n);
+        if(n != 1) getargaddress(argv[2], &y1ptr, &y1fptr, &n);
+        if(n==1){ //just a single point
+            c = gui_fcolour;                                    // setup the defaults
+            x1 = getinteger(argv[0]);
+            y1 = getinteger(argv[2]);
+            if(argc == 5)
+                c = getint(argv[4], 0, WHITE);
+            else
+                c = gui_fcolour;
+            DrawPixel(x1, y1, c);
+        } else {
+            c = gui_fcolour;                                        // setup the defaults
+            if(argc == 5){
+                getargaddress(argv[4], &cptr, &cfptr, &nc); 
+                if(nc == 1) c = getint(argv[4], 0, WHITE);
+                else if(nc>1) {
+                    if(nc < n) n=nc; //adjust the dimensionality
+                    for(i=0;i<nc;i++){
+                        c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+                        if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+                    }
+                }
+            }
+            for(i=0;i<n;i++){
+                x1 = (x1fptr == NULL ? x1ptr[i] : (int)x1fptr[i]);
+                y1 = (y1fptr == NULL ? y1ptr[i] : (int)y1fptr[i]);
+                if(nc > 1) c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+                DrawPixel(x1, y1, c);
+            }
+        }
+    }
 #ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
 #endif
@@ -1150,85 +1150,85 @@ void cmd_circle(void) {
 		DrawCircle(x, y, radius, (fill ? 0:1), colour, (fill ? colour : -1), aspect);
 		lastx = x; lasty = y;
 	} else {
-	    int x, y, r, w=0, c=0, f=0, n=0 ,i, nc=0, nw=0, nf=0, na=0;
-	    MMFLOAT a;
-	    long long int *xptr, *yptr, *rptr, *fptr, *wptr, *cptr, *aptr;
-	    MMFLOAT *xfptr, *yfptr, *rfptr, *ffptr, *wfptr, *cfptr, *afptr;
-	    getargs(&cmdline, 13,",");
-	    if(!(argc & 1) || argc < 5) error("Argument count");
-	    getargaddress(argv[0], &xptr, &xfptr, &n);
-	    if(n != 1) {
-	        getargaddress(argv[2], &yptr, &yfptr, &n);
-	        getargaddress(argv[4], &rptr, &rfptr, &n);
-	    }
-	    if(n==1){
-	        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
-	        x = getinteger(argv[0]);
-	        y = getinteger(argv[2]);
-	        r = getinteger(argv[4]);
-	        if(argc > 5 && *argv[6]) w = getint(argv[6], 0, 100);
-	        if(argc > 7 && *argv[8]) a = getnumber(argv[8]);
-	        if(argc > 9 && *argv[10]) c = getint(argv[10], 0, WHITE);
-	        if(argc > 11) f = getint(argv[12], -1, WHITE);
-	        int save_refresh=Option.Refresh;
-	        Option.Refresh=0;
-	        DrawCircle(x, y, r, w, c, f, a);
-	        Option.Refresh=save_refresh;
-	    } else {
-	        w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
-	        if(argc > 5 && *argv[6]) {
-	            getargaddress(argv[6], &wptr, &wfptr, &nw); 
-	            if(nw == 1) w = getint(argv[6], 0, 100);
-	            else if(nw>1) {
-	                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
-	                for(i=0;i<nw;i++){
-	                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
-	                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
-	                }
-	            }
-	        }
-	        if(argc > 7 && *argv[8]){
-	            getargaddress(argv[8], &aptr, &afptr, &na); 
-	            if(na == 1) a = getnumber(argv[8]);
-	            if(na > 1 && na < n) n=na; //adjust the dimensionality
-	        }
-	        if(argc > 9 && *argv[10]){
-	            getargaddress(argv[10], &cptr, &cfptr, &nc); 
-	            if(nc == 1) c = getint(argv[10], 0, WHITE);
-	            else if(nc>1) {
-	                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
-	                for(i=0;i<nc;i++){
-	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-	                }
-	            }
-	        }
-	        if(argc > 11){
-	            getargaddress(argv[12], &fptr, &ffptr, &nf); 
-	            if(nf == 1) f = getint(argv[12], -1, WHITE);
-	            else if(nf>1) {
-	                if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
-	                for(i=0;i<nf;i++){
-	                    f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-	                    if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-	                }
-	            }
-	        }
-	        int save_refresh=Option.Refresh;
-	        Option.Refresh=0;
-	        for(i=0;i<n;i++){
-	            x = (xfptr==NULL ? xptr[i] : (int)xfptr[i]);
-	            y = (yfptr==NULL ? yptr[i] : (int)yfptr[i]);
-	            r = (rfptr==NULL ? rptr[i] : (int)rfptr[i])-1;
-	            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
-	            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
-	            if(nf > 1) f = (ffptr==NULL ? fptr[i] : (int)ffptr[i]);
-				if(na > 1) a = (afptr==NULL ? (MMFLOAT)aptr[i] : afptr[i]);
-	            DrawCircle(x, y, r, w, c, f, a);
-	        }
-	        Option.Refresh=save_refresh;
-	    }
-	}
+        int x, y, r, w=0, c=0, f=0, n=0 ,i, nc=0, nw=0, nf=0, na=0;
+        MMFLOAT a;
+        long long int *xptr, *yptr, *rptr, *fptr, *wptr, *cptr, *aptr;
+        MMFLOAT *xfptr, *yfptr, *rfptr, *ffptr, *wfptr, *cfptr, *afptr;
+        getargs(&cmdline, 13,",");
+        if(!(argc & 1) || argc < 5) error("Argument count");
+        getargaddress(argv[0], &xptr, &xfptr, &n);
+        if(n != 1) {
+            getargaddress(argv[2], &yptr, &yfptr, &n);
+            getargaddress(argv[4], &rptr, &rfptr, &n);
+        }
+        if(n==1){
+            w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
+            x = getinteger(argv[0]);
+            y = getinteger(argv[2]);
+            r = getinteger(argv[4]);
+            if(argc > 5 && *argv[6]) w = getint(argv[6], 0, 100);
+            if(argc > 7 && *argv[8]) a = getnumber(argv[8]);
+            if(argc > 9 && *argv[10]) c = getint(argv[10], 0, WHITE);
+            if(argc > 11) f = getint(argv[12], -1, WHITE);
+            int save_refresh=Option.Refresh;
+            Option.Refresh=0;
+            DrawCircle(x, y, r, w, c, f, a);
+            Option.Refresh=save_refresh;
+        } else {
+            w = 1; c = gui_fcolour; f = -1; a = 1;                          // setup the defaults
+            if(argc > 5 && *argv[6]) {
+                getargaddress(argv[6], &wptr, &wfptr, &nw); 
+                if(nw == 1) w = getint(argv[6], 0, 100);
+                else if(nw>1) {
+                    if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
+                    for(i=0;i<nw;i++){
+                        w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
+                        if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
+                    }
+                }
+            }
+            if(argc > 7 && *argv[8]){
+                getargaddress(argv[8], &aptr, &afptr, &na); 
+                if(na == 1) a = getnumber(argv[8]);
+                if(na > 1 && na < n) n=na; //adjust the dimensionality
+            }
+            if(argc > 9 && *argv[10]){
+                getargaddress(argv[10], &cptr, &cfptr, &nc); 
+                if(nc == 1) c = getint(argv[10], 0, WHITE);
+                else if(nc>1) {
+                    if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
+                    for(i=0;i<nc;i++){
+                        c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+                        if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+                    }
+                }
+            }
+            if(argc > 11){
+                getargaddress(argv[12], &fptr, &ffptr, &nf); 
+                if(nf == 1) f = getint(argv[12], -1, WHITE);
+                else if(nf>1) {
+                    if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
+                    for(i=0;i<nf;i++){
+                        f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
+                        if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+                    }
+                }
+            }
+            int save_refresh=Option.Refresh;
+            Option.Refresh=0;
+            for(i=0;i<n;i++){
+                x = (xfptr==NULL ? xptr[i] : (int)xfptr[i]);
+                y = (yfptr==NULL ? yptr[i] : (int)yfptr[i]);
+                r = (rfptr==NULL ? rptr[i] : (int)rfptr[i])-1;
+                if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
+                if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
+                if(nf > 1) f = (ffptr==NULL ? fptr[i] : (int)ffptr[i]);
+                if(na > 1) a = (afptr==NULL ? (MMFLOAT)aptr[i] : afptr[i]);
+                DrawCircle(x, y, r, w, c, f, a);
+            }
+            Option.Refresh=save_refresh;
+        }
+    }
 #ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
 #endif
@@ -1271,63 +1271,63 @@ void cmd_line(void) {
 
 		lastx = x2; lasty = y2;											// save in case the user wants the last value
 	} else {
-	    int x1, y1, x2, y2, w=0, c=0, n=0 ,i, nc=0, nw=0;
-	    long long int *x1ptr, *y1ptr, *x2ptr, *y2ptr, *wptr, *cptr;
-	    MMFLOAT *x1fptr, *y1fptr, *x2fptr, *y2fptr, *wfptr, *cfptr;
-	    getargs(&cmdline, 11,",");
-	    if(!(argc & 1) || argc < 7) error("Argument count");
-	    getargaddress(argv[0], &x1ptr, &x1fptr, &n);
-	    if(n != 1) {
-	        getargaddress(argv[2], &y1ptr, &y1fptr, &n);
-	        getargaddress(argv[4], &x2ptr, &x2fptr, &n);
-	        getargaddress(argv[6], &y2ptr, &y2fptr, &n);
-	    }
-	    if(n==1){
-	        c = gui_fcolour;  w = 1;                                        // setup the defaults
-	        x1 = getinteger(argv[0]);
-	        y1 = getinteger(argv[2]);
-	        x2 = getinteger(argv[4]);
-	        y2 = getinteger(argv[6]);
-	        if(argc > 7 && *argv[8]){
-	            w = getint(argv[8], 1, 100);
-	        }
-	        if(argc == 11) c = getint(argv[10], 0, WHITE);
-	        DrawLine(x1, y1, x2, y2, w, c);        
-	    } else {
-	        c = gui_fcolour;  w = 1;                                        // setup the defaults
-	        if(argc > 7 && *argv[8]){
-	            getargaddress(argv[8], &wptr, &wfptr, &nw); 
-	            if(nw == 1) w = getint(argv[8], 0, 100);
-	            else if(nw>1) {
-	                if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
-	                for(i=0;i<nw;i++){
-	                    w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
-	                    if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
-	                }
-	            }
-	        }
-	        if(argc == 11){
-	            getargaddress(argv[10], &cptr, &cfptr, &nc); 
-	            if(nc == 1) c = getint(argv[10], 0, WHITE);
-	            else if(nc>1) {
-	                if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
-	                for(i=0;i<nc;i++){
-	                    c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
-	                    if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
-	                }
-	            }
-	        }
-	        for(i=0;i<n;i++){
-	            x1 = (x1fptr==NULL ? x1ptr[i] : (int)x1fptr[i]);
-	            y1 = (y1fptr==NULL ? y1ptr[i] : (int)y1fptr[i]);
-	            x2 = (x2fptr==NULL ? x2ptr[i] : (int)x2fptr[i]);
-	            y2 = (y2fptr==NULL ? y2ptr[i] : (int)y2fptr[i]);
-	            if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
-	            if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
-	            DrawLine(x1, y1, x2, y2, w, c);
-	        }
-	    }
-	}
+        int x1, y1, x2, y2, w=0, c=0, n=0 ,i, nc=0, nw=0;
+        long long int *x1ptr, *y1ptr, *x2ptr, *y2ptr, *wptr, *cptr;
+        MMFLOAT *x1fptr, *y1fptr, *x2fptr, *y2fptr, *wfptr, *cfptr;
+        getargs(&cmdline, 11,",");
+        if(!(argc & 1) || argc < 7) error("Argument count");
+        getargaddress(argv[0], &x1ptr, &x1fptr, &n);
+        if(n != 1) {
+            getargaddress(argv[2], &y1ptr, &y1fptr, &n);
+            getargaddress(argv[4], &x2ptr, &x2fptr, &n);
+            getargaddress(argv[6], &y2ptr, &y2fptr, &n);
+        }
+        if(n==1){
+            c = gui_fcolour;  w = 1;                                        // setup the defaults
+            x1 = getinteger(argv[0]);
+            y1 = getinteger(argv[2]);
+            x2 = getinteger(argv[4]);
+            y2 = getinteger(argv[6]);
+            if(argc > 7 && *argv[8]){
+                w = getint(argv[8], 1, 100);
+            }
+            if(argc == 11) c = getint(argv[10], 0, WHITE);
+            DrawLine(x1, y1, x2, y2, w, c);        
+        } else {
+            c = gui_fcolour;  w = 1;                                        // setup the defaults
+            if(argc > 7 && *argv[8]){
+                getargaddress(argv[8], &wptr, &wfptr, &nw); 
+                if(nw == 1) w = getint(argv[8], 0, 100);
+                else if(nw>1) {
+                    if(nw > 1 && nw < n) n=nw; //adjust the dimensionality
+                    for(i=0;i<nw;i++){
+                        w = (wfptr == NULL ? wptr[i] : (int)wfptr[i]);
+                        if(w < 0 || w > 100) error("% is invalid (valid is % to %)", (int)w, 0, 100);
+                    }
+                }
+            }
+            if(argc == 11){
+                getargaddress(argv[10], &cptr, &cfptr, &nc); 
+                if(nc == 1) c = getint(argv[10], 0, WHITE);
+                else if(nc>1) {
+                    if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
+                    for(i=0;i<nc;i++){
+                        c = (cfptr == NULL ? cptr[i] : (int)cfptr[i]);
+                        if(c < 0 || c > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+                    }
+                }
+            }
+            for(i=0;i<n;i++){
+                x1 = (x1fptr==NULL ? x1ptr[i] : (int)x1fptr[i]);
+                y1 = (y1fptr==NULL ? y1ptr[i] : (int)y1fptr[i]);
+                x2 = (x2fptr==NULL ? x2ptr[i] : (int)x2fptr[i]);
+                y2 = (y2fptr==NULL ? y2ptr[i] : (int)y2fptr[i]);
+                if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);
+                if(nc > 1) c = (cfptr==NULL ? cptr[i] : (int)cfptr[i]);
+                DrawLine(x1, y1, x2, y2, w, c);
+            }
+        }
+    }
 #ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
 #endif
@@ -2142,7 +2142,7 @@ void fun_rgb(void) {
         else if(checkstring(argv[0], "GOLD"))    iret = GOLD;
         else if(checkstring(argv[0], "SALMON"))    iret = SALMON;
         else if(checkstring(argv[0], "BEIGE"))    iret = BEIGE;
-            else error("Invalid colour: $", argv[0]);
+        else error("Invalid colour: $", argv[0]);
     } else
         error("Syntax");
     targ = T_INT;
@@ -2337,26 +2337,11 @@ void cmd_font(void) {
 
 
 
-#ifdef PICOMITEVGA
 void cmd_colour(void) {
     getargs(&cmdline, 3, ",");
     if(argc < 1) error("Argument count");
     gui_fcolour = getColour(argv[0], 0);
-    if(argc == 3)
-        gui_bcolour = getColour(argv[2], 0);
-    if(!CurrentLinePtr) {
-        PromptFC = gui_fcolour;
-        PromptBC = gui_bcolour;
-    }
-}
-#else
-void cmd_colour(void) {
-    getargs(&cmdline, 3, ",");
-    if(argc < 1) error("Argument count");
-    gui_fcolour = getint(argv[0], 0, WHITE);
-    if(argc == 3)
-        gui_bcolour = getint(argv[2], 0, WHITE);
-
+    if(argc == 3)  gui_bcolour = getColour(argv[2], 0);
     last_fcolour = gui_fcolour;
     last_bcolour = gui_bcolour;
     if(!CurrentLinePtr) {
@@ -2364,8 +2349,6 @@ void cmd_colour(void) {
         PromptBC = gui_bcolour;
     }
 }
-#endif
-
 
 void fun_mmcharwidth(void) {
 #ifndef PICOMITEVGA
@@ -2836,16 +2819,16 @@ void SetFont(int fnt) {
 
 
 void ResetDisplay(void) {
-    SetFont(Option.DefaultFont);
-    gui_fcolour = Option.DefaultFC;
-    gui_bcolour = Option.DefaultBC;
+        SetFont(Option.DefaultFont);
+        gui_fcolour = Option.DefaultFC;
+        gui_bcolour = Option.DefaultBC;
     PromptFont = Option.DefaultFont;
     PromptFC = Option.DefaultFC;
     PromptBC = Option.DefaultBC;
 #ifdef PICOMITEVGA
-        HRes=DISPLAY_TYPE ? 320 : 640;
-        VRes=DISPLAY_TYPE ? 240 : 480;
-        if(DISPLAY_TYPE){
+        HRes=Option.DISPLAY_TYPE == COLOURVGA ? 320 : 640;
+        VRes=Option.DISPLAY_TYPE == COLOURVGA ? 240 : 480;
+        if(DISPLAY_TYPE == COLOURVGA){
             DrawRectangle=DrawRectangleColour;
             DrawBitmap= DrawBitmapColour;
             ScrollLCD=ScrollLCDColour;
@@ -2928,7 +2911,7 @@ void DrawFilledCircle(int x, int y, int radius, int r, int fill, int ints_per_li
 	            P+= 5 + 2*(a++ - b--);
 
         } while(a <= b);
- }
+}
 /******************************************************************************************
  Print a char on the LCD display (SSD1963 and in landscape only).  It handles control chars
  such as newline and will wrap at the end of the line and scroll the display if necessary.

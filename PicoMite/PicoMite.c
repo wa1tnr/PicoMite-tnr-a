@@ -269,9 +269,9 @@ void __not_in_flash_func(routinechecks)(void){
 #ifndef PICOMITEVGA
     if(!calibrate)ProcessTouch();
 #endif
-    if(USBKeepalive==0){
-        SSPrintString(alive);
-    }
+        if(USBKeepalive==0){
+            SSPrintString(alive);
+        }
     if(clocktimer==0 && Option.RTC){
         RtcGetTime();
         clocktimer=(1000*60*60);
@@ -797,7 +797,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(InterruptUsed) {
             int i;
             for(i = 0; i < NBRSETTICKS; i++) if(TickActive[i])TickTimer[i]++;			// used in the interrupt tick
-        }
+         }
         if(WDTimer) {
             if(--WDTimer == 0) {
                 _excep_code = WATCHDOG_TIMEOUT;
@@ -1238,7 +1238,7 @@ void QVgaPioInit()
 
 	// load PIO program
 	QVGAOff = pio_add_program(QVGA_PIO, &qvga_program);
-    if(DISPLAY_TYPE){
+    if(DISPLAY_TYPE==COLOURVGA){
         QVGA_PIO->instr_mem[QVGAOff+13]=0x6204;
         QVGA_PIO->instr_mem[QVGAOff+15]=0x6204;
     }    
@@ -1390,7 +1390,7 @@ void QVgaDmaInit()
 	dma_channel_set_irq0_enabled(QVGA_DMA_PIO, true);
 
 	// set DMA IRQ handler
-	if(DISPLAY_TYPE)irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine1);
+	if(DISPLAY_TYPE==COLOURVGA)irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine1);
     else irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine0);
 
 	// set highest IRQ priority
@@ -1459,7 +1459,7 @@ int main(){
     if(  Option.Baudrate == 0 ||
         !(Option.Tab==2 || Option.Tab==3 || Option.Tab==4 ||Option.Tab==8) ||
         !(Option.Autorun>=0 && Option.Autorun<=MAXFLASHSLOTS+1) ||
-        !(Option.Magic==0x7468215)
+        !(Option.Magic==0x8468218)
         ){
         ResetAllFlash();              // init the options if this is the very first startup
         _excep_code=0;
@@ -1482,15 +1482,15 @@ int main(){
     systick_hw->rvr = 0x00FFFFFF;
     busy_wait_ms(100);
 #ifdef PICOMITEVGA
-    if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE ? 4	: 2);
-    else QVGA_CLKDIV=(Option.DISPLAY_TYPE ? 2	: 1);
+    if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE == COLOURVGA ? 4	: 2);
+    else QVGA_CLKDIV=(Option.DISPLAY_TYPE  == COLOURVGA ? 2	: 1);
 #endif
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
     stdio_set_translate_crlf(&stdio_usb, false);
     LoadOptions();
-    stdio_init_all();
+	stdio_init_all();
     adc_init();
     adc_set_temp_sensor_enabled(true);
     add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
@@ -1513,7 +1513,7 @@ int main(){
     InitDisplayI2C(0);
     InitTouch();
 #endif
-	ResetDisplay();
+    ResetDisplay();
     ErrorInPrompt = false;
     exception_set_exclusive_handler(HARDFAULT_EXCEPTION,sigbus);
     while((i=getConsole())!=-1){}
@@ -1621,7 +1621,7 @@ int main(){
         tokenise(true);                                             // turn into executable code
         ExecuteProgram(tknbuf);                                     // execute the line straight away
         memset(inpbuf,0,STRINGSIZE);
-    }
+	}
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format

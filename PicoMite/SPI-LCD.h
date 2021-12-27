@@ -268,6 +268,10 @@ extern void set_cs(void);
 #define SPIReadSpeed    21
 #define ST7789RSpeed 22
 #define DISP_USER       25
+#define MONOVGA         26
+#define VGADISPLAY      MONOVGA  
+#define COLOURVGA       27
+
 #define TFT_NOP 0x00
 #define TFT_SWRST 0x01
 

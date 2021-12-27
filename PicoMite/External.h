@@ -250,6 +250,8 @@ extern unsigned long ReadCount5(void);
 extern void WriteCount5(unsigned long timeset);
 extern void SoftReset(void);
 extern volatile uint64_t IRoffset;
+extern int BacklightSlice,BacklightChannel;
+
 void gpio_callback(uint gpio, uint32_t events);
 // for CheckPin() action can be set to:
 #define CP_CHECKALL          0b0000     // abort with an error if invalid, in use or reserved

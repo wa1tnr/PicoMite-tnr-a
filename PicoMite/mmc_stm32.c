@@ -577,13 +577,9 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 }
 
 
-
-
 /*-----------------------------------------------------------------------*/
 /* Send a command packet to MMC                                          */
 /*-----------------------------------------------------------------------*/
-
-
 BYTE send_cmd (
 	BYTE cmd,		/* Command byte */
 	DWORD arg		/* Argument */
@@ -950,12 +946,12 @@ DWORD get_fattime(void){
 }
 void InitReservedIO(void) {
 #ifdef PICOMITEVGA
-	if(Option.DISPLAY_TYPE==0){
+	if(Option.DISPLAY_TYPE==MONOVGA){
 		ExtCfg(21, EXT_BOOT_RESERVED, 0);
 		ExtCfg(22, EXT_BOOT_RESERVED, 0);
 		ExtCfg(26, EXT_BOOT_RESERVED, 0);
 	}
-	if(Option.DISPLAY_TYPE==1){
+	if(Option.DISPLAY_TYPE==COLOURVGA){
 		ExtCfg(21, EXT_BOOT_RESERVED, 0);
 		ExtCfg(22, EXT_BOOT_RESERVED, 0);
 		ExtCfg(24, EXT_BOOT_RESERVED, 0);
@@ -1010,7 +1006,7 @@ void InitReservedIO(void) {
 			else if(PinDef[pin].mode & PWM7B){PWM7Bpin=pin;slice=7;}
     		gpio_init(PinDef[pin].GPno); 
 			gpio_set_function(PinDef[pin].GPno, GPIO_FUNC_PWM);
-			MMFLOAT frequency=1000.0,duty=99.0;
+			MMFLOAT frequency=1000.0,duty=Option.DefaultBrightness;
 			int wrap=(Option.CPU_Speed*1000)/frequency;
 			int high=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty*10.0);
 			int div=1;
@@ -1020,7 +1016,6 @@ void InitReservedIO(void) {
 				div<<=1;
 			}
 			wrap--;
-			high--;
 			if(div!=1)pwm_set_clkdiv(slice,(float)div);
 			pwm_set_wrap(slice, wrap);
 			BacklightSlice=slice;

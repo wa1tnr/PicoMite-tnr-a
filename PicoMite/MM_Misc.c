@@ -35,6 +35,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/structs/systick.h"
 #include "hardware/dma.h"
 #include "hardware/adc.h"
+#include "hardware/pwm.h"
 extern int busfault;
 //#include "pico/stdio_usb/reset_interface.h"
 const char *OrientList[] = {"LANDSCAPE", "PORTRAIT", "RLANDSCAPE", "RPORTRAIT"};
@@ -1351,7 +1352,8 @@ void printoptions(void){
     }
 #ifdef PICOMITEVGA
     if(Option.CPU_Speed==252000)PO2Str("CPU", "TURBO ON");
-    if(Option.DISPLAY_TYPE)PO2Str("COLOUR VGA", "ON");
+    if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
+    if(Option.DISPLAY_TYPE==MONOVGA)PO2Str("MONO VGA", "ON");
     if(Option.Height != 40 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
 #else
     if(Option.CPU_Speed!=125000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
@@ -1600,7 +1602,7 @@ void cmd_option(void) {
         SoftReset();
 	}
 
-    tp=checkstring(cmdline, "DEFAULT FONT");
+/*    tp=checkstring(cmdline, "DEFAULT FONT");
     if(tp){
     	getargs(&tp, 3, ",");
     	int j=1,i=getint(argv[0],1,FONT_BUILTIN_NBR);
@@ -1614,7 +1616,7 @@ void cmd_option(void) {
         longjmp(mark,1);
 //        _excep_code = RESET_COMMAND;
 //        SoftReset();
-    }
+    }*/
 
     tp = checkstring(cmdline, "BAUDRATE");
     if(tp) {
@@ -1716,7 +1718,25 @@ void cmd_option(void) {
             if(argc > 2) Option.DefaultFC = getint(argv[2], BLACK, WHITE);
             if(argc > 4) Option.DefaultBC = getint(argv[4], BLACK, WHITE);
             if(Option.DefaultFC == Option.DefaultBC) error("Same colours");
-            if(argc > 6) Option.DefaultBrightness = getint(argv[6], 2, 100);
+            if(argc > 6) {
+                if(!Option.DISPLAY_BL)error("Backlight not available on this display");
+                Option.DefaultBrightness = getint(argv[6], 0, 100);
+            }
+        }
+        if(Option.DISPLAY_BL){
+			MMFLOAT frequency=1000.0,duty=Option.DefaultBrightness;
+            int wrap=(Option.CPU_Speed*1000)/frequency;
+            int high=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty*10.0);
+            int div=1;
+            while(wrap>65535){
+                wrap>>=1;
+                if(duty>=0.0)high>>=1;
+                div<<=1;
+            }
+            wrap--;
+            if(div!=1)pwm_set_clkdiv(BacklightSlice,(float)div);
+            pwm_set_wrap(BacklightSlice, wrap);
+            pwm_set_chan_level(BacklightSlice, BacklightChannel, high);
         }
         Option.DISPLAY_CONSOLE = true; 
         ResetDisplay();
@@ -1727,7 +1747,6 @@ void cmd_option(void) {
         return;
     }
 
-#ifdef PICOMITEVGA
     tp = checkstring(cmdline, "LEGACY");
     if(tp) {
         if(checkstring(tp, "OFF"))      { CMM1=0; return;  }
@@ -1735,6 +1754,8 @@ void cmd_option(void) {
         error("Syntax");
     }
 
+
+#ifdef PICOMITEVGA
     tp = checkstring(cmdline, "CPU TURBO");
     if(tp) {
         if(checkstring(tp, "ON")){
@@ -1752,10 +1773,10 @@ void cmd_option(void) {
     tp = checkstring(cmdline, "COLOUR VGA");
     if(tp) {
         if(checkstring(tp, "ON")){
-            Option.DISPLAY_TYPE=1; 
+            Option.DISPLAY_TYPE=COLOURVGA; 
             Option.DefaultFont=(6<<4) | 1 ;
         } else if(checkstring(tp, "OFF")) {
-            Option.DISPLAY_TYPE=0;
+            Option.DISPLAY_TYPE=MONOVGA;
             Option.DefaultFont= 1 ;
         }
         else error("Syntax");
@@ -2141,7 +2162,7 @@ void cmd_option(void) {
     }
 	tp = checkstring(cmdline, "RESET");
     if(tp) {
-        ResetAllFlash();
+        ResetOptions();
         _excep_code = RESET_COMMAND;
         SoftReset();
     }
@@ -2304,7 +2325,7 @@ void fun_info(void){
             else if(Option.TOUCH_XZERO == TOUCH_NOT_CALIBRATED)strcpy(sret,"Not calibrated");
             else strcpy(sret,"Ready");
 #endif
-        } else if(checkstring(ep,"ID")){
+        } else if(checkstring(ep,"ID")){  
             strcpy(sret,id_out);
 	    } else if(checkstring(ep, "DEVICE")){
             fun_device();

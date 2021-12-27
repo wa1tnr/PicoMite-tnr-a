@@ -83,7 +83,6 @@ const char *PinFunction[] = {
         "PWM7A",
         "PWM7B"
 };
-extern int BacklightSlice,BacklightChannel;
 ;
 extern struct s_vartbl {                               // structure of the variable table
 	unsigned char name[MAXVARLEN];                       // variable's name
@@ -1475,7 +1474,6 @@ void cmd_backlight(void){
             div<<=1;
         }
         wrap--;
-        high--;
         if(div!=1)pwm_set_clkdiv(BacklightSlice,(float)div);
         pwm_set_wrap(BacklightSlice, wrap);
         pwm_set_chan_level(BacklightSlice, BacklightChannel, high);

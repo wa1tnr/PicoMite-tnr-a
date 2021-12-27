@@ -1019,7 +1019,7 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
     char rgbbytes[4];
     unsigned int rgb;
     } c;
-    if(bc == -1 && Option.DISPLAY_TYPE != ILI9341) bc = 0xFFFFFF;
+    if(bc == -1 && (void *)ReadBuffer == (void *)DisplayNotSet) bc = 0x0;
     if(x1>=HRes || y1>=VRes || x1+width*scale<0 || y1+height*scale<0)return;
     // adjust when part of the bitmap is outside the displayable coordinates
     vertCoord = y1; if(y1 < 0) y1 = 0;                                 // the y coord is above the top of the screen
@@ -1078,9 +1078,9 @@ void DrawBitmapSPI(int x1, int y1, int width, int height, int scale, int fc, int
                             c.rgbbytes[1] = p[n+1];
                             c.rgbbytes[2] = p[n+2];
 							if(Option.DISPLAY_TYPE==ILI9488){
-								b[0]=c.rgbbytes[0];
+								b[0]=c.rgbbytes[2];
 								b[1]=c.rgbbytes[1];
-								b[2]=c.rgbbytes[2];
+								b[2]=c.rgbbytes[0];
 							} else {
 								b[0] = ((c.rgb >> 16) & 0b11111000) | ((c.rgb >> 13) & 0b00000111);
 								b[1] = ((c.rgb >>  5) & 0b11100000) | ((c.rgb >>  3) & 0b00011111);
@@ -1121,7 +1121,7 @@ void ReadBufferSPI(int x1, int y1, int x2, int y2, unsigned char* p) {
     if(Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE==ST7789B )spi_write_cd(ILI9341_PIXELFORMAT,1,0x66); //change to RDB666 for read
     DefineRegionSPI(x1, y1, x2, y2, 0);
 	SPISpeedSet( Option.DISPLAY_TYPE==ST7789B ? ST7789RSpeed : SPIReadSpeed); //need to slow SPI for read on this display
-	if(Option.DISPLAY_TYPE==ST7789B)rcvr_byte_multi((uint8_t *)p, 1);
+	rcvr_byte_multi((uint8_t *)p, 1);
     r=0;
 	rcvr_byte_multi((uint8_t *)p,N);
 	gpio_put(LCD_CD_PIN,GPIO_PIN_RESET);

@@ -1254,7 +1254,7 @@ void ResetOptions(void){
     disable_systemi2c();
     disable_systemspi();
     memset((void *)&Option.Magic,0,512);
-    Option.Magic=0x7468215;
+    Option.Magic=0x8468218;
     Option.Autorun=0;
     Option.Height = SCREENHEIGHT;
     Option.Width = SCREENWIDTH;
@@ -1266,9 +1266,11 @@ void ResetOptions(void){
 #ifdef PICOMITEVGA
     Option.CPU_Speed=126000;
     Option.DISPLAY_CONSOLE=1;
+    Option.DISPLAY_TYPE = MONOVGA;
 #else
     Option.CPU_Speed=125000;
     Option.DISPLAY_CONSOLE=0;
+    Option.DISPLAY_TYPE = 0;
 #endif
     Option.SD_CS=0;
     Option.SYSTEM_MOSI=0;
@@ -1278,8 +1280,7 @@ void ResetOptions(void){
     Option.AUDIO_R=0;
     Option.AUDIO_SLICE=99;
     Option.SDspeed=10;
-    Option.DISPLAY_TYPE = 0;
-    Option.DISPLAY_ORIENTATION = 0;
+    Option.DISPLAY_ORIENTATION = DISPLAY_LANDSCAPE;
     Option.TOUCH_XSCALE = 0;
     Option.TOUCH_CS = 0;
     Option.TOUCH_IRQ = 0;
@@ -1312,6 +1313,7 @@ void ResetOptions(void){
     Option.SD_MISO_PIN=0;
     Option.ColourCode=0;
     Option.KeyboardConfig = NO_KEYBOARD;
+    Option.DefaultBrightness=100;
     memset(Option.F5key,0,sizeof(Option.F5key));
     memset(Option.F6key,0,sizeof(Option.F6key));
     memset(Option.F7key,0,sizeof(Option.F7key));
