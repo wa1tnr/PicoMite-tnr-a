@@ -25,9 +25,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define PICO_STDIO_ENABLE_CRLF_SUPPORT 0
-#define PICO_STACK_SIZE 0x4000
-#define PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE 0 
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -78,7 +75,7 @@ volatile unsigned int AHRSTimer = 0;
 volatile unsigned int InkeyTimer = 0;
 volatile long long int mSecTimer = 0;                               // this is used to count mSec
 volatile unsigned int WDTimer = 0;
-volatile unsigned int diskchecktimer = 0;
+volatile unsigned int diskchecktimer = DISKCHECKRATE;
 volatile unsigned int clocktimer=60*60*1000;
 volatile unsigned int PauseTimer = 0;
 volatile unsigned int IntPauseTimer = 0;
@@ -113,7 +110,6 @@ char id_out[12];
 MMFLOAT VCC=3.3;
 int PromptFont, PromptFC=0xFFFFFF, PromptBC=0;                             // the font and colours selected at the prompt
 int DISPLAY_TYPE;
-extern unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
 volatile int processtick = 1;
 unsigned char WatchdogSet = false;
 unsigned char IgnorePIN = false;
@@ -240,15 +236,17 @@ const struct s_PinDef PinDef[NBRPINS + 1]={
 		{ 43, 25, "GP25", DIGITAL_IN | DIGITAL_OUT | UART1RX | I2C0SCL| PWM4B  ,99 , 132},          // pseudo pin 43
 		{ 44, 29, "GP29", DIGITAL_IN | DIGITAL_OUT | ANALOG_IN | UART0RX | I2C0SCL | PWM6B, 3, 134},// pseudo pin 44
 };
+char alive[]="\033[?25h";
 const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 void __not_in_flash_func(routinechecks)(void){
-    char alive[]="\033[?25h";
-    int c;
+    static int when=0;
+    if(++when & 3)return;
 #ifdef PICOMITEVGA
     if(Option.SerialConsole==0){
 #else
     if(tud_cdc_connected() && Option.SerialConsole==0){
 #endif
+        int c;
         if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
             ConsoleRxBuf[ConsoleRxBufHead] = c;
             if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -265,11 +263,11 @@ void __not_in_flash_func(routinechecks)(void){
         }
     }
 	if(GPSchannel)processgps();
-    CheckSDCard();
+    if(diskchecktimer== 0)CheckSDCard();
 #ifndef PICOMITEVGA
-    if(!calibrate)ProcessTouch();
+    if(Ctrl)ProcessTouch();
 #endif
-        if(USBKeepalive==0){
+        if(tud_cdc_connected() && USBKeepalive==0){
             SSPrintString(alive);
         }
     if(clocktimer==0 && Option.RTC){
@@ -792,7 +790,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(Timer2)Timer2--;
         if(Timer1)Timer1--;
         if(USBKeepalive)USBKeepalive--;
-        if(diskchecktimer)diskchecktimer--;
+        if(diskchecktimer && Option.SD_CS)diskchecktimer--;
 	    if(++CursorTimer > CURSOR_OFF + CURSOR_ON) CursorTimer = 0;		// used to control cursor blink rate
         if(InterruptUsed) {
             int i;
@@ -1054,12 +1052,8 @@ void sigbus(void){
 #define QVGACMD(jmp, num) ( ((uint32_t)((jmp)+QVGAOff)<<27) | (uint32_t)(num))
 
 // display frame buffer
-ALIGNED uint8_t FrameBuf[FRAMESIZE];
 
 // pointer to current frame buffer
-uint8_t* pFrameBuf = FrameBuf;
-
-// QVGA PIO
 uint QVGAOff;	// offset of QVGA PIO program
 
 // Scanline data buffers (commands sent to PIO)
@@ -1140,7 +1134,7 @@ void __not_in_flash_func(QVgaLine0)()
 
 			// image data
 			*cb++ = 20;
-			*cb++ = (uint32_t)&pFrameBuf[line  * 80];
+			*cb++ = (uint32_t)&FrameBuf[line  * 80];
 
 			// front porch
 			*cb++ = 1;
@@ -1215,7 +1209,7 @@ void __not_in_flash_func(QVgaLine1)()
 
 			// image data
 			*cb++ = 40;
-			*cb++ = (uint32_t)&pFrameBuf[line  * 160];
+			*cb++ = (uint32_t)&FrameBuf[line  * 160];
 
 			// front porch
 			*cb++ = 1;

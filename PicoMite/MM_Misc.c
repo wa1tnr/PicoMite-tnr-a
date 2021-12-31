@@ -1822,21 +1822,6 @@ void cmd_option(void) {
 		}
 		if(checkstring(tp, "OFF"))		{ Option.Refresh = 0; return; }
 	}
-    tp = checkstring(cmdline, "LCDPANEL NOCONSOLE");
-    if(tp){
-        Option.Height = SCREENHEIGHT; Option.Width = SCREENWIDTH;
-        Option.DISPLAY_CONSOLE = 0;
-        Option.ColourCode = false;
-        Option.DefaultFC = WHITE;
-        Option.DefaultBC = BLACK;
-        SetFont((Option.DefaultFont = 0x01));
-        Option.DefaultBrightness = 100;
-        if(!CurrentLinePtr) {
-            SaveOptions();
-            ClearScreen(Option.DefaultBC);
-        }
-        return;
-    }
     
     tp = checkstring(cmdline, "LCDPANEL");
     if(tp) {
@@ -2744,16 +2729,18 @@ int checkdetailinterrupts(void) {
         goto GotAnInterrupt;
     }
 #ifndef PICOMITEVGA
-    if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
-        intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
-        gui_int_down = false;
-        goto GotAnInterrupt;
-    }
+    if(Ctrl!=NULL){
+        if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
+            intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
+            gui_int_down = false;
+            goto GotAnInterrupt;
+        }
 
-    if(gui_int_up && GuiIntUpVector) {
-        intaddr = GuiIntUpVector;                                   // get a pointer to the interrupt routine
-        gui_int_up = false;
-        goto GotAnInterrupt;
+        if(gui_int_up && GuiIntUpVector) {
+            intaddr = GuiIntUpVector;                                   // get a pointer to the interrupt routine
+            gui_int_up = false;
+            goto GotAnInterrupt;
+        }
     }
 #endif
     if(ADCInterrupt && dmarunning){
@@ -2889,10 +2876,11 @@ GotAnInterrupt:
 }
 int __not_in_flash_func(check_interrupt)(void) {
 #ifndef PICOMITEVGA
-    if(!(DelayedDrawKeyboard || DelayedDrawFmtBox || calibrate) )ProcessTouch();
-    if(CheckGuiFlag) CheckGui();                                    // This implements a LED flash
+    if(Ctrl!=NULL){
+        if(!(DelayedDrawKeyboard || DelayedDrawFmtBox || calibrate) )ProcessTouch();
+        if(CheckGuiFlag) CheckGui();                                    // This implements a LED flash
+    }
 #endif
-    CheckSDCard();
     if(Option.KeyboardConfig)CheckKeyboard();
     if(!InterruptUsed) return 0;                                    // quick exit if there are no interrupts set
     if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0; // skip if we are in an interrupt or in immediate mode

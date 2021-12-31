@@ -540,7 +540,7 @@ void cmd_goto(void) {
 
 
 void __not_in_flash_func(cmd_if)(void) {
-	int r, i, testgoto, testelseif;
+ 	int r, i, testgoto, testelseif;
 	unsigned char ss[3];														// this will be used to split up the argument line
 	unsigned char *p, *tp;
 	unsigned char *rp = NULL;
@@ -1280,7 +1280,7 @@ void __not_in_flash_func(cmd_loop)(void) {
 
 
 
-void cmd_exitfor(void) {
+void __not_in_flash_func(cmd_exitfor)(void) {
 	if(forindex == 0) error("No FOR loop is in effect");
 	nextstmt = forstack[--forindex].nextptr;
 	checkend(cmdline);
@@ -1289,13 +1289,13 @@ void cmd_exitfor(void) {
 
 
 
-void cmd_exit(void) {
+void __not_in_flash_func(cmd_exit)(void) {
 	if(doindex == 0) error("No DO loop is in effect");
 	nextstmt = dostack[--doindex].loopptr;
 	checkend(cmdline);
 	skipelement(nextstmt);
 }
-
+ 
 
 
 void cmd_error(void) {
@@ -1350,7 +1350,7 @@ void cmd_subfun(void) {
 
 
 
-void cmd_gosub(void) {
+void __not_in_flash_func(cmd_gosub)(void) {
 	if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
     errorstack[gosubindex] = CurrentLinePtr;
 	gosubstack[gosubindex++] = nextstmt;

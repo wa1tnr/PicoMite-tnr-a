@@ -121,41 +121,42 @@ void SetAndReserve(int pin, int inp, int init, int type) {
 
 void ConfigDisplaySPI(unsigned char *p) {
 	char code,CD,RESET,CS,BACKLIGHT=0, BUSY=0;
+	int DISPLAY_TYPE=0;
     getargs(&p, 13, ",");
-
     if(checkstring(argv[0], "ILI9163")) {
-        Option.DISPLAY_TYPE = ILI9163;
+        DISPLAY_TYPE = ILI9163;
     } else if(checkstring(argv[0], "SSD1331")) {
-        Option.DISPLAY_TYPE = SSD1331;
+        DISPLAY_TYPE = SSD1331;
     } else if(checkstring(argv[0], "ST7735S")) {
-        Option.DISPLAY_TYPE = ST7735S;
+        DISPLAY_TYPE = ST7735S;
     } else if(checkstring(argv[0], "ST7735")) {
-        Option.DISPLAY_TYPE = ST7735;
+        DISPLAY_TYPE = ST7735;
     } else if(checkstring(argv[0], "ST7789")) {
-        Option.DISPLAY_TYPE = ST7789;
+        DISPLAY_TYPE = ST7789;
     } else if(checkstring(argv[0], "ST7789_135")) {
-        Option.DISPLAY_TYPE = ST7789A;
+        DISPLAY_TYPE = ST7789A;
     } else if(checkstring(argv[0], "ST7789_320")) {
-        Option.DISPLAY_TYPE = ST7789B;
+        DISPLAY_TYPE = ST7789B;
     } else if(checkstring(argv[0], "ILI9481")) {
-        Option.DISPLAY_TYPE = ILI9481;
+        DISPLAY_TYPE = ILI9481;
     } else if(checkstring(argv[0], "ILI9488")) {
-        Option.DISPLAY_TYPE = ILI9488;
+        DISPLAY_TYPE = ILI9488;
     } else if(checkstring(argv[0], "ILI9488W")) {
-        Option.DISPLAY_TYPE = ILI9488W;
+        DISPLAY_TYPE = ILI9488W;
     } else if(checkstring(argv[0], "ILI9341")) {
-        Option.DISPLAY_TYPE = ILI9341;
+        DISPLAY_TYPE = ILI9341;
     } else if(checkstring(argv[0], "GC9A01")) {
-        Option.DISPLAY_TYPE = GC9A01;
+        DISPLAY_TYPE = GC9A01;
     } else if(checkstring(argv[0], "N5110")) {
-        Option.DISPLAY_TYPE = N5110;
+        DISPLAY_TYPE = N5110;
     } else if(checkstring(argv[0], "SSD1306SPI")) {
-        Option.DISPLAY_TYPE = SSD1306SPI;
+        DISPLAY_TYPE = SSD1306SPI;
     } else if(checkstring(argv[0], "ST7920")) {
-        Option.DISPLAY_TYPE = ST7920;
+        DISPLAY_TYPE = ST7920;
     } else if(checkstring(argv[0], "GDEH029A1")) {
-        Option.DISPLAY_TYPE = GDEH029A1;
+        DISPLAY_TYPE = GDEH029A1;
 	} else return;
+	if(!Option.SYSTEM_CLK)error("System SPI not configured");
     if(!(argc == 7 || argc == 9 || argc==11 || argc==13)) error("Argument count");
     if(checkstring(argv[2], "L") || checkstring(argv[2], "LANDSCAPE"))
         Option.DISPLAY_ORIENTATION = LANDSCAPE;
@@ -166,7 +167,7 @@ void ConfigDisplaySPI(unsigned char *p) {
     else if(checkstring(argv[2], "RP") || checkstring(argv[2], "RPORTRAIT"))
         Option.DISPLAY_ORIENTATION = RPORTRAIT;
     else error("Orientation");
-    if(Option.DISPLAY_TYPE==ST7789 || Option.DISPLAY_TYPE == ST7789A|| Option.DISPLAY_TYPE == ST7789A)Option.DISPLAY_ORIENTATION=(Option.DISPLAY_ORIENTATION+2) % 4;
+    if(DISPLAY_TYPE==ST7789 || DISPLAY_TYPE == ST7789A|| DISPLAY_TYPE == ST7789A)Option.DISPLAY_ORIENTATION=(Option.DISPLAY_ORIENTATION+2) % 4;
 	if(!(code=codecheck(argv[4])))argv[4]+=2;
 	CD = getinteger(argv[4]);
 	if(!code)CD=codemap(CD);
@@ -180,9 +181,9 @@ void ConfigDisplaySPI(unsigned char *p) {
 		Option.LCDVOP=0xB1;
 		Option.I2Coffset=0;
 		if(argc>=11){
-			if(Option.DISPLAY_TYPE == N5110)Option.LCDVOP=getint(argv[10],0,255);
-			else if(Option.DISPLAY_TYPE == SSD1306SPI)Option.I2Coffset=getint(argv[10],0,10);
-			else if( Option.DISPLAY_TYPE == GDEH029A1){
+			if(DISPLAY_TYPE == N5110)Option.LCDVOP=getint(argv[10],0,255);
+			else if(DISPLAY_TYPE == SSD1306SPI)Option.I2Coffset=getint(argv[10],0,10);
+			else if(DISPLAY_TYPE == GDEH029A1){
 				if(!(code=codecheck(argv[10])))argv[10]+=2;
 				BUSY = getinteger(argv[10]);
 				if(!code)BUSY=codemap(BUSY);
@@ -209,6 +210,7 @@ void ConfigDisplaySPI(unsigned char *p) {
 	Option.LCD_CD = CD;
 	Option.LCD_Reset = RESET;
 	Option.DISPLAY_BL = BACKLIGHT;
+	Option.DISPLAY_TYPE=DISPLAY_TYPE;
     if(!(Option.DISPLAY_TYPE>I2C_PANEL && Option.DISPLAY_TYPE < BufferedPanel)) Option.Refresh = 1;
 }
 

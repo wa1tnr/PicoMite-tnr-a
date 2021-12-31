@@ -808,7 +808,7 @@ void  tokenise(int console) {
     tp = p;
     skipspace(tp);
     for(i = 0; i < 8; i++) if(!isxdigit(tp[i])) break;              // test if this is eight hex digits
-    if(isdigit(*tp) && i < 8) {                                     // if it a digit and not an 8 digit hex number (ie, it is CFUNCTION data) then try for a line number
+    if(IsDigitinline(*tp) && i < 8) {                                     // if it a digit and not an 8 digit hex number (ie, it is CFUNCTION data) then try for a line number
         i = strtol(tp, (char **)&tp, 10);
         if(!console && i > 0 && i <= MAXLINENBR) {
             *op++ = T_LINENBR;
@@ -862,8 +862,8 @@ void  tokenise(int console) {
         }
 
         // not whitespace or string or comment  - try a number
-        if(isdigit(*p) || *p == '.') {                              // valid chars at the start of a number
-            while(isdigit(*p) || *p == '.' || *p == 'E' || *p == 'e')
+        if(IsDigitinline(*p) || *p == '.') {                              // valid chars at the start of a number
+            while(IsDigitinline(*p) || *p == '.' || *p == 'E' || *p == 'e')
                 if (*p == 'E' || *p == 'e') {   // check for '+' or '-' as part of the exponent
                     *op++ = *p++;                                   // copy the number
                     if (*p == '+' || *p == '-') {                   // BUGFIX by Gerard Sexton
@@ -1333,7 +1333,7 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
     }
    // is it an ordinary numeric constant?  get its value if yes
     // a leading + or - might have been converted to a token so we need to check for them also
-    else if(isdigit(*p) || *p == '.') {
+    else if(IsDigitinline(*p) || *p == '.') {
 			char ts[31], *tsp;
 			int isi64 = true;
 			tsp = ts;
@@ -1343,7 +1343,7 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
 			if(*p == '.') {
 				isi64 = false;
 				scale=1;
-			} else if(isdigit(*p)){
+			} else if(IsDigitinline(*p)){
 				i64=(*p - '0');
 			}
 			*tsp++ = *p++;
@@ -1625,7 +1625,6 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     // first zero the array used for holding the dimension values
 //    for(i = 0; i < MAXDIM; i++) dim[i] = 0;
     ifree = -1;
-
     // check the first char for a legal variable name
     skipspace(p);
     if(!isnamestart(*p)) error("Variable name");

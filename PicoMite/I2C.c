@@ -139,12 +139,13 @@ void I2C_Send_Data(unsigned char* data, int n){
 }
 #ifndef PICOMITEVGA
 void ConfigDisplayI2C(unsigned char *p) {
+	int DISPLAY_TYPE;
     getargs(&p, 5, ",");
     if(!(argc == 3 || argc == 5)) error("Argument count");
     if(checkstring(argv[0], "SSD1306I2C")) {
-        Option.DISPLAY_TYPE = SSD1306I2C;
+        DISPLAY_TYPE = SSD1306I2C;
     } else if(checkstring(argv[0], "SSD1306I2C32")) {
-        Option.DISPLAY_TYPE = SSD1306I2C32;
+        DISPLAY_TYPE = SSD1306I2C32;
     } else
         error("Invalid display type");
 
@@ -161,6 +162,7 @@ void ConfigDisplayI2C(unsigned char *p) {
 	if(argc==5)Option.I2Coffset=getint(argv[4],0,10);
 	if(!(I2C0locked || I2C1locked))error("SYSTEM I2C not configured");
 	Option.Refresh = 1;
+	Option.DISPLAY_TYPE=DISPLAY_TYPE;
 }
 
 void InitDisplayI2C(int InitOnly){

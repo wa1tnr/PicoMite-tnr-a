@@ -130,7 +130,7 @@ unsigned short Compute_CRC16_Simple(const unsigned char message[], const unsigne
     }
     return crc;
 } 
-unsigned char CRC7(const unsigned char message[], const unsigned int length) {
+unsigned char __not_in_flash_func(CRC7)(const unsigned char message[], const unsigned int length) {
   const unsigned char poly = 0b10001001;
   unsigned char crc = 0;
   for (unsigned i = 0; i < length; i++) {
@@ -486,7 +486,7 @@ int wait_ready (void)
 /*-----------------------------------------------------------------------*/
 
 static
-void deselect (void)
+void __not_in_flash_func(deselect)(void)
 {
 //	asm("NOP");asm("NOP");//asm("NOP");
 	gpio_put(SD_CS_PIN,GPIO_PIN_SET);
@@ -501,7 +501,7 @@ void deselect (void)
 /*-----------------------------------------------------------------------*/
 
 
-int selectSD (void)	/* 1:Successful, 0:Timeout */
+int __not_in_flash_func(selectSD)(void)	/* 1:Successful, 0:Timeout */
 {
 	if(SD_SPI_SPEED==SD_SLOW_SPI_SPEED)	SPISpeedSet(SDSLOW);
 	else SPISpeedSet(SDFAST);
@@ -522,7 +522,7 @@ int selectSD (void)	/* 1:Successful, 0:Timeout */
 /*-----------------------------------------------------------------------*/
 
 
-int rcvr_datablock (	/* 1:OK, 0:Failed */
+int __not_in_flash_func(rcvr_datablock)(	/* 1:OK, 0:Failed */
 	BYTE *buff,			/* Data buffer to store received data */
 	UINT btr			/* Byte count (must be multiple of 4) */
 )
@@ -552,7 +552,7 @@ int rcvr_datablock (	/* 1:OK, 0:Failed */
 
 
 
-int xmit_datablock (	/* 1:OK, 0:Failed */
+int __not_in_flash_func(xmit_datablock)(	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* 512 byte data block to be transmitted */
 	BYTE token			/* Data token */
 )
@@ -580,7 +580,7 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 /*-----------------------------------------------------------------------*/
 /* Send a command packet to MMC                                          */
 /*-----------------------------------------------------------------------*/
-BYTE send_cmd (
+BYTE __not_in_flash_func(send_cmd)(
 	BYTE cmd,		/* Command byte */
 	DWORD arg		/* Argument */
 )
@@ -729,7 +729,7 @@ DSTATUS disk_initialize (
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
+DRESULT __not_in_flash_func(disk_read)(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 {
 	if (pdrv || !count) return RES_PARERR;
 	if (SDCardStat & STA_NOINIT) return RES_NOTRDY;
@@ -762,7 +762,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 /*-----------------------------------------------------------------------*/
 
 
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
+DRESULT __not_in_flash_func(disk_write)(BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 {
 	if (pdrv || !count) return RES_PARERR;
 	if (SDCardStat & STA_NOINIT) return RES_NOTRDY;
@@ -799,7 +799,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 /*-----------------------------------------------------------------------*/
 
 
-DRESULT disk_ioctl (
+DRESULT __not_in_flash_func(disk_ioctl)(
 	BYTE pdrv,		/* Physical drive nmuber (0) */
 	BYTE cmd,		/* Control code */
 	void *buff		/* Buffer to send/receive data block */
@@ -909,7 +909,7 @@ DRESULT disk_ioctl (
 /*-----------------------------------------------------------------------*/
 /* This function must be called by timer interrupt in period of 1ms      */
 
-void disk_timerproc (void)
+void __not_in_flash_func(disk_timerproc)(void)
 {
 	BYTE s;
 	UINT n;
@@ -934,7 +934,7 @@ void disk_timerproc (void)
 	SDCardStat = s;
 }
 
-DWORD get_fattime(void){
+DWORD __not_in_flash_func(get_fattime)(void){
     DWORD i;
     i = ((year-1980) & 0x7F)<<25;
     i |= (month & 0xF)<<21;

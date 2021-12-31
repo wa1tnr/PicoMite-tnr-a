@@ -92,6 +92,11 @@ extern "C" {
 #define E_DONE_GETVAL       0b10
 
 extern struct s_vartbl  s_vartbl_val;
+struct s_funtbl {
+	char name[MAXVARLEN];                       // variable's name
+	uint32_t index;
+};
+extern struct s_funtbl *funtbl;
 extern struct s_vartbl *vartbl;
 
 extern int varcnt;                              // number of variables defined (eg, largest index into the variable table)
@@ -136,6 +141,7 @@ extern unsigned char DefaultType;                        // the default type if 
 // find a token
 // finishes pointing to the token or zero unsigned char if not found in the line
 #define findtoken(x)    while(*x != (tkn) && *x)x++
+#define IsDigitinline(a)	( a >= '0' && a <= '9' )
 
 #define isnamestart(c)  (isalpha(c) || c == '_')                    // true if valid start of a variable name
 #define isnamechar(c)   (isalnum(c) || c == '_' || c == '.')        // true if valid part of a variable name

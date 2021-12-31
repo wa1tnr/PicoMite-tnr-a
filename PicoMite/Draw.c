@@ -132,9 +132,7 @@ const int colours[16]={0x00,0xFF,0x4000,0x40ff,0x8000,0x80ff,0xff00,0xffff,0xff0
 void cmd_guiMX170(void) {
     unsigned char *p;
 
-#ifndef PICOMITEVGA
   if(Option.DISPLAY_TYPE == 0) error("Display not configured");
-#endif
     // display a bitmap stored in an integer or string
     if((p = checkstring(cmdline, "BITMAP"))) {
         int x, y, fc, bc, h, w, scale, t, bytes;
@@ -1041,6 +1039,7 @@ void cmd_text(void) {
     int jh = 0, jv = 0, jo = 0;
 
     getargs(&cmdline, 17, ",");                                     // this is a macro and must be the first executable stmt
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     if(!(argc & 1) || argc < 5) error("Argument count");
     x = getinteger(argv[0]);
     y = getinteger(argv[2]);
@@ -1069,6 +1068,7 @@ void cmd_text(void) {
 
 
 void cmd_pixel(void) {
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
 	if(CMM1){
 		int x, y, value;
 		getcoord(cmdline, &x, &y);
@@ -1125,6 +1125,7 @@ void cmd_pixel(void) {
 
 
 void cmd_circle(void) {
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
 	if(CMM1){
 		int x, y, radius, colour, fill;
 		float aspect;
@@ -1236,6 +1237,7 @@ void cmd_circle(void) {
 
 
 void cmd_line(void) {
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
 	if(CMM1){
 		int x1, y1, x2, y2, colour, box, fill;
 		char *p;
@@ -1339,6 +1341,7 @@ void cmd_box(void) {
     long long int *x1ptr, *y1ptr, *wiptr, *hptr, *wptr, *cptr, *fptr;
     MMFLOAT *x1fptr, *y1fptr, *wifptr, *hfptr, *wfptr, *cfptr, *ffptr;
     getargs(&cmdline, 13,",");
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     if(!(argc & 1) || argc < 7) error("Argument count");
     getargaddress(argv[0], &x1ptr, &x1fptr, &n);
     if(n != 1) {
@@ -1533,9 +1536,7 @@ void cmd_arc(void){
 	int x0, y0, x1, y1, x2, y2, xr, yr;
 	getargs(&cmdline, 13,",");
     if(!(argc == 11 || argc == 13)) error("Argument count");
-#ifndef PICOMITEVGA
-  if(Option.DISPLAY_TYPE == 0) error("Display not configured");
-#endif
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     x = getinteger(argv[0]);
     y = getinteger(argv[2]);
     r1 = getinteger(argv[4]);
@@ -1719,6 +1720,7 @@ void cmd_polygon(void){
 	int i, f=0, c, xtot=0, ymax=0, ymin=1000000;
     int n=0, nx=0, ny=0, nc=0, nf=0;
     getargs(&cmdline, 9,",");
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     getargaddress(argv[0], &polycount, &polycountf, &n);
     if(n==1){
     	xcount = xtot = getinteger(argv[0]);
@@ -1905,6 +1907,7 @@ void cmd_rbox(void) {
     long long int *x1ptr, *y1ptr, *wiptr, *hptr, *wptr, *cptr, *fptr;
     MMFLOAT *x1fptr, *y1fptr, *wifptr, *hfptr, *wfptr, *cfptr, *ffptr;
     getargs(&cmdline, 13,",");
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     if(!(argc & 1) || argc < 7) error("Argument count");
     getargaddress(argv[0], &x1ptr, &x1fptr, &n);
     if(n != 1) {
@@ -2012,8 +2015,8 @@ void fun_pixel(void) {
     if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
     int p;
     int x, y;
-  getargs(&ep, 3, ",");
-  if(argc != 3) error("Argument count");
+    getargs(&ep, 3, ",");
+    if(argc != 3) error("Argument count");
     x = getinteger(argv[0]);
     y = getinteger(argv[2]);
     ReadBuffer(x, y, x, y, (char *)&p);
@@ -2026,6 +2029,7 @@ void cmd_triangle(void) {                                           // thanks to
     long long int *x3ptr, *y3ptr, *x1ptr, *y1ptr, *x2ptr, *y2ptr, *fptr, *cptr;
     MMFLOAT *x3fptr, *y3fptr, *x1fptr, *y1fptr, *x2fptr, *y2fptr, *ffptr, *cfptr;
     getargs(&cmdline, 15,",");
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     if(!(argc & 1) || argc < 11) error("Argument count");
     getargaddress(argv[0], &x1ptr, &x1fptr, &n);
     if(n != 1) {
@@ -2096,6 +2100,7 @@ void cmd_triangle(void) {                                           // thanks to
 }
 
 void cmd_cls(void) {
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
 #ifndef PICOMITEVGA
     HideAllControls();
 #endif
@@ -2167,7 +2172,7 @@ void cmd_blit(void) {
     int x1, y1, x2, y2, w, h, bnbr;
     unsigned char *buff = NULL;
     unsigned char *p;
-    if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     if((p = checkstring(cmdline, "LOAD"))) {
         int fnbr;
         int xOrigin, yOrigin, xlen, ylen;
@@ -2209,6 +2214,7 @@ void cmd_blit(void) {
     }
     if((p = checkstring(cmdline, "READ"))) {
         getargs(&p, 9, ",");
+        if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
         if(argc !=9) error("Syntax");
         if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
         bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
@@ -2264,6 +2270,7 @@ void cmd_blit(void) {
      } else {
         int memory, max_x;
         getargs(&cmdline, 11, ",");
+        if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
         if(argc != 11) error("Syntax");
         x1 = getinteger(argv[0]);
         y1 = getinteger(argv[2]);
@@ -2351,18 +2358,14 @@ void cmd_colour(void) {
 }
 
 void fun_mmcharwidth(void) {
-#ifndef PICOMITEVGA
   if(Option.DISPLAY_TYPE == 0) error("Display not configured");
-#endif
     iret = FontTable[gui_font >> 4][0] * (gui_font & 0b1111);
     targ = T_INT;
 }
 
 
 void fun_mmcharheight(void) {
-#ifndef PICOMITEVGA
   if(Option.DISPLAY_TYPE == 0) error("Display not configured");
-#endif
     iret = FontTable[gui_font >> 4][1] * (gui_font & 0b1111);
     targ = T_INT;
 }
@@ -2385,6 +2388,7 @@ void fun_mmcharheight(void) {
  ****************************************************************************************************
 ****************************************************************************************************/
 void cmd_refresh(void){
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     low_y=0; high_y=DisplayVRes-1; low_x=0; high_x=DisplayHRes-1;
 #ifndef PICOMITEVGA
 	Display_Refresh();

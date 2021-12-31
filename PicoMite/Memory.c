@@ -55,16 +55,15 @@ extern const uint8_t *flash_progmemory;
 
 // allocate static memory for programs, variables and the heap
 // this is simple memory management because DOS has plenty of memory
-unsigned char __attribute__ ((aligned (32))) Memory[MEMORY_SIZE];
-unsigned char *DOS_ProgMemory=Memory;
+unsigned char __attribute__ ((aligned (32))) AllMemory[ALL_MEMORY_SIZE];
 #ifndef PICOMITEVGA
-unsigned char __attribute__ ((aligned (32))) CTRLS[500 * sizeof(struct s_ctrl)];
+unsigned char *CTRLS=&AllMemory[HEAP_MEMORY_SIZE + MAXVARS * sizeof(struct s_vartbl)];
+#else
+unsigned char *FrameBuf=&AllMemory[HEAP_MEMORY_SIZE + MAXVARS * sizeof(struct s_vartbl)];
 #endif
-unsigned char *MMHeap;//=DOS_ProgMemory+Option.PROG_FLASH_SIZE;
+unsigned char *MMHeap=AllMemory;
 struct s_ctrl *Ctrl=NULL;
-unsigned char  DOS_vartbl[MAXVARS * sizeof(struct s_vartbl)];
-//unsigned char MMHeap[Option.HEAP_SIZE];
-unsigned int mmap[(sizeof(Memory)/PAGESIZE) / PAGESPERWORD];
+unsigned int mmap[HEAP_MEMORY_SIZE/ PAGESIZE / PAGESPERWORD];
 
 unsigned int MBitsGet(unsigned char *addr);
 void MBitsSet(unsigned char *addr, int bits);
@@ -428,7 +427,6 @@ void m_alloc(int type) {
         case M_PROG:    // this is called initially in InitBasic() to set the base pointer for program memory
                         // everytime the program size is adjusted up or down this must be called to check for memory overflow
                         ProgMemory = (uint8_t *)flash_progmemory;
-                        MMHeap=Memory;  
                         memset(MMHeap,0,Option.HEAP_SIZE);
 #ifdef PICOMITEVGA
 						Ctrl=NULL;
@@ -440,7 +438,7 @@ void m_alloc(int type) {
                         
         case M_VAR:     // this must be called to initialises the variable memory pointer
                         // everytime the variable table is increased this must be called to verify that enough memory is free
-                        vartbl = (struct s_vartbl *)DOS_vartbl;
+                        vartbl = (struct s_vartbl *)&AllMemory[HEAP_MEMORY_SIZE];
                         memset(vartbl,0,MAXVARS * sizeof(struct s_vartbl));
                         break;
     }
@@ -457,7 +455,7 @@ void m_alloc(int type) {
 // Get a temporary buffer of any size
 // The space only lasts for the length of the command.
 // A pointer to the space is saved in an array so that it can be returned at the end of the command
-void *GetTempMemory(int NbrBytes) {
+void __not_in_flash_func(*GetTempMemory)(int NbrBytes) {
     if(StrTmpIndex >= MAXTEMPSTRINGS) error("Not enough memory");
     StrTmpLocalIndex[StrTmpIndex] = LocalIndex;
     StrTmp[StrTmpIndex] = GetMemory(NbrBytes);
@@ -530,7 +528,7 @@ void __not_in_flash_func(FreeMemory)(unsigned char *addr) {
 
 void InitHeap(void) {
     int i;
-    for(i = 0; i < (MEMORY_SIZE/PAGESIZE) / PAGESPERWORD; i++) mmap[i] = 0;
+    for(i = 0; i < (HEAP_MEMORY_SIZE/PAGESIZE) / PAGESPERWORD; i++) mmap[i] = 0;
     for(i = 0; i < MAXTEMPSTRINGS; i++) StrTmp[i] = NULL;
 }    
 
@@ -562,7 +560,7 @@ void __not_in_flash_func(MBitsSet)(unsigned char *addr, int bits) {
 
 
 
-void *GetMemory(int size) {
+void __not_in_flash_func(*GetMemory)(int size) {
     unsigned int j, n;
     unsigned char *addr;
     j = n = (size + PAGESIZE - 1)/PAGESIZE;                         // nbr of pages rounded up
@@ -643,7 +641,7 @@ void *ReAllocMemory(void *addr, size_t msize){
 	}
 	return newaddr;
 }
-void FreeMemorySafe(void **addr){
+void __not_in_flash_func(FreeMemorySafe)(void **addr){
 	if(*addr!=NULL){
         if(*addr >= (void *)MMHeap && *addr < (void *)(MMHeap + Option.HEAP_SIZE)) {FreeMemory(*addr);*addr=NULL;}
 	}

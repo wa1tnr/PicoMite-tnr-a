@@ -41,6 +41,7 @@ extern const uint8_t *flash_target_contents;
 extern const uint8_t *flash_option_contents;
 extern const uint8_t *SavedVarsFlash;
 extern const uint8_t *flash_progmemory;
+extern void routinechecks(void);
 struct option_s Option;
 int dirflags;
 int GPSfnbr=0;
@@ -218,7 +219,7 @@ void cmd_flash(void){
             else if(argc==3 && checkstring(argv[2], "ALL")) {
             	ListProgram((char *)ProgMemory, true);
             } else error("Syntax");
-            ProgMemory=Memory;
+            ProgMemory=(unsigned char *)flash_progmemory;
         } else {
             for(i=1;i<=MAXFLASHSLOTS;i++){
                 k=0;
@@ -827,7 +828,9 @@ int BasicFileOpen(char *fname, int fnbr, int mode) {
 #define MAXFILES 1000
 typedef struct ss_flist {
     char fn[FF_MAX_LFN];
-    int fs;
+    int fs; //file size
+    int fd; //file date
+    int ft; //file time
 } s_flist;
 
 int strcicmp(char const *a, char const *b)
@@ -866,93 +869,210 @@ void cmd_copy(void){
 	FileClose(fnbr2);
 }
 
-void cmd_files(void) {
-  int i, dirs, ListCnt;
-  char *p, *q;
-  int fcnt;
-  char ts[STRINGSIZE] = "";
-  static s_flist *flist=NULL;
+void cmd_files(void){
+	int i, j, c, dirs, ListCnt, currentsize;
+	uint32_t currentdate;
+	char *p, extension[8];
+	int fcnt, sortorder=0;
+	char ts[FF_MAX_LFN] = {0};
+    char pp[FF_MAX_LFN] = {0};
+    char q[FF_MAX_LFN]={0};
+	static s_flist *flist=NULL;
     static DIR djd;
     static FILINFO fnod;
-  if(CurrentLinePtr) error("Invalid in a program");
-//    OptionFileErrorAbort = 0;
+	memset(&djd,0,sizeof(DIR));
+	memset(&fnod,0,sizeof(FILINFO));
     fcnt = 0;
-   if(*cmdline)
-      p = getCstring(cmdline);
-    else
-      p = "*";
-
-    if(!InitSDCard()) error((char *)FErrorMsg[1]);                  // setup the SD card
+    if(*cmdline){
+    	getargs(&cmdline,3,",");
+    	if(!(argc==1 || argc==3))error("Syntax");
+    	p = getCstring(argv[0]);
+        i=strlen(p)-1;
+        while(i>0 && !(p[i] == 92 || p[i]==47))i--;
+        if(i>0){
+        	memcpy(q,p,i);
+             for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
+        	if(q[1]==':')q[0]='0';
+        	i++;
+        }
+        strcpy(pp,&p[i]);
+        if((pp[0]==47 || pp[0]==92) && i==0){
+        	strcpy(q,&pp[1]);
+        	strcpy(pp,q);
+        	strcpy(q,"0:/");
+        }
+    	if(argc==3){
+    		if(checkstring(argv[2], "NAME"))sortorder=0;
+    		else if(checkstring(argv[2], "TIME"))sortorder=1;
+    		else if(checkstring(argv[2], "SIZE"))sortorder=2;
+    		else if(checkstring(argv[2], "TYPE"))sortorder=3;
+    		else error("Syntax");
+    	}
+    }
+    if(pp[0]==0)strcpy(pp,"*");
+    if(CurrentLinePtr) error("Invalid in a program");
+    if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
     if(flist)FreeMemorySafe((void *)&flist);
     ClearVars(0);
     flist=GetMemory(sizeof(s_flist)*MAXFILES);
-     // print the current directory
-    q = GetCWD();
-    MMPrintString(&q[1]); MMPrintString("\r\n");
+//    	    q = GetCWD();
+//   	fullpath(q);
+	MMPrintString("A:");
+	MMPrintString(q);
+    MMPrintString("\r\n");
 
     // search for the first file/dir
-    FSerror = f_findfirst(&djd, &fnod, "", p);
+    FSerror = f_findfirst(&djd, &fnod, q, pp);
     ErrorCheck(0);
     // add the file to the list, search for the next and keep looping until no more files
     while(FSerror == FR_OK && fnod.fname[0]) {
         if(fcnt >= MAXFILES) {
+        		FreeMemorySafe((void *)&flist);
+            	f_closedir(&djd);
                 error("Too many files to list");
         }
         if(!(fnod.fattrib & (AM_SYS | AM_HID))){
             // add a prefix to each line so that directories will sort ahead of files
-            if(fnod.fattrib & AM_DIR)
+            if(fnod.fattrib & AM_DIR){
                 ts[0] = 'D';
-            else
+                currentdate=0xFFFFFFFF;
+                fnod.fdate=0xFFFF;
+                fnod.ftime=0xFFFF;
+                memset(extension,'+',sizeof(extension));
+            	extension[sizeof(extension)-1]=0;
+            } else {
                 ts[0] = 'F';
-
+                currentdate=(fnod.fdate<<16) | fnod.ftime;
+                if(fnod.fname[strlen(fnod.fname)-1]=='.') strcpy(extension,&fnod.fname[strlen(fnod.fname)-1]);
+                else if(fnod.fname[strlen(fnod.fname)-2]=='.') strcpy(extension,&fnod.fname[strlen(fnod.fname)-2]);
+                else if(fnod.fname[strlen(fnod.fname)-3]=='.') strcpy(extension,&fnod.fname[strlen(fnod.fname)-3]);
+                else if(fnod.fname[strlen(fnod.fname)-4]=='.') strcpy(extension,&fnod.fname[strlen(fnod.fname)-4]);
+                else if(fnod.fname[strlen(fnod.fname)-5]=='.') strcpy(extension,&fnod.fname[strlen(fnod.fname)-5]);
+                else {
+                	memset(extension,'.',sizeof(extension));
+                	extension[sizeof(extension)-1]=0;
+                }
+           }
+            currentsize=fnod.fsize;
             // and concatenate the filename found
             strcpy(&ts[1], fnod.fname);
-
             // sort the file name into place in the array
-            for(i = fcnt; i > 0; i--) {
-                if( strcicmp((flist[i - 1].fn), (ts)) > 0)
-                    flist[i] = flist[i - 1];
-                else
-                    break;
-            }
+            if(sortorder==0){
+            	for(i = fcnt; i > 0; i--) {
+            		if( strcicmp((flist[i - 1].fn), (ts)) > 0)
+            			flist[i] = flist[i - 1];
+            		else
+            			break;
+            	}
+            } else if(sortorder==2){
+            	for(i = fcnt; i > 0; i--) {
+            		if( (flist[i - 1].fs) > currentsize)
+            			flist[i] = flist[i - 1];
+            		else
+            			break;
+            	}
+            } else if(sortorder==3){
+            	for(i = fcnt; i > 0; i--) {
+            		char e2[8];
+                    if(flist[i - 1].fn[strlen(flist[i - 1].fn)-1]=='.') strcpy(e2,&flist[i - 1].fn[strlen(flist[i - 1].fn)-1]);
+                    else if(flist[i - 1].fn[strlen(flist[i - 1].fn)-2]=='.') strcpy(e2,&flist[i - 1].fn[strlen(flist[i - 1].fn)-2]);
+                    else if(flist[i - 1].fn[strlen(flist[i - 1].fn)-3]=='.') strcpy(e2,&flist[i - 1].fn[strlen(flist[i - 1].fn)-3]);
+                    else if(flist[i - 1].fn[strlen(flist[i - 1].fn)-4]=='.') strcpy(e2,&flist[i - 1].fn[strlen(flist[i - 1].fn)-4]);
+                    else if(flist[i - 1].fn[strlen(flist[i - 1].fn)-5]=='.') strcpy(e2,&flist[i - 1].fn[strlen(flist[i - 1].fn)-5]);
+                    else {
+                    	if(flist[i - 1].fn[0]=='D'){
+                    		memset(e2,'+',sizeof(e2));
+                        	e2[sizeof(e2)-1]=0;
+                    	} else {
+                    		memset(e2,'.',sizeof(e2));
+                        	e2[sizeof(e2)-1]=0;
+                    	}
+                    }
+            		if( strcicmp((e2), (extension)) > 0)
+            			flist[i] = flist[i - 1];
+            		else
+            			break;
+            	}
+        	} else {
+            	for(i = fcnt; i > 0; i--) {
+            		if( ((flist[i - 1].fd<<16) |flist[i - 1].ft)  < currentdate)
+            			flist[i] = flist[i - 1];
+            		else
+            			break;
+            	}
+
+        	}
             strcpy(flist[i].fn, ts);
             flist[i].fs = fnod.fsize;
+            flist[i].fd = fnod.fdate;
+            flist[i].ft = fnod.ftime;
             fcnt++;
         }
         FSerror = f_findnext(&djd, &fnod);
    }
-
     // list the files with a pause every screen full
-  ListCnt = 2;
-  for(i = dirs = 0; i < fcnt; i++) {
-      if(flist[i].fn[0] == 'D') {
-          dirs++;
+	ListCnt = 2;
+	for(i = dirs = 0; i < fcnt; i++) {
+    	routinechecks();
+		if(MMAbort) {
+        	FreeMemorySafe((void *)&flist);
+            f_closedir(&djd);
+            WDTimer = 0;                                                // turn off the watchdog timer
+            memset(inpbuf,0,STRINGSIZE);
+            longjmp(mark, 1);
+        }
+		if(flist[i].fn[0] == 'D') {
+    		dirs++;
             MMPrintString("   <DIR>  ");
-      }
-      else {
-            IntToStrPad(ts, flist[i].fs, ' ', 10, 10); MMPrintString(ts);
+		}
+		else {
+		    IntToStrPad(ts, (flist[i].ft>>11)&0x1F, '0', 2, 10);
+		    ts[2] = ':'; IntToStrPad(ts + 3, (flist[i].ft >>5)&0x3F, '0', 2, 10);
+		    ts[5]=' ';
+		    IntToStrPad(ts + 6, flist[i].fd & 0x1F, '0', 2, 10);
+		    ts[8] = '-'; IntToStrPad(ts + 9, (flist[i].fd >> 5)&0xF, '0', 2, 10);
+		    ts[11] = '-'; IntToStr(ts + 12 , ((flist[i].fd >> 9)& 0x7F )+1980, 10);
+		    ts[16] =' ';
+		    IntToStrPad(ts+17, flist[i].fs, ' ', 10, 10); MMPrintString(ts);
             MMPrintString("  ");
         }
         MMPrintString(flist[i].fn + 1);
-      MMPrintString("\r\n");
-      // check if it is more than a screen full
-      if(++ListCnt >= 24 && i < fcnt) {
-          MMPrintString("PRESS ANY KEY ...");
-          MMgetchar();
-          MMPrintString("\r                 \r");
-          ListCnt = 1;
-      }
-  }
+		MMPrintString("\r\n");
+		// check if it is more than a screen full
+		if(++ListCnt >= Option.Height && i < fcnt) {
+			MMPrintString("PRESS ANY KEY ...");
+            do {
+                ShowCursor(1);
+                routinechecks();
+                if(MMAbort) {
+                    FreeMemorySafe((void *)&flist);
+                    f_closedir(&djd);
+                    WDTimer = 0;                                                // turn off the watchdog timer
+                    memset(inpbuf,0,STRINGSIZE);
+                    ShowCursor(false);
+                    longjmp(mark, 1);
+                }
+                c=-1;
+                if(ConsoleRxBufHead != ConsoleRxBufTail) {                            // if the queue has something in it
+                    c = ConsoleRxBuf[ConsoleRxBufTail];
+                    ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE;   // advance the head of the queue
+                }
+            } while(c == -1);
+            ShowCursor(0);
+			MMPrintString("\r                 \r");
+			ListCnt = 1;
+		}
+	}
     // display the summary
     IntToStr(ts, dirs, 10); MMPrintString(ts);
     MMPrintString(" director"); MMPrintString(dirs==1?"y, ":"ies, ");
     IntToStr(ts, fcnt - dirs, 10); MMPrintString(ts);
     MMPrintString(" file"); MMPrintString((fcnt-dirs)==1?"":"s");
-    MMPrintString("\r\n");
-    FreeMemory((void *)(char *)flist);
+	MMPrintString("\r\n");
+	FreeMemorySafe((void *)&flist);
     f_closedir(&djd);
     memset(inpbuf,0,STRINGSIZE);
-    longjmp(mark, 1);                                                 // jump back to the input prompt
+    longjmp(mark, 1);
 }
 // remove unnecessary text
 void CrunchData(unsigned char **p, int c) {
@@ -1224,9 +1344,7 @@ void cmd_close(void) {
   }
 }
 void __not_in_flash_func(CheckSDCard)(void) {
-    if(Option.SD_CS==0)return;
     if(CurrentlyPlaying == P_NOTHING){
-        if(diskchecktimer== 0) {
             if(!(SDCardStat & STA_NOINIT)){ //the card is supposed to be initialised - lets check
                 char buff[4];
                 if (disk_ioctl(0, MMC_GET_OCR, buff) != RES_OK){
@@ -1234,11 +1352,11 @@ void __not_in_flash_func(CheckSDCard)(void) {
                     s = SDCardStat;
                     s |= (STA_NODISK | STA_NOINIT);
                     SDCardStat = s;
+                    ShowCursor(false);
                     MMPrintString("Warning: SDcard Removed\r\n> ");
                 }
             }
             diskchecktimer=DISKCHECKRATE;
-        }
     } else if(CurrentlyPlaying == P_WAV) checkWAVinput();
 }
 void LoadOptions(void) {
@@ -1268,7 +1386,7 @@ void ResetOptions(void){
     Option.DISPLAY_CONSOLE=1;
     Option.DISPLAY_TYPE = MONOVGA;
 #else
-    Option.CPU_Speed=125000;
+    Option.CPU_Speed=133000;
     Option.DISPLAY_CONSOLE=0;
     Option.DISPLAY_TYPE = 0;
 #endif

@@ -214,7 +214,6 @@ extern void cmd_guiMX170(void);
 extern void ShowCursor(int show);
 extern unsigned char *FontTable[];
 extern int CurrentX, CurrentY;
-extern uint8_t FrameBuf[38400];
 extern int PrintPixelMode;
 extern int CMM1;
 #endif
