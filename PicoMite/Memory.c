@@ -428,11 +428,9 @@ void m_alloc(int type) {
                         // everytime the program size is adjusted up or down this must be called to check for memory overflow
                         ProgMemory = (uint8_t *)flash_progmemory;
                         memset(MMHeap,0,Option.HEAP_SIZE);
-#ifdef PICOMITEVGA
 						Ctrl=NULL;
-#else
+#ifndef PICOMITEVGA
                         if(Option.MaxCtrls) Ctrl=(struct s_ctrl *)CTRLS;
-                        else Ctrl=NULL;
 #endif
                         break;
                         

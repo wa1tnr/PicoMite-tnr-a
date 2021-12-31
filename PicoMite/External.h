@@ -71,11 +71,8 @@ void cmd_bitbang(void);
 	{ (unsigned char *)"Pulse",		T_CMD,			0, cmd_pulse        },
 	{ (unsigned char *)"Port(",		T_CMD | T_FUN,		0, cmd_port	    },
 	{ (unsigned char *)"IR",                 T_CMD,			0, cmd_ir           },
-//	{ (unsigned char *)"LCD",                T_CMD,			0, cmd_lcd          },
 	{ (unsigned char *)"KeyPad",             T_CMD,			0, cmd_keypad       },
 	{ (unsigned char *)"Bitbang",              T_CMD,			0, cmd_bitbang        },
-//	{ (unsigned char *)"WS2812",              T_CMD,			0, cmd_WS2812        },
-//	{ (unsigned char *)"SYNC",              T_CMD,			0, cmd_sync        },
 	{ (unsigned char *)"PWM",		T_CMD,		0, cmd_pwm		},
 #ifndef PICOMITEVGA
 	{ (unsigned char *)"Backlight",		T_CMD,		0, cmd_backlight		},

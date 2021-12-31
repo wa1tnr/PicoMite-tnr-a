@@ -1701,10 +1701,8 @@ void cmd_option(void) {
     }
     tp = checkstring(cmdline, "LCDPANEL CONSOLE");
     if(tp) {
-#ifndef PICOMITEVGA
-        if(!(Option.DISPLAY_TYPE==ST7789B || Option.DISPLAY_TYPE==ILI9488 || Option.DISPLAY_TYPE==ILI9341))error("Display does not support console");
+        if(!(Option.DISPLAY_TYPE==ST7789B || Option.DISPLAY_TYPE==ILI9488 || Option.DISPLAY_TYPE==ILI9341 || Option.DISPLAY_TYPE>=VGADISPLAY))error("Display does not support console");
         if(!Option.DISPLAY_ORIENTATION== DISPLAY_LANDSCAPE) error("Landscape only");
-#endif
         skipspace(tp);
         Option.DefaultFC = WHITE;
         Option.DefaultBC = BLACK;

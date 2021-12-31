@@ -728,7 +728,7 @@ void InitDisplaySPI(int InitOnly) {
     if(!InitOnly) {
     	ResetDisplay();
     	ClearScreen(Option.DISPLAY_CONSOLE ? Option.DefaultBC : 0);
-    	if(Option.Refresh)Display_Refresh();
+    	    if(Option.Refresh)Display_Refresh();
     }
 }
 
@@ -1465,9 +1465,7 @@ void SPISpeedSet(int device){
 			SET_SPI_CLK=BitBangSetClk; 
 #ifndef PICOMITEVGA
 			SET_SPI_CLK(SD_SPI_SPEED, false, false);
-#endif
 		}
-#ifndef PICOMITEVGA
 		else {
 			if(PinDef[Option.SYSTEM_CLK].mode & SPI0SCK && PinDef[Option.SYSTEM_MOSI].mode & SPI0TX  && PinDef[Option.SYSTEM_MISO].mode & SPI0RX  ){
 				xchg_byte= HW0SwapSPI;
@@ -1486,13 +1484,12 @@ void SPISpeedSet(int device){
 				SET_SPI_CLK=BitBangSetClk; 
 			}
 			SET_SPI_CLK(display_details[device].speed, display_details[device].CPOL, display_details[device].CPHASE);
+#endif
 		}
 		CurrentSPIDevice=device;
-#endif
     }
 }
 
-#ifndef PICOMITEVGA
 // set the chip select for SPI to high (disabled)
 void ClearCS(int pin) {
     if(pin) {
@@ -1500,4 +1497,3 @@ void ClearCS(int pin) {
     	else gpio_put(PinDef[pin].GPno,GPIO_PIN_RESET);
     }
 }
-#endif

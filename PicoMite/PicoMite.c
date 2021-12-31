@@ -81,9 +81,6 @@ volatile unsigned int PauseTimer = 0;
 volatile unsigned int IntPauseTimer = 0;
 volatile unsigned int Timer1=0, Timer2=0;		                       //1000Hz decrement timer
 volatile unsigned int USBKeepalive=USBKEEPALIVE;
-#ifdef PICOMITEVGA
-volatile int CursorTimer=0;               // used to time the flashing cursor
-#endif
 volatile int ds18b20Timer = -1;
 volatile int second = 0;                                            // date/time counters
 volatile int minute = 0;
@@ -263,7 +260,7 @@ void __not_in_flash_func(routinechecks)(void){
         }
     }
 	if(GPSchannel)processgps();
-    if(diskchecktimer== 0)CheckSDCard();
+    if(diskchecktimer== 0 || CurrentlyPlaying == P_WAV)CheckSDCard();
 #ifndef PICOMITEVGA
     if(Ctrl)ProcessTouch();
 #endif
@@ -1475,10 +1472,8 @@ int main(){
     systick_hw->csr = 0x5;
     systick_hw->rvr = 0x00FFFFFF;
     busy_wait_ms(100);
-#ifdef PICOMITEVGA
     if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE == COLOURVGA ? 4	: 2);
     else QVGA_CLKDIV=(Option.DISPLAY_TYPE  == COLOURVGA ? 2	: 1);
-#endif
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.

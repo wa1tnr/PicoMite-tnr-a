@@ -104,9 +104,6 @@ int low_y=480, high_y=0, low_x=800, high_x=0;
 int PrintPixelMode=0;
 
 int CurrentX=0, CurrentY=0;                                             // the current default position for the next char to be written
-#ifdef PICOMITEVGA
-int gui_font_width, gui_font_height, last_bcolour, last_fcolour;
-#endif
 int DisplayHRes, DisplayVRes;                                       // the physical characteristics of the display
 char * blitbuffptr[MAXBLITBUF];                                  //Buffer pointers for the BLIT command
 int CMM1=0;
@@ -117,6 +114,8 @@ int lastx,lasty;
 const int colourmap[16]={BLACK,BLUE,GREEN,CYAN,RED,MAGENTA,YELLOW,WHITE,MYRTLE,COBALT,MIDGREEN,CERULEAN,RUST,FUCHSIA,BROWN,LILAC};
 // pointers to the drawing primitives
 #ifdef PICOMITEVGA
+int gui_font_width, gui_font_height, last_bcolour, last_fcolour;
+volatile int CursorTimer=0;               // used to time the flashing cursor
 void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNotSet;
 #endif
 void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c) = (void (*)(int , int , int , int , int ))DisplayNotSet;
@@ -174,6 +173,17 @@ void cmd_guiMX170(void) {
         ClickTimer = getint(p, 0, INT_MAX) + 1;
       return;
   	}
+    if((p = checkstring(cmdline, "RESET"))) {
+        if((checkstring(p, "LCDPANEL"))) {
+            InitDisplaySPI(true);
+            InitDisplayI2C(true);
+            if(Option.TOUCH_CS) {
+                GetTouchValue(CMD_PENIRQ_ON);                                      // send the controller the command to turn on PenIRQ
+                GetTouchAxis(CMD_MEASURE_X);
+            }
+            return;
+        }
+    }
 
     if((p = checkstring(cmdline, "CALIBRATE"))) {
         int tlx, tly, trx, try, blx, bly, brx, bry, midy;
@@ -261,23 +271,6 @@ void cmd_guiMX170(void) {
         }
 #endif
     }
-
-
-    if((p = checkstring(cmdline, "RESET"))) {
-#ifndef PICOMITEVGA
-        if((checkstring(p, "LCDPANEL"))) {
-            InitDisplaySPI(true);
-            InitDisplayI2C(true);
-            if(Option.TOUCH_CS) {
-                GetTouchValue(CMD_PENIRQ_ON);                                      // send the controller the command to turn on PenIRQ
-                GetTouchAxis(CMD_MEASURE_X);
-            }
-            return;
-        }
-#endif
-    }
-
-
     error("Unknown command");
 }
 
@@ -445,16 +438,12 @@ void DrawLine(int x1, int y1, int x2, int y2, int w, int c) {
 
     if(y1 == y2) {
         DrawRectangle(x1, y1, x2, y2 + w - 1, c);                   // horiz line
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
         return;
     }
     if(x1 == x2) {
         DrawRectangle(x1, y1, x2 + w - 1, y2, c);                   // vert line
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
         return;
     }
     int  dx, dy, sx, sy, err, e2;
@@ -474,9 +463,7 @@ void DrawLine(int x1, int y1, int x2, int y2, int w, int c) {
         }
     }
     DrawBuffered(0, 0, 0, 1);
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -559,9 +546,7 @@ void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill) {
     DrawRectangle(x1 + radius - 1, y2,  x2 - radius + 1, y2, c);    // botom side
     DrawRectangle(x1, y1 + radius, x1, y2 - radius, c);             // left side
     DrawRectangle(x2, y1 + radius, x2, y2 - radius, c);             // right side
-#ifndef PICOMITEVGA
         if(Option.Refresh)Display_Refresh();
-#endif
 
 }
 
@@ -687,9 +672,7 @@ void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect
 	   }
    }
 
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -816,9 +799,7 @@ void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fil
 	            DrawLine(x2, y2, x0, y0, 1, c);
 	        }
 	    }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 	}
 }
 
@@ -1060,9 +1041,7 @@ void cmd_text(void) {
     if(argc > 11 && *argv[12]) fc = getint(argv[12], 0, WHITE);
     if(argc ==15) bc = getint(argv[14], -1, WHITE);
     GUIPrintString(x, y, ((font - 1) << 4) | scale, jh, jv, jo, fc, bc, s);
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -1118,9 +1097,7 @@ void cmd_pixel(void) {
             }
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -1230,9 +1207,7 @@ void cmd_circle(void) {
             Option.Refresh=save_refresh;
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -1330,9 +1305,7 @@ void cmd_line(void) {
             }
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -1410,9 +1383,7 @@ void cmd_box(void) {
 
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -1601,9 +1572,7 @@ void cmd_arc(void){
 		}
 	}
 	Option.Refresh=save_refresh;
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 typedef struct {
     unsigned char red;
@@ -1975,9 +1944,7 @@ void cmd_rbox(void) {
             if(wi != 0 && h != 0) DrawRBox(x1, y1, x1 + wi + wmod, y1 + h + hmod, w, c, f);
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 // this function positions the cursor within a PRINT command
 void fun_at(void) {
@@ -2094,9 +2061,7 @@ void cmd_triangle(void) {                                           // thanks to
             DrawTriangle(x1, y1, x2, y2, x3, y3, c, f);
         }
     }
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 void cmd_cls(void) {
@@ -2110,9 +2075,7 @@ void cmd_cls(void) {
     else
         ClearScreen(gui_bcolour);
     CurrentX = CurrentY = 0;
-#ifndef PICOMITEVGA
-        if(Option.Refresh)Display_Refresh();
-#endif
+    if(Option.Refresh)Display_Refresh();
 }
 
 
@@ -2390,13 +2353,15 @@ void fun_mmcharheight(void) {
 void cmd_refresh(void){
     if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     low_y=0; high_y=DisplayVRes-1; low_x=0; high_x=DisplayHRes-1;
-#ifndef PICOMITEVGA
 	Display_Refresh();
-#endif
 }
 
 
 #ifdef PICOMITEVGA
+
+void Display_Refresh(void){
+}
+
 void DrawPixelMono(int x, int y, int c){
     if(x<0 || y<0 || x>=HRes || y>=VRes)return;
 	uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>3))+(x>>3));
@@ -2847,8 +2812,7 @@ void ResetDisplay(void) {
             ReadBuffer=ReadBufferMono;
             DrawPixel=DrawPixelMono;
         }
-#endif
-#ifndef PICOMITEVGA
+#else
     ResetGUI();
 #endif
 }
