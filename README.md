@@ -17,7 +17,7 @@ Change list from V5.07.00
 ***********************************************************************************************************************
 V5.07.03RC1
 
-Various tidying up in proparation for release of V5.07.03
+Various tidying up in preparation for release of V5.07.03
 
 V5.07.03b3
 
