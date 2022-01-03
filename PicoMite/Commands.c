@@ -86,7 +86,7 @@ void __not_in_flash_func(cmd_null)(void) {
 	// do nothing (this is just a placeholder for commands that have no action)
 }
 
-void cmd_inc(void){
+void __not_in_flash_func(cmd_inc)(void){
 	unsigned char *p;
     int vtype;
 	getargs(&cmdline,3,",");
@@ -1398,7 +1398,7 @@ void __not_in_flash_func(cmd_return)(void) {
 
 
 
-void cmd_endfun(void) {
+void __not_in_flash_func(cmd_endfun)(void) {
  	checkend(cmdline);
 	if(gosubindex == 0 || gosubstack[gosubindex - 1] != NULL) error("Nothing to return to");
 	nextstmt = (unsigned char *)"\0\0\0";                                            // now terminate this run of ExecuteProgram()
@@ -1528,7 +1528,7 @@ void cmd_call(void){
 	unsigned char *p=getCstring(cmdline); //get the command we want to call
 /*	q=p;
 	while(*q){ //convert to upper case for the match
-		*q=toupper(*q);
+		*q=mytoupper(*q);
 		q++;
 	}*/
 	q=cmdline;
@@ -1905,7 +1905,7 @@ void strCopyWithCase(char *d, char *s) {
     if(Option.Listcase == CONFIG_LOWER) {
         while(*s) *d++ = tolower(*s++);
     } else if(Option.Listcase == CONFIG_UPPER) {
-        while(*s) *d++ = toupper(*s++);
+        while(*s) *d++ = mytoupper(*s++);
     } else {
         while(*s) *d++ = *s++;
     }

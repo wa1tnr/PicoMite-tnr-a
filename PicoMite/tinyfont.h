@@ -8,7 +8,7 @@
 #ifndef TINYFONT_H_
 #define TINYFONT_H_
 
-unsigned char font4x6[292] ={
+const unsigned char font4x6[292] ={
 		0x04,0x06,0x20,0x60,
 		0x00,0x00,0x00, // Chr$(32)
 		0x44,0x40,0x40, // Chr$(33)  !

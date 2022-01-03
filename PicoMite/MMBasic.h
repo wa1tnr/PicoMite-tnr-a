@@ -96,7 +96,8 @@ struct s_funtbl {
 	char name[MAXVARLEN];                       // variable's name
 	uint32_t index;
 };
-extern struct s_funtbl *funtbl;
+extern struct s_funtbl funtbl[MAXSUBFUN];
+
 extern struct s_vartbl *vartbl;
 
 extern int varcnt;                              // number of variables defined (eg, largest index into the variable table)
@@ -137,15 +138,21 @@ extern unsigned char DefaultType;                        // the default type if 
 // skips text and and element separators until it is pointing to the zero char marking the start of a new line.
 // the next byte will be either the newline token or zero char if end of program
 #define skipline(x)     while(!(x[-1] == 0 && (x[0] == T_NEWLINE || x[0] == 0)))x++
-
 // find a token
 // finishes pointing to the token or zero unsigned char if not found in the line
 #define findtoken(x)    while(*x != (tkn) && *x)x++
 #define IsDigitinline(a)	( a >= '0' && a <= '9' )
-
-#define isnamestart(c)  (isalpha(c) || c == '_')                    // true if valid start of a variable name
-#define isnamechar(c)   (isalnum(c) || c == '_' || c == '.')        // true if valid part of a variable name
-#define isnameend(c)    (isalnum(c) || c == '_' || c == '.' || c == '$' || c == '!' || c == '%')        // true if valid at the end of a variable name
+extern const char namestart[256];
+extern const char namein[256];
+extern const char nameend[256];
+extern const char upper[256];
+#define mytoupper(a) upper[(unsigned int)a]
+#define isnamestart(c)  (namestart[(uint8_t)c])                    // true if valid start of a variable name
+#define isnamechar(c)   (namein[(uint8_t)c])        // true if valid part of a variable name
+#define isnameend(c)    (nameend[(uint8_t)c])        // true if valid at the end of a variable name
+//#define isnamestart(c)  (isalpha(c) || c == '_')                    // true if valid start of a variable name
+//#define isnamechar(c)   (isalnum(c) || c == '_' || c == '.')        // true if valid part of a variable name
+//#define isnameend(c)    (isalnum(c) || c == '_' || c == '.' || c == '$' || c == '!' || c == '%')        // true if valid at the end of a variable name
 
 #define tokentype(i)    ((i >= C_BASETOKEN && i < TokenTableSize - 1 + C_BASETOKEN) ? (tokentbl[i - C_BASETOKEN].type) : 0)             // get the type of a token
 #define tokenfunction(i)((i >= C_BASETOKEN && i < TokenTableSize - 1 + C_BASETOKEN) ? (tokentbl[i - C_BASETOKEN].fptr) : (tokentbl[0].fptr))    // get the function pointer  of a token

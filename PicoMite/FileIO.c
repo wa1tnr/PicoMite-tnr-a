@@ -36,6 +36,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/clocks.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
+#include "sys/stat.h"
 
 extern const uint8_t *flash_target_contents;
 extern const uint8_t *flash_option_contents;
@@ -162,6 +163,13 @@ void ErrorThrow(int e) {
     MMerrno = e;
     FSerror = e;
     strcpy(MMErrMsg, (char *)FErrorMsg[e]);
+    if(e==1){
+        BYTE s;
+        s = SDCardStat;
+        s |= (STA_NODISK | STA_NOINIT);
+        SDCardStat = s;
+        memset(&FatFs,0,sizeof(FatFs));
+    }
     if(e && OptionFileErrorAbort) error(MMErrMsg);
     return;
 }
@@ -264,10 +272,10 @@ void cmd_flash(void){
             error("Erase error");
         }
         disable_interrupts();
-        uint32_t save=0,*q=(uint32_t *)ProgMemory;
-        uint32_t *writebuff = (uint32_t *)GetTempMemory(4096);
-        for(int k=0; k<MAX_PROG_SIZE; k+=1024){
-            for(int j=0;j<1024;j++)writebuff[j]=*q++;
+        uint8_t save=0,*q=(uint8_t *)ProgMemory;
+        uint8_t *writebuff = (uint8_t *)GetTempMemory(4096);
+        for(int k=0; k<MAX_PROG_SIZE; k+=4096){
+            for(int j=0;j<4096;j++)writebuff[j]=*q++;
             flash_range_program(FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + ((i-1) * MAX_PROG_SIZE + k), (uint8_t *)writebuff, 4096);
         }
         enable_interrupts();
@@ -321,8 +329,7 @@ char *GetCWD(void) {
     if(!InitSDCard()) return b;
     FSerror = f_getcwd(b, STRINGSIZE);
     ErrorCheck(0);
-    b[0] = b[0] - '0' + 'A';
-    return b;
+    return &b[1];
 }
 void LoadImage(unsigned char *p) {
 	int fnbr;
@@ -357,8 +364,8 @@ void fun_dir(void) {
     static FILINFO fnod;
     static char pp[STRINGSIZE];
     getargs(&ep, 3, ",");
-    if(argc != 0) dirflags = 0;
-    if(!(argc == 0 || argc == 3)) error("Syntax");
+    if(argc != 0) dirflags = -1;
+    if(!(argc <= 3)) error("Syntax");
 
     if(argc == 3) {
         if(checkstring(argv[2], "DIR"))
@@ -868,8 +875,93 @@ void cmd_copy(void){
 	FileClose(fnbr1);
 	FileClose(fnbr2);
 }
+int resolve_path(char *path,char *result,char *pos)
+{
+    if (*path == '/') {
+	*result = '/';
+	pos = result+1;
+	path++;
+    }
+    *pos = 0;
+    if (!*path) return 0;
+    while (1) {
+	char *slash;
+	struct stat st;
+	st.st_mode=0;
+	slash = *path ? strchr(path,'/') : NULL;
+	if (slash) *slash = 0;
+	if (!path[0] || (path[0] == '.' &&
+	  (!path[1] || (path[1] == '.' && !path[2])))) {
+	    pos--;
+	    if (pos != result && path[0] && path[1])
+		while (*--pos != '/');
+	}
+	else {
+	    strcpy(pos,path);
+//	    if (lstat(result,&st) < 0) return -1;
+	    if (S_ISLNK(st.st_mode)) {
+		char buf[PATH_MAX];
+//		if (readlink(result,buf,sizeof(buf)) < 0) return -1;
+		*pos = 0;
+		if (slash) {
+		    *slash = '/';
+		    strcat(buf,slash);
+		}
+		strcpy(path,buf);
+		if (*path == '/') result[1] = 0;
+		pos = strchr(result,0);
+		continue;
+	    }
+	    pos = strchr(result,0);
+	}
+	if (slash) {
+	    *pos++ = '/';
+	    path = slash+1;
+	}
+	*pos = 0;
+	if (!slash) break;
+    }
+    return 0;
+}
+char fullpathname[FF_MAX_LFN];
 
+void fullpath(char *q){
+	char *p=GetTempMemory(STRINGSIZE);
+	char *rp=GetTempMemory(STRINGSIZE);
+	int i;
+	strcpy(p,q);
+	memset(fullpathname,0,sizeof(fullpathname));
+	strcpy(fullpathname,GetCWD());
+    for(i=0;i<strlen(p);i++)if(p[i]=='\\')p[i]='/';  //allow backslash for the DOS oldies
+    if(strcmp(p,".")==0 || strlen(p)==0){
+    	memmove(fullpathname, &fullpathname[2],strlen(fullpathname));
+//    	MMPrintString("Now: ");MMPrintString(fullpathname);PRet();
+    	return; //nothing to do
+    }
+    if(p[1]==':'){ //modify the requested path so that if the disk is specified the pathname is absolute and starts with /
+    	if(p[2]=='/')p+=2;
+    	else {
+    		p[1]='/';
+    		p++;
+    	}
+    }
+    if (*p=='/'){ //absolute path specified
+    	strcpy(rp,"A:");
+    	strcat(rp,p);
+    } else { // relative path specified
+    	strcpy(rp,fullpathname); //copy the current pathname
+        if(rp[strlen(rp)-1]!='/')  strcat(rp,"/"); //make sure the previous pathname ends in slash, will only be the case at root
+    	strcat(rp,p); //append the new pathname
+    }
+	strcpy(fullpathname,rp); //set the new pathname
+	resolve_path(fullpathname,rp,rp); //resolve to single absolute path
+	if(strcmp(rp,"A:")==0 || strcmp(rp,"0:")==0 )strcat(rp,"/"); //if root append the slash
+	strcpy(fullpathname,rp); //store this back to the filepath variable
+	memmove(fullpathname, &fullpathname[2],strlen(fullpathname));
+//	MMPrintString("Now: ");MMPrintString(fullpathname);PRet();
+}
 void cmd_files(void){
+    ClearVars(0);
 	int i, j, c, dirs, ListCnt, currentsize;
 	uint32_t currentdate;
 	char *p, extension[8];
@@ -913,16 +1005,14 @@ void cmd_files(void){
     if(CurrentLinePtr) error("Invalid in a program");
     if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
     if(flist)FreeMemorySafe((void *)&flist);
-    ClearVars(0);
     flist=GetMemory(sizeof(s_flist)*MAXFILES);
-//    	    q = GetCWD();
-//   	fullpath(q);
-	MMPrintString("A:");
-	MMPrintString(q);
+    fullpath(q);
+    MMPrintString("A:");
+	MMPrintString(fullpathname);
     MMPrintString("\r\n");
 
     // search for the first file/dir
-    FSerror = f_findfirst(&djd, &fnod, q, pp);
+    FSerror = f_findfirst(&djd, &fnod, fullpathname, pp);
     ErrorCheck(0);
     // add the file to the list, search for the next and keep looping until no more files
     while(FSerror == FR_OK && fnod.fname[0]) {
@@ -1360,7 +1450,7 @@ void __not_in_flash_func(CheckSDCard)(void) {
     } else if(CurrentlyPlaying == P_WAV) checkWAVinput();
 }
 void LoadOptions(void) {
-	int i=256;
+	int i=sizeof(struct option_s);
     char *pp=(char *)flash_option_contents;
     char *qq=(char *)&Option;
     while(i--)*qq++ = *pp++;
@@ -1371,15 +1461,13 @@ void ResetOptions(void){
     disable_audio();
     disable_systemi2c();
     disable_systemspi();
-    memset((void *)&Option.Magic,0,512);
+    memset((void *)&Option.Magic,0,sizeof(struct option_s));
     Option.Magic=0x8468218;
-    Option.Autorun=0;
     Option.Height = SCREENHEIGHT;
     Option.Width = SCREENWIDTH;
     Option.Tab = 2;
     Option.DefaultFont = 0x01;
     Option.DefaultBrightness = 100;
-    Option.MaxCtrls = 101;
     Option.Baudrate = CONSOLE_BAUDRATE;
 #ifdef PICOMITEVGA
     Option.CPU_Speed=126000;
@@ -1387,56 +1475,22 @@ void ResetOptions(void){
     Option.DISPLAY_TYPE = MONOVGA;
 #else
     Option.CPU_Speed=133000;
-    Option.DISPLAY_CONSOLE=0;
-    Option.DISPLAY_TYPE = 0;
 #endif
-    Option.SD_CS=0;
-    Option.SYSTEM_MOSI=0;
-    Option.SYSTEM_MISO=0;
-    Option.SYSTEM_CLK=0;
-    Option.AUDIO_L=0;
-    Option.AUDIO_R=0;
     Option.AUDIO_SLICE=99;
     Option.SDspeed=10;
     Option.DISPLAY_ORIENTATION = DISPLAY_LANDSCAPE;
-    Option.TOUCH_XSCALE = 0;
-    Option.TOUCH_CS = 0;
-    Option.TOUCH_IRQ = 0;
-   	Option.LCD_CD = 0;
-   	Option.LCD_Reset = 0;
-   	Option.LCD_CS = 0;
     Option.DefaultFont = 0x01;
     Option.DefaultFC = WHITE;
     Option.DefaultBC = BLACK;
     Option.LCDVOP = 0xB1;
-    Option.I2Coffset = 0;
-    Option.E_INKbusy = 0;
-    Option.Refresh = 0;
-	Option.fullrefresh = 0;
-    Option.SYSTEM_I2C_SCL = 0;
-    Option.SYSTEM_I2C_SDA = 0;
-    Option.RTC_Clock = 0;
-    Option.RTC_Data = 0;
-    Option.RTC=0;
-    Option.PWM=0;
     Option.PROG_FLASH_SIZE=MAX_PROG_SIZE;
     Option.HEAP_SIZE=MAX_PROG_SIZE;
-    Option.MaxCtrls=0;
     Option.INT1pin=9;
     Option.INT2pin=10;
     Option.INT3pin=11;
     Option.INT4pin=12;
-    Option.SD_CLK_PIN=0;
-    Option.SD_MOSI_PIN=0;
-    Option.SD_MISO_PIN=0;
-    Option.ColourCode=0;
     Option.KeyboardConfig = NO_KEYBOARD;
     Option.DefaultBrightness=100;
-    memset(Option.F5key,0,sizeof(Option.F5key));
-    memset(Option.F6key,0,sizeof(Option.F6key));
-    memset(Option.F7key,0,sizeof(Option.F7key));
-    memset(Option.F8key,0,sizeof(Option.F8key));
-    memset(Option.F9key,0,sizeof(Option.F9key));
     SaveOptions();
     uSec(250000);
 }

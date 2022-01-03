@@ -57,9 +57,9 @@ extern const uint8_t *flash_progmemory;
 // this is simple memory management because DOS has plenty of memory
 unsigned char __attribute__ ((aligned (32))) AllMemory[ALL_MEMORY_SIZE];
 #ifndef PICOMITEVGA
-unsigned char *CTRLS=&AllMemory[HEAP_MEMORY_SIZE + MAXVARS * sizeof(struct s_vartbl)];
+unsigned char *CTRLS=&AllMemory[HEAP_MEMORY_SIZE +  MAXVARS * sizeof(struct s_vartbl) + 2048];
 #else
-unsigned char *FrameBuf=&AllMemory[HEAP_MEMORY_SIZE + MAXVARS * sizeof(struct s_vartbl)];
+unsigned char *FrameBuf=&AllMemory[HEAP_MEMORY_SIZE + MAXVARS * sizeof(struct s_vartbl) + 2048];
 #endif
 unsigned char *MMHeap=AllMemory;
 struct s_ctrl *Ctrl=NULL;
@@ -436,7 +436,7 @@ void m_alloc(int type) {
                         
         case M_VAR:     // this must be called to initialises the variable memory pointer
                         // everytime the variable table is increased this must be called to verify that enough memory is free
-                        vartbl = (struct s_vartbl *)&AllMemory[HEAP_MEMORY_SIZE];
+                        vartbl = (struct s_vartbl *)&AllMemory[HEAP_MEMORY_SIZE+1024];
                         memset(vartbl,0,MAXVARS * sizeof(struct s_vartbl));
                         break;
     }

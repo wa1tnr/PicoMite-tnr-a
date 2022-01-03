@@ -30,7 +30,7 @@ extern "C" {
 #define FLASH_TARGET_OFFSET (1024 * 1024)
 
 #define MMFLOAT double
-#define ALL_MEMORY_SIZE (178*1024)
+#define ALL_MEMORY_SIZE (180*1024) 
 #ifdef PICOMITEVGA
 #define HEAP_MEMORY_SIZE (108*1024) 
 #else
@@ -41,7 +41,7 @@ extern "C" {
 #define FLASH_ERASE_SIZE 4096
 #define MAXFLASHSLOTS (((1024*1024)-FLASH_ERASE_SIZE-SAVEDVARS_FLASH_SIZE)/MAX_PROG_SIZE)-1
 #define MAXVARS             512                     // 8 + MAXVARLEN + MAXDIM * 2  (ie, 56 bytes) - these do not incl array members
-#define MAXHASH				MAXVARS/2-1
+#define MAXVARHASH				MAXVARS/2
 
 // more static memory allocations (less important)
 #define MAXFORLOOPS         20                      // each entry uses 17 bytes
@@ -49,9 +49,8 @@ extern "C" {
 #define MAXGOSUB            50                     // each entry uses 4 bytes
 #define MAX_MULTILINE_IF    20                      // each entry uses 8 bytes
 #define MAXTEMPSTRINGS      64                      // each entry takes up 4 bytes
-#define MAXSUBFUN           256                      // each entry takes up 4 bytes
-//#define MAXMODULES          16                      // maximum nbr of modules that can be loaded simultaneously. each entry takes up 4 bytes
-
+#define MAXSUBFUN           192               // each entry takes up 4 bytes
+#define MAXSUBHASH          MAXSUBFUN
 // operating characteristics
 #define MAXVARLEN           32                      // maximum length of a variable name
 #define MAXSTRLEN           255                     // maximum length of a string

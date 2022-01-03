@@ -128,7 +128,8 @@ struct option_s {
     unsigned char SerialConsole;
     unsigned char SerialTX;
     unsigned char SerialRX;
-    char dummy2[66];
+    char dummy2[2];
+    unsigned char F1key[MAXKEYLEN];
     unsigned char F5key[MAXKEYLEN];
     unsigned char F6key[MAXKEYLEN];
     unsigned char F7key[MAXKEYLEN];

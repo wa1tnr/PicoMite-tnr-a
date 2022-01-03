@@ -121,21 +121,6 @@ void fun_mmvpos(void);
     extern volatile int ClickTimer;            // used to time the click when touch occurs
     extern volatile int TouchTimer;                // used to time the response to touch
 
-    // the control table holds all the info on the GUI controls currently being managed
-/*    struct s_ctrl {
-        char page;                          // the display page
-                                            // place any additional chars here as the compiler will have padded this to four bytes
-        char ref, type, state;              // reference nbr, type (button, etc) and the state (disabled, etc)
-        char font;                          // the font in use when the control was created (used when redrawing)
-        short int x1, y1, x2, y2;           // the coordinates of the touch sensitive area
-        int fc, bc;                         // foreground and background colours
-        int fcc;                            // foreground colour for the caption (default colour when the control was created)
-        MMFLOAT value;
-        MMFLOAT min, max, inc;              // the spinbox minimum/maximum and the increment value. NOTE:  Radio buttons, gauge and LEDs also store data in these variables
-        char *s;                            // the caption
-        char *fmt;                          // pointer to the format string for FORMATBOX
-    };*/
-
     extern struct s_ctrl *Ctrl;             // list of the controls
 
   #endif

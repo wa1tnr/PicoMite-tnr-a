@@ -108,39 +108,15 @@ int BacklightChannel=-1;
 #define CMD41  (41)			/* SEND_OP_COND (ACMD) */
 #define CMD55  (55)			/* APP_CMD */
 #define CMD58  (58)			/* READ_OCR */
-unsigned short Compute_CRC16_Simple(const unsigned char message[], const unsigned int length)
-{
-    const unsigned short generator = 0x1021; /* divisor is 16bit */
-    unsigned short crc = 0; /* CRC value is 16bit */
-
-  for (unsigned i = 0; i < length; i++) {
-        crc ^= ((unsigned short)message[i] << 8); /* move byte into MSB of 16bit CRC */
-
-        for (int i = 0; i < 8; i++)
-        {
-            if ((crc & 0x8000) != 0) /* test for MSB = bit 15 */
-            {
-                crc = (unsigned short)((crc << 1) ^ generator);
-            }
-            else
-            {
-                crc <<= 1;
-            }
-        }
-    }
-    return crc;
-} 
 unsigned char __not_in_flash_func(CRC7)(const unsigned char message[], const unsigned int length) {
   const unsigned char poly = 0b10001001;
   unsigned char crc = 0;
   for (unsigned i = 0; i < length; i++) {
      crc ^= message[i];
      for (int j = 0; j < 8; j++) {
-      // crc = crc & 0x1 ? (crc >> 1) ^ poly : crc >> 1;
       crc = (crc & 0x80u) ? ((crc << 1) ^ (poly << 1)) : (crc << 1);
     }
   }
-  //return crc;
   return crc >> 1;
 }
 

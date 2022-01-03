@@ -1356,7 +1356,7 @@ void printoptions(void){
     if(Option.DISPLAY_TYPE==MONOVGA)PO2Str("MONO VGA", "ON");
     if(Option.Height != 40 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
 #else
-    if(Option.CPU_Speed!=125000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
+    if(Option.CPU_Speed!=133000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
     if(Option.DISPLAY_CONSOLE == true) PO2Str("LCDPANEL", "CONSOLE");
     if(Option.Height != 24 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
     if(Option.DISPLAY_TYPE == DISP_USER) PO3Int("LCDPANEL USER", DisplayHRes, DisplayVRes);
@@ -1533,6 +1533,15 @@ void cmd_option(void) {
         BreakKey = getinteger(tp);
         return;
     }
+    tp = checkstring(cmdline, "F1");
+	if(tp) {
+		char p[STRINGSIZE];
+		strcpy(p,getCstring(tp));
+		if(strlen(p)>=sizeof(Option.F1key))error("Maximum 63 characters");
+		else strcpy((char *)Option.F1key, p);
+		SaveOptions();
+		return;
+	}
     tp = checkstring(cmdline, "F5");
 	if(tp) {
 		char p[STRINGSIZE];
@@ -1601,22 +1610,6 @@ void cmd_option(void) {
         _excep_code = RESET_COMMAND;
         SoftReset();
 	}
-
-/*    tp=checkstring(cmdline, "DEFAULT FONT");
-    if(tp){
-    	getargs(&tp, 3, ",");
-    	int j=1,i=getint(argv[0],1,FONT_BUILTIN_NBR);
-    	if(i==6)error("Invalid default font");
-    	i--;
-    	if(argc==3)j=getint(argv[2],1,4);
-    	Option.DefaultFont=(i<<4) | j ;
-        SaveOptions();
-        SetFont(Option.DefaultFont);
-        memset(inpbuf,0,STRINGSIZE);
-        longjmp(mark,1);
-//        _excep_code = RESET_COMMAND;
-//        SoftReset();
-    }*/
 
     tp = checkstring(cmdline, "BAUDRATE");
     if(tp) {
@@ -1769,8 +1762,12 @@ void cmd_option(void) {
     }
 
     tp = checkstring(cmdline, "COLOUR VGA");
+    if(tp==NULL)tp = checkstring(cmdline, "COLOR VGA");
     if(tp) {
         if(checkstring(tp, "ON")){
+            CheckPin(24, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
+            CheckPin(25, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
+            CheckPin(27, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
             Option.DISPLAY_TYPE=COLOURVGA; 
             Option.DefaultFont=(6<<4) | 1 ;
         } else if(checkstring(tp, "OFF")) {
@@ -2616,6 +2613,13 @@ void fun_peek(void) {
         return;
         }
 
+    if((p = checkstring(argv[0], "VAR"))){
+        pp = findvar(p, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+        iret = *((char *)pp + (int)getinteger(argv[2]));
+        targ = T_INT;
+        return;
+    }
+    
     if((p = checkstring(argv[0], "VARADDR"))){
         if(argc != 1) error("Syntax");
         pp = findvar(p, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
@@ -2678,16 +2682,41 @@ void fun_peek(void) {
         return;
     }
 
-    if((p = checkstring(argv[0], "VAR"))){
-        pp = findvar(p, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        iret = *((char *)pp + (int)getinteger(argv[2]));
-        targ = T_INT;
-        return;
-    }
 
     // default action is the old syntax of  b = PEEK(hiaddr, loaddr)
     iret = *(char *)(((int)getinteger(argv[0]) << 16) + (int)getinteger(argv[2]));
     targ = T_INT;
+}
+void fun_format(void) {
+	unsigned char *p, *fmt;
+	int inspec;
+	getargs(&ep, 3, ",");
+	if(argc%2 == 0) error("Invalid syntax");
+	if(argc == 3)
+		fmt = getCstring(argv[2]);
+	else
+		fmt = "%g";
+
+	// check the format string for errors that might crash the CPU
+	for(inspec = 0, p = fmt; *p; p++) {
+		if(*p == '%') {
+			inspec++;
+			if(inspec > 1) error("Only one format specifier (%) allowed");
+			continue;
+		}
+
+		if(inspec == 1 && (*p == 'g' || *p == 'G' || *p == 'f' || *p == 'e' || *p == 'E'|| *p == 'l'))
+			inspec++;
+
+
+		if(inspec == 1 && !(IsDigitinline(*p) || *p == '+' || *p == '-' || *p == '.' || *p == ' '))
+			error("Illegal character in format specification");
+	}
+	if(inspec != 2) error("Format specification not found");
+	sret = GetTempMemory(STRINGSIZE);									// this will last for the life of the command
+	sprintf(sret, fmt, getnumber(argv[0]));
+	CtoM(sret);
+	targ=T_STR;
 }
 
 

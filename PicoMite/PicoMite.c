@@ -262,7 +262,7 @@ void __not_in_flash_func(routinechecks)(void){
 	if(GPSchannel)processgps();
     if(diskchecktimer== 0 || CurrentlyPlaying == P_WAV)CheckSDCard();
 #ifndef PICOMITEVGA
-    if(Ctrl)ProcessTouch();
+        if(Ctrl)ProcessTouch();
 #endif
         if(tud_cdc_connected() && USBKeepalive==0){
             SSPrintString(alive);

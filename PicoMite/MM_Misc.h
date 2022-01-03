@@ -67,7 +67,7 @@ void fun_epoch(void);
 void fun_datetime(void);
 void fun_json(void);
 void cmd_update(void);
-
+void fun_format(void);
 #endif
 
 
@@ -120,9 +120,7 @@ void cmd_update(void);
 	{ (unsigned char *)"Epoch(",		T_FUN  | T_INT,			0, fun_epoch		},
 	{ (unsigned char *)"DateTime$(",		T_FUN | T_STR,		0, fun_datetime		},
 	{ (unsigned char *)"MM.Info(",		T_FUN | T_INT  | T_NBR| T_STR,		0, fun_info		},
-//	{ (unsigned char *)"Systick",T_FNA | T_INT,		0, fun_systick	},
-//	{ (unsigned char *)"MM.Backup",   T_FNA | T_INT,		0, fun_backup 	},
-//	{ (unsigned char *)"JSON$(",		T_FUN | T_STR,          0, fun_json		},
+	{ (unsigned char *)"Format$(",	T_FUN  | T_STR,			0, fun_format	},
 
 #endif
 

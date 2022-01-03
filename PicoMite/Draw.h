@@ -201,11 +201,11 @@ extern void (*ReadBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
 #define FONT_BUILTIN_NBR     8
 #define FONT_TABLE_SIZE      16
 #ifdef PICOMITEVGA
-extern void (*DrawPixel)(int x1, int y1, int c);
+    extern void (*DrawPixel)(int x1, int y1, int c);
 #else
-extern void DrawPixel(int x, int y, int c);
-extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
-extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
+    extern void DrawPixel(int x, int y, int c);
+    extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
+    extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
 #endif
 extern void DisplayPutC(char c);
 extern void GUIPrintString(int x, int y, int fnt, int jh, int jv, int jo, int fc, int bc, char *str);

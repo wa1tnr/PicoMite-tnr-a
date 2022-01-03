@@ -85,7 +85,7 @@ struct s_hash {                             // structure of the token table
 
 // these are initialised at startup
 int CommandTableSize, TokenTableSize;
-
+struct s_funtbl funtbl[MAXSUBFUN];
 struct s_vartbl *vartbl=NULL;                                            // this table stores all variables
 int varcnt;                                                         // number of variables
 int VarIndex;                                                       // Global set by findvar after a variable has been created or found
@@ -96,7 +96,7 @@ unsigned char OptionExplicit;                                                // 
 unsigned char DefaultType;                                                   // the default type if a variable is not specifically typed
 int emptyarray=0;
 int TempStringClearStart;                                           // used to prevent clearing of space in an expression that called a FUNCTION
-
+void hashlabels(void);
 unsigned char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
 char CurrentSubFunName[MAXVARLEN + 1];                              // the name of the current sub or fun
 char CurrentInterruptName[MAXVARLEN + 1];                           // the name of the current interrupt function
@@ -128,8 +128,96 @@ int autoOn, autoNext = 10, autoIncr = 10;                           // use by th
 unsigned char FunKey[NBRPROGKEYS][MAXKEYLEN + 1];                            // data storage for the programmable function keys
 #endif
 //extern unsigned char MMHeap[Option.HEAP_SIZE];
-
-
+const char namestart[256]={
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x20
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x30
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x40
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1, //0x50
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x60
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0, //0x70
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x80
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x90
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xA0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xB0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xC0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xD0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xE0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  //0xF0
+};
+const char namein[256]={
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0, //0x20
+		1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0, //0x30
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x40
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1, //0x50
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x60
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0, //0x70
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x80
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x90
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xA0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xB0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xC0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xD0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xE0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  //0xF0
+};
+const char nameend[256]={
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,1,0,0,1,1,0,0,0,0,0,0,0,0,1,0, //0x20
+		1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0, //0x30
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x40
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1, //0x50
+		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x60
+		1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0, //0x70
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x80
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x90
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xA0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xB0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xC0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xD0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xE0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  //0xF0
+};
+const char digit[256]={
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0, //0x20
+		1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0, //0x30
+		0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0, //0x40
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x50
+		0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0, //0x60
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x70
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x80
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x90
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xA0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xB0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xC0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xD0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xE0
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  //0xF0
+};
+const char upper[256]={
+		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15, //0
+		16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31, //0x10
+		32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47, //0x20
+		48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63, //0x30
+		64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79, //0x40
+		80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95, //0x50
+		96,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79, //0x60
+		80,81,82,83,84,85,86,87,88,89,90,123,124,125,126,127, //0x70
+		128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143, //0x80
+		144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159, //0x90
+		160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175, //0xA0
+		176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191, //0xB0
+		192,192,194,195,196,197,198,199,200,201,202,203,204,205,206,207, //0xC0
+		208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223, //0xD0
+		224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239, //0xE0
+		240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255  //0xF0
+};
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Global information used by operators and functions
 //
@@ -300,20 +388,50 @@ void __not_in_flash_func(ExecuteProgram)(unsigned char *p) {
 // This pre processing speeds up the program when using defined subroutines and functions
 // this routine also looks for embedded fonts and adds them to the font table
 void  PrepareProgram(int ErrAbort) {
-    int i, j, NbrFuncts;
+    int i, j, u, NbrFuncts, namelen;
+    uint32_t hash=FNV_offset_basis;
     unsigned char *p1, *p2;
+    char printvar[MAXVARLEN+1];
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
         FontTable[i] = NULL;                                        // clear the font table
 
     
     NbrFuncts = 0;
     CFunctionFlash = CFunctionLibrary = NULL;
-
-
-
+    memset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
     PrepareProgramExt(ProgMemory, NbrFuncts,&CFunctionFlash, ErrAbort);
     
     // check the sub/fun table for duplicates
+    for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
+    	// First we will hash the function name and add it to the function table
+    	// This allows for a fast check of a variable name being the same as a function name
+    	// It also allows a hash look up for function name matching
+    	p1 = subfun[i];
+        p1++;
+        skipspace(p1);
+        p2 = printvar; namelen = 0;
+        hash=FNV_offset_basis;
+    	do {
+            u=mytoupper(*p1);
+    		hash ^= u;
+    		hash*=FNV_prime;
+    		*p2++ = u;
+            p1++;
+    		if(++namelen > MAXVARLEN){
+    			MMPrintString("Error: Function name too long");
+    		}
+
+    	} while(isnamechar(*p1));
+    	if(namelen!=MAXVARLEN)*p2=0;
+    	hash %= MAXSUBHASH; //scale to size of table
+		while(funtbl[hash].name[0]!=0){
+			hash++;
+			if(hash==MAXSUBFUN)hash=0;
+		}
+		funtbl[hash].index=i;
+		memcpy(funtbl[hash].name,printvar,(namelen == MAXVARLEN ? namelen :namelen+1));
+    }
+    hashlabels();
     if(!ErrAbort) return;
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
         for(j = i + 1; j < MAXSUBFUN && subfun[j] != NULL; j++) {
@@ -328,11 +446,16 @@ void  PrepareProgram(int ErrAbort) {
                     error("Duplicate name");
                     return;
                 }
-                if(toupper(*p1) != toupper(*p2)) break;
+                if(mytoupper(*p1) != mytoupper(*p2)) break;
                 p1++; p2++;
             }
         }
     }
+//    for(i=0;i<MAXSUBFUN;i++){
+//    	if(funtbl[i].name[0]!=0){
+//    		MMPrintString(funtbl[i].name);PIntHC(funtbl[i].index);PIntComma(i);PRet();
+//    	}
+//    }
 }
 
 
@@ -374,28 +497,47 @@ int  PrepareProgramExt(unsigned char *p, int i, unsigned char **CFunPtr, int Err
     return i;
 }
 
-
-
 // searches the subfun[] table to locate a defined sub or fun
 // returns with the index of the sub/function in the table or -1 if not found
 // if type = 0 then look for a sub otherwise a function
 int __not_in_flash_func(FindSubFun)(unsigned char *p, int type) {
-    unsigned char *p1, *p2;
-    int i;
+    unsigned char *s;
+    unsigned char name[MAXVARLEN + 1];
+    int j, u, namelen;
+    unsigned int hash=FNV_offset_basis;
+	unsigned char *tp, *ip;
 
-    for(i = 0;  i < MAXSUBFUN && subfun[i] != NULL; i++) {
-        p2 = subfun[i];                                             // point to the command token
-        if(type == 0) {                                             // if it is a sub and we want a fun or vice versa skip this one
-            if(!(*p2 == cmdSUB || *p2 == cmdCSUB)) continue;
-        } else {
-            if(!(*p2 == cmdFUN /*|| *p2 == cmdCFUN*/)) continue;
-        }
-        p2++; skipspace(p2);                                        // point to the identifier
-        if(toupper(*p) != toupper(*p2)) continue;                   // quick first test
-        p1 = p + 1;  p2++;
-        while(isnamechar(*p1) && toupper(*p1) == toupper(*p2)) { p1++; p2++; };
-        if((*p1 == '$' && *p2 == '$') || (*p1 == '%' && *p2 == '%') || (*p1 == '!' && *p2 == '!') || (!isnamechar(*p1) && !isnamechar(*p2))) return i;          // found it !
-    }
+// copy the variable name into name
+    s = name; namelen = 0;
+	do {
+        u=mytoupper(*p);
+		hash ^= u;
+		hash*=FNV_prime;
+		*s++ = u;
+        p++;
+		if(++namelen > MAXVARLEN) error("Variable name too long");
+	} while(isnamechar(*p));
+	*s=0;
+	hash %= MAXSUBHASH; //scale 0-512
+//	MMPrintString("Searching for function: ");MMPrintString(name);PIntComma(hash);PRet();
+	while(funtbl[hash].name[0]!=0){
+		ip=name;
+		tp=funtbl[hash].name;
+//		MMPrintString("Testing : ");MMPrintString(tp);PRet();
+		if(*ip++ == *tp++) {                 // preliminary quick check
+			j = namelen-1;
+			while(j > 0 && *ip == *tp) {                              // compare each letter
+				j--; ip++; tp++;
+			}
+			if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN) && funtbl[hash].index<MAXSUBFUN) {       // found a matching name
+//				MMPrintString("Found : ");MMPrintString(name);MMPrintString(", hash key : ");PInt(hash);PRet();
+					return funtbl[hash].index;
+					break;
+			}
+		}
+		hash++;
+		if(hash==MAXSUBFUN)hash=0;
+	}
     return -1;
 }
 
@@ -456,7 +598,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
         if(!isfun) error("Type specification");
         tp++;
     }
-    if(toupper(*(p-1)) != toupper(*(tp-1))) error("Inconsistent type suffix");
+    if(mytoupper(*(p-1)) != mytoupper(*(tp-1))) error("Inconsistent type suffix");
 
     // if this is a function we check to find if the function's type has been specified with AS <type> and save it
     CurrentLinePtr = SubLinePtr;                                    // report errors at the definition
@@ -491,13 +633,13 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
 	gosubstack[gosubindex++] = isfun ? NULL : nextstmt;             // NULL signifies that this is returned to by ending ExecuteProgram()
 
     // allocate memory for processing the arguments
-    argval = GetTempMemory(MAX_ARG_COUNT * sizeof(union u_argval));
-    argtype = GetTempMemory(MAX_ARG_COUNT * sizeof(int));
-    argVarIndex = GetTempMemory(MAX_ARG_COUNT * sizeof(int));
-    argbuf1 = GetTempMemory(STRINGSIZE); 
-    argv1 = GetTempMemory(MAX_ARG_COUNT * sizeof(unsigned char *));  // these are for the caller
-    argbuf2 = GetTempMemory(STRINGSIZE); 
-    argv2 = GetTempMemory(MAX_ARG_COUNT * sizeof(unsigned char *));  // and these for the definition of the sub or function
+    argval = GetMemory(MAX_ARG_COUNT * sizeof(union u_argval));
+    argtype = GetMemory(MAX_ARG_COUNT * sizeof(int));
+    argVarIndex = GetMemory(MAX_ARG_COUNT * sizeof(int));
+    argbuf1 = GetMemory(STRINGSIZE); 
+    argv1 = GetMemory(MAX_ARG_COUNT * sizeof(unsigned char *));  // these are for the caller
+    argbuf2 = GetMemory(STRINGSIZE); 
+    argv2 = GetMemory(MAX_ARG_COUNT * sizeof(unsigned char *));  // and these for the definition of the sub or function
 
     // now split up the arguments in the caller
     CurrentLinePtr = CallersLinePtr;                                // report errors at the caller
@@ -544,7 +686,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
                 if(argtype[i] & T_INT)
                     argval[i].i = ia;
                 else if(argtype[i] & T_STR) {
-                    argval[i].s = GetTempMemory(STRINGSIZE);
+                    argval[i].s = GetMemory(STRINGSIZE);
                     Mstrcpy(argval[i].s, s);
                 }
             }
@@ -597,7 +739,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
         if(argtype[i] & T_PTR) {
             // the argument supplied was a variable so we must setup the local variable as a pointer
             if((vartbl[VarIndex].type & T_STR) && vartbl[VarIndex].val.s != NULL) {
-                FreeMemory(vartbl[VarIndex].val.s);                            // free up the local variable's memory if it is a pointer to a string
+                FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                            // free up the local variable's memory if it is a pointer to a string
                 }
             vartbl[VarIndex].val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
             vartbl[VarIndex].type |= T_PTR;                                    // set the type to a pointer
@@ -607,7 +749,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
             // the parameter was an expression or a just straight variables with different types (therefore not a pointer))
             if((vartbl[VarIndex].type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
                 Mstrcpy((char *)vartbl[VarIndex].val.s, (char *)argval[i].s);
-                ClearSpecificTempMemory(argval[i].s);
+                FreeMemorySafe((void *)&argval[i].s);
             } else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
                 vartbl[VarIndex].val.f = argval[i].f;
             else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
@@ -622,9 +764,10 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
     }
 
     // temp memory used in setting up the arguments can be deleted now
-    ClearSpecificTempMemory(argval); ClearSpecificTempMemory(argtype); ClearSpecificTempMemory(argVarIndex);
-    ClearSpecificTempMemory(argbuf1); ClearSpecificTempMemory(argv1);
-    ClearSpecificTempMemory(argbuf2); ClearSpecificTempMemory(argv2);
+    FreeMemory((unsigned char *)argval);
+    FreeMemory((unsigned char *)argtype); FreeMemory((unsigned char *)argVarIndex);
+    FreeMemory(argbuf1); FreeMemory((unsigned char *)argv1);
+    FreeMemory(argbuf2); FreeMemory((unsigned char *)argv2);
    
     strcpy((char *)CurrentSubFunName, (char *)fun_name);
     // if it is a defined command we simply point to the first statement in our command and allow ExecuteProgram() to carry on as before
@@ -645,7 +788,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
     tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
     FunType = vartbl[VarIndex].type;
     if(FunType & T_STR) {
-        FreeMemory(vartbl[VarIndex].val.s);                         // free the memory if it is a string
+        FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                         // free the memory if it is a string
         vartbl[VarIndex].type |= T_PTR;
         LocalIndex--;                                               // allocate the memory at the previous level
         vartbl[VarIndex].val.s = tp = GetTempMemory(STRINGSIZE);    // and use our own memory
@@ -681,9 +824,9 @@ char *strcasechr(const char *p, int ch)
 {
 	char c;
 
-	c = toupper(ch);
+	c = mytoupper(ch);
 	for (;; ++p) {
-		if (toupper(*p) == c)
+		if (mytoupper(*p) == c)
 			return ((char *)p);
 		if (*p == '\0')
 			return (NULL);
@@ -910,7 +1053,7 @@ void  tokenise(int console) {
             for(i = 0 ; i < CommandTableSize - 1; i++) {
                     tp2 = p;
                     tp = (char *)commandtbl[i].name;
-                    while(toupper(*tp2) == toupper(*tp) && *tp != 0) {
+                    while(mytoupper(*tp2) == mytoupper(*tp) && *tp != 0) {
                         if(*tp == ' ')
                             skipspace(tp2);                         // eat up any extra spaces between keywords
                         else
@@ -963,7 +1106,7 @@ void  tokenise(int console) {
                 tp2 = p;
                 tp = (char *)tokentbl[i].name;
                 // check this entry
-                while(toupper(*tp2) == toupper(*tp) && *tp != 0) {
+                while(mytoupper(*tp2) == mytoupper(*tp) && *tp != 0) {
                     tp++; tp2++;
                     if(*tp == '(') skipspace(tp2);
                 }
@@ -1117,8 +1260,14 @@ long long int  __not_in_flash_func(getinteger)(unsigned char *p) {
 // this will correctly round the number if it is a fraction of an integer
 long long int __not_in_flash_func(getint)(unsigned char *p, long long int min, long long int max) {
     long long int  i;
-    i = getinteger(p);
-    if(i < min || i > max) error("% is invalid (valid is % to %)", (int)i, (int)min, (int)max);
+    int t = T_INT;
+    MMFLOAT f;
+    long long int i64;
+    unsigned char *s;
+    evaluate(p, &f, &i64, &s, &t, false);
+    if(t & T_NBR) i= FloatToInt64(f);
+    else i=i64;
+    if(i < min || i > max) error("% is invalid (valid is % to %)", (int)i, min, max);
     return i;
 }
 
@@ -1349,7 +1498,7 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
 			*tsp++ = *p++;
 
 			// now concatenate the remaining digits
-	        while(((*p >= '0' && *p <= '9') || toupper(*p) == 'E' || *p == '-' || *p == '+' || *p == '.') && (tsp - ts) < 30) {
+			while((digit[(uint8_t)*p]) && (tsp - ts) < 30) {
 				if(*p >= '0' && *p <= '9'){
 					i64 = i64 * 10 + (*p - '0');
 					if(scale)scale*=10;
@@ -1358,7 +1507,7 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
 						isi64 = false;
 						scale =1;
 					} else {
-						if(toupper(*p) == 'E' || *p == '-' || *p == '+' ){
+						if(mytoupper(*p) == 'E' || *p == '-' || *p == '+' ){
 							isi64 = false;
 							isf=false;
 						}
@@ -1382,9 +1531,9 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
    // if it is a numeric constant starting with the & character then get its base and convert to an integer
     else if(*p == '&') {
         p++; i64 = 0;
-        switch(toupper(*p++)) {
+        switch(mytoupper(*p++)) {
             case 'H':   while(isxdigit(*p)) {
-                            i64 = (i64 << 4) | ((toupper(*p) >= 'A') ? toupper(*p) - 'A' + 10 : *p - '0');
+                            i64 = (i64 << 4) | ((mytoupper(*p) >= 'A') ? mytoupper(*p) - 'A' + 10 : *p - '0');
                             p++;
                         } break;
             case 'O':   while(*p >= '0' && *p <= '7') {
@@ -1434,6 +1583,8 @@ unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long
 
 
 
+
+
 // search through program memory looking for a line number. Stops when it has a matching or larger number
 // returns a pointer to the T_NEWLINE token or a pointer to the two zero characters representing the end of the program
 unsigned char *findline(int nbr, int mustfind) {
@@ -1474,32 +1625,106 @@ unsigned char *findline(int nbr, int mustfind) {
         error("Line number");
     return p;
 }
+void hashlabels(void){
+    unsigned char *p = (unsigned char *)ProgMemory;
+    int j, u, namelen;
+    uint32_t hash=FNV_offset_basis;
+    char *lastp = (char *)ProgMemory + 1;
+    // now do the search
+    while(1) {
+        if(p[0] == 0 && p[1] == 0)                                  // end of the program
+            break;
+
+        if(p[0] == T_NEWLINE) {
+            lastp = p;                                              // save in case this is the right line
+            p++;                                                    // and step over the line number
+            continue;
+        }
+
+        if(p[0] == T_LINENBR) {
+            p += 3;                                                 // and step over the line number
+            continue;
+        }
+
+        if(p[0] == T_LABEL) {
+            p++;                                                    // point to the length of the label
+            hash=FNV_offset_basis;
+            namelen=0;
+        	for(j=1;j<=p[0];j++) {
+                u=mytoupper(p[j]);
+        		hash ^= u;
+        		hash*=FNV_prime;
+        		namelen++;
+        	}
+        	hash %= MAXSUBHASH; //scale to size of table
+    		while(funtbl[hash].name[0]!=0){
+     			hash++;
+     			hash %= MAXSUBFUN;
+    		}
+    		funtbl[hash].index=(uint32_t)lastp;
+            for(j=0;j<p[0];j++)funtbl[hash].name[j]=mytoupper(p[j+1]);
+            p += p[0] + 1;                                          // still looking! skip over the label
+            continue;
+        }
+        p++;
+    }
+}
 
 
 // search through program memory looking for a label.
 // returns a pointer to the T_NEWLINE token or throws an error if not found
 // non cached version
-unsigned char __not_in_flash_func(*findlabel)(unsigned char *labelptr) {
-    unsigned char *p, *lastp = ProgMemory + 1;
-    int i;
-    unsigned char label[MAXVARLEN + 1];
+unsigned char *__not_in_flash_func(findlabel)(unsigned char *labelptr) {
+//    char *p, *lastp = (char *)ProgMemory + 1;
+	unsigned char  *tp, *ip;
+    int i, u;
+    uint32_t hash=FNV_offset_basis;
+    char label[MAXVARLEN + 1];
 
     // first, just exit we have a NULL argument
     if(labelptr == NULL) return NULL;
 
     // convert the label to the token format and load into label[]
     // this assumes that the first character has already been verified as a valid label character
-    label[1] = *labelptr++;
+    label[1] = mytoupper(*labelptr++);
+	hash ^= label[1];
+	hash*=FNV_prime;
     for(i = 2; ; i++) {
         if(!isnamechar(*labelptr)) break;                           // the end of the label
         if(i > MAXVARLEN ) error("Label too long");                 // too long, not a correctly formed label
-        label[i] = *labelptr++;
+        label[i]=mytoupper(*labelptr++);
+		hash ^= label[i];
+		hash*=FNV_prime;
     }
     label[0] = i - 1;                                               // the length byte
+	hash %= MAXSUBHASH; //scale to size of table
+	if(funtbl[hash].name[0]==0)error("Cannot find label");
+	while(funtbl[hash].name[0]!=0){
+		if(funtbl[hash].index>=(uint32_t)ProgMemory){
+			tp=funtbl[hash].name;
+			ip=&label[1];
+			if(*ip++ == *tp++) {                 // preliminary quick check
+				i = label[0]-1;
+				while(i > 0 && *ip == *tp) {                              // compare each letter
+					i--; ip++; tp++;
+				}
+				if(i == 0  && (*(char *)tp == 0)) {       // found a matching name
+					return (char *)funtbl[hash].index;
+				}
+			}
+		}
+		hash++;
+		hash %= MAXSUBFUN;
+	}
+	if(funtbl[hash].name[0]==0)error("Cannot find label");
+	return 0;
 
-    // point to the main program memory or the library
-    p = ProgMemory;
-    
+/*
+
+
+    // point to the main program memory
+    p = (char *)ProgMemory;
+
     // now do the search
     while(1) {
         if(p[0] == 0 && p[1] == 0)                                  // end of the program
@@ -1518,16 +1743,16 @@ unsigned char __not_in_flash_func(*findlabel)(unsigned char *labelptr) {
 
         if(p[0] == T_LABEL) {
             p++;                                                    // point to the length of the label
-            if(mem_equal(p, label, label[0] + 1))                   // compare the strings including the length byte
-                return lastp;                                       // and if successful return pointing to the beginning of the line
-            p += p[0] + 1;                                          // still looking! skip over the label
+            if(mem_equal(p, label, label[0] + 1)){                   // compare the strings including the length byte
+            	return lastp;                                       // and if successful return pointing to the beginning of the line
+            }
+                p += p[0] + 1;                                          // still looking! skip over the label
             continue;
         }
 
         p++;
-    }
+    }*/
 }
-
 
 
 // returns true if 'line' is a valid line in the program
@@ -1615,7 +1840,7 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
 //    int hashIndex=0;
     int GlobalhashIndex;
     int LocalhashIndex;
-    uint32_t hash=FNV_offset_basis;
+    uint32_t funhash, hash=FNV_offset_basis;
 	char  *tp, *ip;
     int dim[MAXDIM]={0}, dnbr;
 //	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
@@ -1625,6 +1850,7 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     // first zero the array used for holding the dimension values
 //    for(i = 0; i < MAXDIM; i++) dim[i] = 0;
     ifree = -1;
+
     // check the first char for a legal variable name
     skipspace(p);
     if(!isnamestart(*p)) error("Variable name");
@@ -1632,13 +1858,15 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     // copy the variable name into name
     s = name; namelen = 0;
 	do {
-		u=toupper(*p++);
+		u=mytoupper(*p++);
 		hash ^= u;
 		hash*=FNV_prime;
 		*s++ = u;
 		if(++namelen > MAXVARLEN) error("Variable name too long");
 	} while(isnamechar(*p));
-	hash &= MAXHASH; //scale 0-511
+    funhash=hash % MAXSUBHASH;
+	hash %= MAXVARHASH; //scale 0-255
+    
 	if(namelen!=MAXVARLEN)*s=0;
     // check the terminating char and set the type
     if(*p == '$') {
@@ -1879,23 +2107,24 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
         else
             vtype = DefaultType;
     }
-
     // now scan the sub/fun table to make sure that there is not a sub/fun with the same name
-    // now scan the sub/fun table to make sure that there is not a sub/fun with the same name
-    if(!(action & V_FUNCT)) {                                       // don't do this if we are defining the local variable for a function name
-        for(i = 0;  i < MAXSUBFUN && subfun[i] != NULL; i++) {
-            x = subfun[i];                                          // point to the command token
-            x++; skipspace(x);                                      // point to the identifier
-            s = name;                                               // point to the new variable
-            if(*s != toupper(*x)) continue;                         // quick first test
-            while(1) {
-                if(!isnamechar(*s) && !isnamechar(*x)) error("A sub/fun has the same name: $", name);
-                if(*s != toupper(*x) || *s == 0 || !isnamechar(*x) || s - name >= MAXVARLEN) break;
-                s++; x++;
-            }
+    if(!(action & V_FUNCT) && (funtbl[funhash].name[0])) {                                       // don't do this if we are defining the local variable for a function name
+		while(funtbl[funhash].name[0]!=0){
+			ip=name;
+			tp=funtbl[funhash].name;
+			if(*ip++ == *tp++) {                 // preliminary quick check
+				j = namelen-1;
+				while(j > 0 && *ip == *tp) {                              // compare each letter
+					j--; ip++; tp++;
+				}
+				if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN)) {       // found a matching name
+					if(funtbl[funhash].index<MAXSUBFUN)error("A sub/fun has the same name: $", name);
+				}
+			}
+			funhash++;
+			if(funhash==MAXSUBFUN)funhash=0;
         }
     }
-
 
     // set a default string size
     size = MAXSTRLEN;
@@ -2012,6 +2241,7 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     vartbl[ifree].val.s = mptr;
     return mptr;
 }
+
 
 
 
@@ -2417,9 +2647,8 @@ void __not_in_flash_func(ClearVars)(int level) {
 				hashnext = hashcurrent = hashlist[i].hash;
 				hashnext++;
 				hashnext %= MAXVARS/2;
-				if(((vartbl[hashcurrent].type & T_STR) || vartbl[hashcurrent].dims[0] != 0) && !(vartbl[hashcurrent].type & T_PTR) && ((uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + Option.HEAP_SIZE)&& ((uint32_t)vartbl[hashcurrent].val.s>(uint32_t)MMHeap)) {
-					FreeMemory(vartbl[hashcurrent].val.s);
-                    vartbl[hashcurrent].val.s=NULL;
+				if(((vartbl[hashcurrent].type & T_STR) || vartbl[hashcurrent].dims[0] != 0) && !(vartbl[hashcurrent].type & T_PTR) && ((uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE)&& ((uint32_t)vartbl[hashcurrent].val.s>(uint32_t)MMHeap)) {
+					FreeMemorySafe((void *)&vartbl[hashcurrent].val.s);
 					// free any memory (if allocated)
 				}
 //				MMPrintString("Deleting ");MMPrintString(vartbl[hashlist[i].hash].name);PIntComma(hashlist[i].level);PIntComma(hashlist[i].hash);PRet();
@@ -2437,9 +2666,8 @@ void __not_in_flash_func(ClearVars)(int level) {
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
 			if(((vartbl[i].type & T_STR) || vartbl[i].dims[0] != 0) && !(vartbl[i].type & T_PTR)) {
-				if((uint32_t)vartbl[i].val.s>(uint32_t)MMHeap && (uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + Option.HEAP_SIZE){
-                    FreeMemory(vartbl[i].val.s);                        // free any memory (if allocated)
-                    vartbl[i].val.s=NULL;
+				if((uint32_t)vartbl[i].val.s>(uint32_t)MMHeap && (uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE){
+                    FreeMemorySafe((void *)&vartbl[i].val.s);                        // free any memory (if allocated)
                 }
 			}
 			memset(&vartbl[i],0,sizeof(struct s_vartbl));
@@ -2561,7 +2789,7 @@ long long int  __not_in_flash_func(FloatToInt64)(MMFLOAT x) {
 // make a string uppercase
 void __not_in_flash_func(makeupper)(unsigned char *p) {
     while(*p) {
-        *p = toupper(*p);
+        *p = mytoupper(*p);
         p++;
     }
 }
@@ -2728,7 +2956,7 @@ void __not_in_flash_func(checkend)(unsigned char *p) {
 // character. Returns a pointer to the end of the string if found or NULL is not
 unsigned char __not_in_flash_func(*checkstring)(unsigned char *p, unsigned char *tkn) {
     skipspace(p);                                           // skip leading spaces
-    while(*tkn && (toupper(*tkn) == toupper(*p))) { tkn++; p++; }   // compare the strings
+    while(*tkn && (mytoupper(*tkn) == mytoupper(*p))) { tkn++; p++; }   // compare the strings
     if(*tkn == 0 && (*p == (unsigned char)' ' || *p == (unsigned char)',' || *p == (unsigned char)'\'' || *p == 0|| *p == (unsigned char)'(' )) {
         skipspace(p);
         return p;                                                   // if successful return a pointer to the next non space character after the matched string
