@@ -15,6 +15,15 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03RC5
+
+Performance tuning. 
+Fixed bug in FLASH SAVE introduced in 5.07.03b1. 
+Added FORMAT$() function as per CMM2
+Minor change to DIR$() function to allow use with a single parameter in which case the type defaults to FILE. 
+Changes to FILE command to deal with relative paths from a sub-directory. 
+Fixes bug in loading F6-F9 user function definitions.
+
 V5.07.03RC1
 
 Various tidying up in preparation for release of V5.07.03
