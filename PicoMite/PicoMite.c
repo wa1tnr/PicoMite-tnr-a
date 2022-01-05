@@ -236,15 +236,14 @@ const struct s_PinDef PinDef[NBRPINS + 1]={
 char alive[]="\033[?25h";
 const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 void __not_in_flash_func(routinechecks)(void){
-    static int when=0;
-    if(++when & 3)return;
+    static int c,when=0;
+    if(++when & 7 && CurrentLinePtr) return;
 #ifdef PICOMITEVGA
     if(Option.SerialConsole==0){
 #else
     if(tud_cdc_connected() && Option.SerialConsole==0){
 #endif
-        int c;
-        if((c = getchar_timeout_us(0))!=PICO_ERROR_TIMEOUT){  // store the byte in the ring buffer
+        while(( c=tud_cdc_read_char())!=-1){
             ConsoleRxBuf[ConsoleRxBufHead] = c;
             if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
                 MMAbort = true;                                        // set the flag for the interpreter to see
@@ -413,6 +412,7 @@ void MMgetline(int filenbr, char *p) {
             if(c == F10) tp = "AUTOSAVE";
             if(c == F11) tp = "XMODEM RECEIVE";
             if(c == F12) tp = "XMODEM SEND";
+            if(c == F1) tp = Option.F1key;
             if(c == F5) tp = Option.F5key;
             if(c == F6) tp = Option.F6key;
             if(c == F7) tp = Option.F7key;
@@ -600,6 +600,7 @@ void EditInputLine(void) {
             if(c == F8) tp = Option.F8key;
             if(c == F9) tp = Option.F9key;*/
                 case 0x91:
+                    if(*Option.F1key)strcpy(&buf[1],Option.F1key);
                     break;
                 case 0x92:
                     strcpy(&buf[1],"RUN\r\n");
@@ -1498,6 +1499,7 @@ int main(){
 	OptionErrorSkip = false;
 	InitBasic();
 #ifndef PICOMITEVGA
+    InitDisplaySSD();
     InitDisplaySPI(0);
     InitDisplayI2C(0);
     InitTouch();

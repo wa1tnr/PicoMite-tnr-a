@@ -96,7 +96,7 @@ unsigned char OptionExplicit;                                                // 
 unsigned char DefaultType;                                                   // the default type if a variable is not specifically typed
 int emptyarray=0;
 int TempStringClearStart;                                           // used to prevent clearing of space in an expression that called a FUNCTION
-void hashlabels(void);
+void hashlabels(int errabort);
 unsigned char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
 char CurrentSubFunName[MAXVARLEN + 1];                              // the name of the current sub or fun
 char CurrentInterruptName[MAXVARLEN + 1];                           // the name of the current interrupt function
@@ -400,6 +400,7 @@ void  PrepareProgram(int ErrAbort) {
     CFunctionFlash = CFunctionLibrary = NULL;
     memset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
     PrepareProgramExt(ProgMemory, NbrFuncts,&CFunctionFlash, ErrAbort);
+    if(!ErrAbort) return;
     
     // check the sub/fun table for duplicates
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
@@ -418,7 +419,7 @@ void  PrepareProgram(int ErrAbort) {
     		*p2++ = u;
             p1++;
     		if(++namelen > MAXVARLEN){
-    			MMPrintString("Error: Function name too long");
+    			if(ErrAbort) error("Function name too long");
     		}
 
     	} while(isnamechar(*p1));
@@ -431,8 +432,7 @@ void  PrepareProgram(int ErrAbort) {
 		funtbl[hash].index=i;
 		memcpy(funtbl[hash].name,printvar,(namelen == MAXVARLEN ? namelen :namelen+1));
     }
-    hashlabels();
-    if(!ErrAbort) return;
+    hashlabels(ErrAbort);
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
         for(j = i + 1; j < MAXSUBFUN && subfun[j] != NULL; j++) {
             CurrentLinePtr = p1 = subfun[i];
@@ -443,7 +443,7 @@ void  PrepareProgram(int ErrAbort) {
             skipspace(p2);
             while(1) {
                 if(!isnamechar(*p1) && !isnamechar(*p2)) {
-                    error("Duplicate name");
+                    if(ErrAbort) error("Duplicate name");
                     return;
                 }
                 if(mytoupper(*p1) != mytoupper(*p2)) break;
@@ -469,7 +469,7 @@ int  PrepareProgramExt(unsigned char *p, int i, unsigned char **CFunPtr, int Err
         if(*p == cmdSUB || *p == cmdFUN /*|| *p == cmdCFUN*/ || *p == cmdCSUB) {         // found a SUB, FUN, CFUNCTION or CSUB token
             if(i >= MAXSUBFUN) {
                 if(ErrAbort) error("Too many subroutines and functions");
-                continue;
+                 continue;
             }
             subfun[i++] = p++;                                      // save the address and step over the token
             skipspace(p);
@@ -1267,7 +1267,7 @@ long long int __not_in_flash_func(getint)(unsigned char *p, long long int min, l
     evaluate(p, &f, &i64, &s, &t, false);
     if(t & T_NBR) i= FloatToInt64(f);
     else i=i64;
-    if(i < min || i > max) error("% is invalid (valid is % to %)", (int)i, min, max);
+    if(i < min || i > max) error("% is invalid (valid is % to %)", (int)i, (int)min, (int)max);
     return i;
 }
 
@@ -1625,10 +1625,10 @@ unsigned char *findline(int nbr, int mustfind) {
         error("Line number");
     return p;
 }
-void hashlabels(void){
+void hashlabels(int ErrAbort){
     unsigned char *p = (unsigned char *)ProgMemory;
     int j, u, namelen;
-    uint32_t hash=FNV_offset_basis;
+    uint32_t originalhash,hash=FNV_offset_basis;
     char *lastp = (char *)ProgMemory + 1;
     // now do the search
     while(1) {
@@ -1657,10 +1657,16 @@ void hashlabels(void){
         		namelen++;
         	}
         	hash %= MAXSUBHASH; //scale to size of table
-    		while(funtbl[hash].name[0]!=0){
+            originalhash=hash-1;
+            if(originalhash<0)originalhash+=MAXSUBFUN;
+    		while(funtbl[hash].name[0]!=0 && hash!=originalhash){
      			hash++;
      			hash %= MAXSUBFUN;
     		}
+            if(hash==originalhash){
+                if(ErrAbort)error("Too many labels");
+                break;
+            }
     		funtbl[hash].index=(uint32_t)lastp;
             for(j=0;j<p[0];j++)funtbl[hash].name[j]=mytoupper(p[j+1]);
             p += p[0] + 1;                                          // still looking! skip over the label
@@ -1838,8 +1844,8 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     unsigned char *s, *x, u;
     void *mptr;
 //    int hashIndex=0;
-    int GlobalhashIndex;
-    int LocalhashIndex;
+    int GlobalhashIndex, OriginalGlobalHash;
+    int LocalhashIndex, OriginalLocalHash;
     uint32_t funhash, hash=FNV_offset_basis;
 	char  *tp, *ip;
     int dim[MAXDIM]={0}, dnbr;
@@ -1920,8 +1926,12 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
     // search the table looking for a match
 
     LocalhashIndex=hash;
+    OriginalLocalHash=LocalhashIndex-1;
+    if(OriginalLocalHash<0)OriginalLocalHash+=MAXVARS/2;
     localifree=-1;
     GlobalhashIndex=hash+MAXVARS/2;
+    OriginalGlobalHash=GlobalhashIndex-1;
+    if(OriginalGlobalHash<MAXVARS/2)OriginalGlobalHash+=MAXVARS/2;
 	globalifree=-1;
 	tmp=-1;
     if(LocalIndex){ //search
@@ -1943,6 +1953,7 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
 				}
 				LocalhashIndex++;
 				LocalhashIndex %= MAXVARS/2;
+                if(LocalhashIndex==OriginalLocalHash)error("Too many local variables");
 			}
 			if(vartbl[LocalhashIndex].name[0]==0){ // not found
 				localifree=LocalhashIndex;
@@ -1974,6 +1985,7 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
 					}
 					GlobalhashIndex++;
 					if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXVARS/2;
+                    if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");
 				}
 				if(vartbl[GlobalhashIndex].name[0]==0){ // not found
 					globalifree=GlobalhashIndex;
@@ -2158,10 +2170,10 @@ void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
  // if we are adding to the top, increment the number of vars
 	if(ifree>=MAXVARS/2){
 		Globalvarcnt++;
-		if(Globalvarcnt>=MAXVARS)error("Not enough Global variable memory");
+		if(Globalvarcnt>=MAXVARS/2)error("Not enough Global variable memory");
 	} else {
 		Localvarcnt++;
-		if(Localvarcnt>=MAXVARS)error("Not enough Local variable memory");
+		if(Localvarcnt>=MAXVARS/2)error("Not enough Local variable memory");
 	}
 	varcnt=Globalvarcnt+Localvarcnt;
     VarIndex = vindex = ifree;

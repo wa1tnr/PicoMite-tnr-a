@@ -165,6 +165,7 @@ void cmd_guiMX170(void) {
         if(argc == 15) bc = getint(argv[14], -1, WHITE);
         if(h * w > bytes * 8) error("Not enough data");
         DrawBitmap(x, y, w, h, scale, fc, bc, (unsigned char *)s);
+        if(Option.Refresh)Display_Refresh();
         return;
     }
 #ifndef PICOMITEVGA

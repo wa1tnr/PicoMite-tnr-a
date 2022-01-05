@@ -64,7 +64,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // these two are the only global variables, the default place for the cursor when the editor opens
 unsigned char *StartEditPoint = NULL;
 int StartEditChar = 0;
-
+extern void routinechecks(void);
 #if !defined(LITE)
 
 void DisplayPutS(char *s) {
@@ -508,6 +508,7 @@ void FullScreenEditor(void) {
 
               // Abort without saving
               case ESC:     uSec(50000);                                                                // wait 50ms to see if anything more is coming
+                            routinechecks();
                             if(MMInkey() == '[' && MMInkey() == 'M') {
                                 // received escape code for Tera Term reporting a mouse click or scroll wheel movement
                                 int c, x, y;
@@ -548,7 +549,7 @@ void FullScreenEditor(void) {
                                 MX470Display(DISPLAY_CLS);                        // clear screen on the MX470 display only
                                 MX470Cursor(0, 0);                                // home the cursor
                             BreakKey = BreakKeySave;
-                            if(buf[0] != ESC && TextChanged) SaveProgramToFlash(EdBuff, true);
+                            if(buf[0] != ESC && TextChanged) SaveToProgMemory();
                             if(buf[0] == ESC || buf[0] == CTRLKEY('Q') || buf[0] == F1) return;
                             // this must be save, exit and run.  We have done the first two, now do the run part.
                             ClearRuntime();
@@ -1239,6 +1240,7 @@ void editDisplayMsg(unsigned char *msg) {
 
 // save the program in the editing buffer into the program memory
 void SaveToProgMemory(void) {
+    SaveProgramToFlash(EdBuff, true);
     ClearProgram();
     StartEditPoint = (char *)(edy + cury);                            // record out position in case the editor is invoked again
     StartEditChar = edx + curx;
@@ -1248,7 +1250,6 @@ void SaveToProgMemory(void) {
     while(StartEditChar > 0 && txtp > EdBuff && *(--txtp) == ' ') {
         StartEditChar--;
     }
-//    SaveProgramToFlash(EdBuff, true);
 }
 
 

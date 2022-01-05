@@ -28,7 +28,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "Hardware_Includes.h"
 int CurrentSPIDevice=NONE_SPI_DEVICE;
 #ifndef PICOMITEVGA
-const struct Displays display_details[26]={
+const struct Displays display_details[34]={
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"", SDCARD_SPI_SPEED, 0, 0, 0, 0, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
 		{"SSD1306I2C", 400, 128, 64, 1, 1, SPI_POLARITY_LOW, SPI_PHASE_1EDGE},
@@ -55,7 +55,14 @@ const struct Displays display_details[26]={
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
 		{"User", 0, 0, 0, 0, 0, 0 ,0},
-
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"Dummy", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_4", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_5", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_5A", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_7", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_7A", 0, 0, 0, 0, 0, 0 ,0},
+		{"SSD1963_8", 0, 0, 0, 0, 0, 0 ,0}
 };
 int LCD_CS_PIN=0;
 int LCD_CD_PIN=0;

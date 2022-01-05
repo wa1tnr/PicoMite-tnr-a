@@ -271,6 +271,13 @@ extern void set_cs(void);
 #define MONOVGA         26
 #define VGADISPLAY      MONOVGA  
 #define COLOURVGA       27
+#define SSD1963_4       28
+#define SSDPANEL        SSD1963_4
+#define SSD1963_5       29
+#define SSD1963_5A      30
+#define SSD1963_7       31
+#define SSD1963_7A      32
+#define SSD1963_8       33
 
 #define TFT_NOP 0x00
 #define TFT_SWRST 0x01

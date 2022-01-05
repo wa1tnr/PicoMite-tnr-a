@@ -1384,6 +1384,13 @@ void printoptions(void){
         if(Option.DISPLAY_TYPE==SSD1306I2C && Option.I2Coffset)PIntComma(Option.I2Coffset);
         MMPrintString("\r\n");
     }
+    if(Option.DISPLAY_TYPE >= SSDPANEL) {
+        PO("LCDPANEL"); MMPrintString((char *)display_details[Option.DISPLAY_TYPE].name); MMPrintString(", "); MMPrintString((char *)OrientList[(int)i - 1]);
+		if(Option.DISPLAY_BL){
+            MMputchar(',',1);;MMPrintString((char *)PinDef[Option.DISPLAY_BL].pinname);
+		}
+        PRet();
+    }
     if(Option.MaxCtrls)PO2Int("GUI CONTROLS", Option.MaxCtrls);
     if(Option.TOUCH_CS) {
         PO("TOUCH"); 
@@ -1444,6 +1451,7 @@ void printoptions(void){
         MMputchar(',',1);;MMPrintString((char *)PinDef[Option.INT3pin].pinname);
         MMputchar(',',1);;MMPrintString((char *)PinDef[Option.INT4pin].pinname);PRet();
     }
+    if(*Option.F1key)PO2Str("F1", Option.F1key);
     if(*Option.F5key)PO2Str("F5", Option.F5key);
     if(*Option.F6key)PO2Str("F6", Option.F6key);
     if(*Option.F7key)PO2Str("F7", Option.F7key);
@@ -1825,10 +1833,14 @@ void cmd_option(void) {
             Option.LCD_CD = Option.LCD_CS = Option.LCD_Reset = Option.DISPLAY_TYPE = HRes = VRes = 0;
             DrawRectangle = (void (*)(int , int , int , int , int ))DisplayNotSet;
             DrawBitmap =  (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
+            ScrollLCD = (void (*)(int ))DisplayNotSet;
+            DrawBuffer = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
+            ReadBuffer = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
 			Option.DISPLAY_CONSOLE = false;
 		} else {
             if(Option.DISPLAY_TYPE && !CurrentLinePtr) error("Display already configured");
             ConfigDisplaySPI(tp);
+            if(!Option.DISPLAY_TYPE)ConfigDisplaySSD(tp);
             if(!Option.DISPLAY_TYPE)ConfigDisplayI2C(tp);
         }
         SaveOptions();

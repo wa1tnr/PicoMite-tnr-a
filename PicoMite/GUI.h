@@ -73,7 +73,7 @@ void fun_mmvpos(void);
 #if !defined(INCLUDE_COMMAND_TABLE) && !defined(INCLUDE_TOKEN_TABLE)
   #ifndef GUI_H_INCL
     #define GUI_H_INCL
-    extern void ConfigDisplaySSD(char *p);
+    extern void ConfigDisplaySSD(unsigned char *p);
     extern void InitDisplaySSD(void);
     extern void DrawRectangleSSD1963(int x1, int y1, int x2, int y2, int c);
 

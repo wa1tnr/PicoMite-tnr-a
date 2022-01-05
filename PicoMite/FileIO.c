@@ -1347,6 +1347,24 @@ void fun_eof(void) {
     targ = T_INT;
 }
 
+void cmd_flush(void){
+  int fnbr;
+  getargs(&cmdline, 1, ",");
+  if(argc == 0) error("Syntax");
+  if(*argv[0] == '#') argv[0]++;
+  fnbr = getinteger(argv[0]);
+    if(fnbr == 0)                                                   // accessing the console
+        return;
+    else {
+        if(fnbr < 1 || fnbr > MAXOPENFILES) error("File number");
+        if(FileTable[fnbr].com == 0) error("File number is not open");
+        if(FileTable[fnbr].com > MAXCOMPORTS) {
+            f_sync(FileTable[fnbr].fptr);
+        } else {
+            while(SerialTxStatus(FileTable[fnbr].com)){}
+        }
+    }
+}
 
 void fun_loc(void) {
   int fnbr;

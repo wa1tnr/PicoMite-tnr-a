@@ -73,6 +73,7 @@ void cmd_date(void);
 void cmd_time(void);
 void cmd_flash(void);
 void cmd_var(void);
+void cmd_flush(void);
 // global variables used in MMBasic but must be maintained outside of the interpreter
 extern int MMerrno;
 extern int ListCnt;
@@ -279,6 +280,7 @@ void UnloadFont(int);
 	{ (unsigned char *)"Files",		T_CMD,				0, cmd_files    },
 	{ (unsigned char *)"Flash",		T_CMD,				0, cmd_flash    },
 	{ (unsigned char *)"VAR",		T_CMD,				0, cmd_var     	},
+	{ (unsigned char *)"Flush",		T_CMD,				0, cmd_flush    },
 
 
 #endif
@@ -316,8 +318,8 @@ void UnloadFont(int);
 #ifndef PICOMITEVGA
 	#include "Touch.h"
 	#include "GUI.h"
+	#include "SSD1963.h"
 #endif
 #include "GPS.h"
 #include "Audio.h"
 #include "PS2Keyboard.h"
-

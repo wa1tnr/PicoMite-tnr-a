@@ -1484,6 +1484,8 @@ void cmd_backlight(void){
         level/=100;
         I2C_Send_Command(0x81);//SETCONTRAST
         I2C_Send_Command((uint8_t)level);
+    } else if(Option.DISPLAY_TYPE>=SSDPANEL){
+        SetBacklightSSD1963(getint(cmdline, 0, 100));
     } else if(Option.DISPLAY_TYPE==SSD1306SPI){
         getargs(&cmdline,1,",");
         int level=getint(argv[0],0,100);
