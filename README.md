@@ -16,48 +16,52 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 Change list from V5.07.00
 ***********************************************************************************************************************
 V5.07.03RC8
-Enables F1 as a user programmable function key
-Fixes bug in cursor positioning in editor
-Fixed bug error message when an invalid flash page is selected
-Implements support for SSD1963 parallel displays
-SSD1963_4, SSD1963_5, SSD1963_5A, SSD1963_7, SSD1963_7A, SSD1963_8
-OPTION LCDPANEL SSD1963_n, orientation
-It is assumed the SSD1963 is configured for 1963_PWM backlight control in which case the BACKLIGHT command will work as expected
+
+Enables F1 as a user programmable function key. 
+Fixes bug in cursor positioning in editor. 
+Fixed bug error message when an invalid flash page is selected. 
+Implements support for SSD1963 parallel displays.
+
+SSD1963_4, SSD1963_5, SSD1963_5A, SSD1963_7, SSD1963_7A, SSD1963_8. 
+OPTION LCDPANEL SSD1963_n, orientation. 
+It is assumed the SSD1963 is configured for 1963_PWM backlight control in which case the BACKLIGHT command will work as expected. 
 Pin connections are as follows:
-DB0 pin 1:GP0
-DB0 pin 2:GP1
-DB0 pin 4:GP2
-DB0 pin 5:GP3
-DB0 pin 6:GP4
-DB0 pin 7:GP5
-DB0 pin 9:GP6
-DB0 pin 10:GP7
-RS  pin 17:GP13
-WR  pin 19:GP14
-RD  pin 20:GP15
-RESET pin 21:GP16
+DB0 pin 1:GP0, 
+DB0 pin 2:GP1, 
+DB0 pin 4:GP2, 
+DB0 pin 5:GP3, 
+DB0 pin 6:GP4, 
+DB0 pin 7:GP5, 
+DB0 pin 9:GP6, 
+DB0 pin 10:GP7, 
+RS  pin 17:GP13, 
+WR  pin 19:GP14, 
+RD  pin 20:GP15, 
+RESET pin 21:GP16, 
 SSD displays support RGB666 and are much faster than SPI displays. The firmware includes full support for console mode. 
-The downside is the number of pins used.
-A typical configuration could be:
-GP0-GP7 SSD1983
-GP8-GP9 PS2 Keyboard
-GP10-GP12 SPI for touch and SDcard
-GP13-GP16 SSD1963
-GP18-GP19 Touch CS and IRQ
-GP22  SD CS
-Leaving:
-GP17 I2C_SCL/COM1_RX/PWM0B
-GP20 I2C_SDA/COM2_TX/PWM2A
-GP21 I2C_SCL/COM2_RX/PWM2B
-GP26 ADC0/SPI2_CLK/I2C2_SDA/PWM5A
-GP27 ADC1/SPI2_OUT/I2C2_SCL/PWM5B
+The downside is the number of pins used. 
+A typical configuration could be: 
+GP0-GP7 SSD1983, 
+GP8-GP9 PS2 Keyboard, 
+GP10-GP12 SPI for touch and SDcard, 
+GP13-GP16 SSD1963, 
+GP18-GP19 Touch CS and IRQ, 
+GP22  SD CS, 
+Leaving: 
+GP17 I2C_SCL/COM1_RX/PWM0B, 
+GP20 I2C_SDA/COM2_TX/PWM2A, 
+GP21 I2C_SCL/COM2_RX/PWM2B, 
+GP26 ADC0/SPI2_CLK/I2C2_SDA/PWM5A, 
+GP27 ADC1/SPI2_OUT/I2C2_SCL/PWM5B, 
 GP28 ADC2/SPI2_IN/I2C_SDA/COM1_TX/PWM6A
-New command FLUSH [#]filenumber
-This causes any outstanding writes to a file to be written to disk or waits for serial output to be complete
-Fixed error handling for too many labels and/or functions and subroutines (max 224)
-Improved USB console receive
-Fixes bug in GUI BITMAP when using monochrome displays
-Fixes bug in handling of mouse escape sequences in the editor introduced in 5.07.03b1
+
+New command FLUSH [#]filenumber. 
+This causes any outstanding writes to a file to be written to disk or waits for serial output to be complete. 
+Fixed error handling for too many labels and/or functions and subroutines (max 224). 
+Improved USB console receive. 
+Fixes bug in GUI BITMAP when using monochrome displays. 
+Fixes bug in handling of mouse escape sequences in the editor introduced in 5.07.03b1.
+
 V5.07.03RC5
 
 Performance tuning. 
