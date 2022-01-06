@@ -15,6 +15,23 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03RC10
+
+New command LOAD JPG. 
+LOAD JPG fname$ [,xleft%] [,ytop%]. 
+This loads a jpg to the display. Like the CMM2 it does not support progressive jpg. Unlike the CMM2 it doesn't care how big the jpg is and whether it exceeeds the screen limits. 
+POKE DISPLAY HRES n. 
+POKE DISPLAY VRES m. 
+Allows you to override the display limits. Like the rest of the POKE DISPLAY commands (and POKE in general) use with care and don't blame me for the consequences. 
+Increased the maximum display width in OPTION DISPLAY to 240 characters. 
+POKE DISPLAY command [,data1] [,data2] [,datan]. 
+This command sends commands and associated data to the display controller for a connected display. 
+This allows the programmer to change parameters of how the display is configured. 
+e.g. POKE DISPLAY &H28 will turn off an SSD1963 display and POKE DISPLAY &H29 will turn it back on again. 
+It is up to the Basic programmer to read and understand the datasheet for the display in use to make use of the command. 
+Works for all displays except ST7790 and GDEH029A1. 
+Automatically resizes compatible terminal programs to match the OPTION DISPLAY parameters
+
 V5.07.03RC8
 
 Enables F1 as a user programmable function key. 
