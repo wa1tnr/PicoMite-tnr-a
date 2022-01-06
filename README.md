@@ -30,7 +30,8 @@ This allows the programmer to change parameters of how the display is configured
 e.g. POKE DISPLAY &H28 will turn off an SSD1963 display and POKE DISPLAY &H29 will turn it back on again. 
 It is up to the Basic programmer to read and understand the datasheet for the display in use to make use of the command. 
 Works for all displays except ST7790 and GDEH029A1. 
-Automatically resizes compatible terminal programs to match the OPTION DISPLAY parameters
+Automatically resizes compatible terminal programs to match the OPTION DISPLAY parameters. 
+Thanks to Rich Geldreich et al for the jpg decoder https://github.com/richgel999/picojpeg
 
 V5.07.03RC8
 
