@@ -37,6 +37,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
 #include "sys/stat.h"
+#include "picojpeg.h"
 
 extern const uint8_t *flash_target_contents;
 extern const uint8_t *flash_option_contents;
@@ -47,6 +48,20 @@ struct option_s Option;
 int dirflags;
 int GPSfnbr=0;
 
+// 8*8*4 bytes * 3 = 768
+int16_t *gCoeffBuf;
+
+// 8*8*4 bytes * 3 = 768
+uint8_t *gMCUBufR;
+uint8_t *gMCUBufG;
+uint8_t *gMCUBufB;
+
+// 256 bytes
+int16_t *gQuant0;
+int16_t *gQuant1;
+uint8_t *gHuffVal2;
+uint8_t *gHuffVal3;
+uint8_t *gInBuf;
 extern struct s_vartbl {                               // structure of the variable table
 	unsigned char name[MAXVARLEN];                       // variable's name
 	unsigned char type;                                  // its type (T_NUM, T_INT or T_STR)
@@ -353,6 +368,191 @@ void LoadImage(unsigned char *p) {
     BMP_bDecode(xOrigin, yOrigin, fnbr);
     FileClose(fnbr);
 }
+#ifndef max
+#define max(a,b)    (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef min
+#define min(a,b)    (((a) < (b)) ? (a) : (b))
+#endif
+
+static uint g_nInFileSize;
+static uint g_nInFileOfs;
+static int jpgfnbr;
+unsigned char pjpeg_need_bytes_callback( unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
+{
+   uint n,n_read;
+   pCallback_data;
+   
+   n = min(g_nInFileSize - g_nInFileOfs, buf_size);
+   f_read(FileTable[jpgfnbr].fptr,pBuf,n,&n_read);
+   if (n != n_read)
+      return PJPG_STREAM_READ_ERROR;
+   *pBytes_actually_read = (unsigned char)(n);
+   g_nInFileOfs += n;
+   return 0;
+}
+
+void LoadJPGImage(unsigned char *p) {
+    pjpeg_image_info_t image_info;
+    int x,mcu_x = 0;
+    int y,mcu_y = 0;
+    uint row_pitch;
+    uint8_t *pImage;
+    uint8_t status;
+    gCoeffBuf=(int16_t *)GetTempMemory(8*8*sizeof(int16_t));
+    gMCUBufR=(uint8_t *)GetTempMemory(256);
+    gMCUBufG=(uint8_t *)GetTempMemory(256);
+    gMCUBufB=(uint8_t *)GetTempMemory(256);
+    gQuant0=(int16_t *)GetTempMemory(8*8*sizeof(int16_t));
+    gQuant1=(int16_t *)GetTempMemory(8*8*sizeof(int16_t));
+    gHuffVal2=(uint8_t *)GetTempMemory(256);
+    gHuffVal3=(uint8_t *)GetTempMemory(256);
+    gInBuf=(uint8_t *)GetTempMemory(PJPG_MAX_IN_BUF_SIZE);
+    g_nInFileSize=g_nInFileOfs=0;
+
+    uint decoded_width, decoded_height;
+    uint row_blocks_per_mcu, col_blocks_per_mcu;
+	int xOrigin, yOrigin;
+
+	// get the command line arguments
+	getargs(&p, 5, ",");                                            // this MUST be the first executable line in the function
+    if(argc == 0) error("Argument count");
+    if(!InitSDCard()) return;
+
+    p = getCstring(argv[0]);                                        // get the file name
+
+    xOrigin = yOrigin = 0;
+	if(argc >= 3) xOrigin = getint(argv[2],0,HRes-1);                    // get the x origin (optional) argument
+	if(argc == 5) yOrigin = getint(argv[4],0,VRes-1);                    // get the y origin (optional) argument
+
+	// open the file
+	if(strchr(p, '.') == NULL) strcat(p, ".JPG");
+	jpgfnbr = FindFreeFileNbr();
+    if(!BasicFileOpen(p, jpgfnbr, FA_READ)) return;
+    g_nInFileSize = f_size(FileTable[jpgfnbr].fptr);
+    status = pjpeg_decode_init(&image_info, pjpeg_need_bytes_callback, NULL, 0);
+         
+    if (status)
+    {
+        if (status == PJPG_UNSUPPORTED_MODE)
+        {
+            FileClose(jpgfnbr);
+            error("Progressive JPEG files are not supported");
+        }
+        FileClose(jpgfnbr);
+        error("pjpeg_decode_init() failed with status %", status);
+    }
+    decoded_width = image_info.m_width;
+    decoded_height = image_info.m_height;
+
+    row_pitch = image_info.m_MCUWidth * image_info.m_comps;
+
+    unsigned char *imageblock=GetTempMemory(image_info.m_MCUHeight*image_info.m_MCUWidth*image_info.m_comps);
+    for ( ; ; )
+    {
+        uint8_t *pDst_row = imageblock;
+          int y, x;
+
+          status = pjpeg_decode_mcu();
+      
+          if (status)
+        {
+             if (status != PJPG_NO_MORE_BLOCKS)
+         {
+            FileClose(jpgfnbr);
+            error("pjpeg_decode_mcu() failed with status %", status);
+         }
+         break;
+      }
+
+      if (mcu_y >= image_info.m_MCUSPerCol)
+      {
+            FileClose(jpgfnbr);
+         return;
+      }
+/*    for(int i=0;i<image_info.m_MCUHeight*image_info.m_MCUWidth ;i++){
+          imageblock[i*3+2]=image_info.m_pMCUBufR[i];
+          imageblock[i*3+1]=image_info.m_pMCUBufG[i];
+          imageblock[i*3]=image_info.m_pMCUBufB[i];
+      }*/
+//         pDst_row = pImage + (mcu_y * image_info.m_MCUHeight) * row_pitch + (mcu_x * image_info.m_MCUWidth * image_info.m_comps);
+
+         for (y = 0; y < image_info.m_MCUHeight; y += 8)
+         {
+            const int by_limit = min(8, image_info.m_height - (mcu_y * image_info.m_MCUHeight + y));
+            for (x = 0; x < image_info.m_MCUWidth; x += 8)
+            {
+               uint8_t *pDst_block = pDst_row + x * image_info.m_comps;
+               // Compute source byte offset of the block in the decoder's MCU buffer.
+               uint src_ofs = (x * 8U) + (y * 16U);
+               const uint8_t *pSrcR = image_info.m_pMCUBufR + src_ofs;
+               const uint8_t *pSrcG = image_info.m_pMCUBufG + src_ofs;
+               const uint8_t *pSrcB = image_info.m_pMCUBufB + src_ofs;
+
+               const int bx_limit = min(8, image_info.m_width - (mcu_x * image_info.m_MCUWidth + x));
+
+               {
+                  int bx, by;
+                  for (by = 0; by < by_limit; by++)
+                  {
+                     uint8_t *pDst = pDst_block;
+
+                     for (bx = 0; bx < bx_limit; bx++)
+                     {
+                        pDst[2] = *pSrcR++;
+                        pDst[1] = *pSrcG++;
+                        pDst[0] = *pSrcB++;
+                        pDst += 3;
+                     }
+
+                     pSrcR += (8 - bx_limit);
+                     pSrcG += (8 - bx_limit);
+                     pSrcB += (8 - bx_limit);
+
+                     pDst_block += row_pitch;
+                  }
+               }
+            }
+            pDst_row += (row_pitch * 8);
+         }
+    
+      x=mcu_x*image_info.m_MCUWidth+xOrigin;
+      y=mcu_y*image_info.m_MCUHeight+yOrigin;
+      if(y<VRes && x<HRes){
+        int yend=min(VRes-1,y+image_info.m_MCUHeight-1);
+        int xend=min(HRes-1,x+image_info.m_MCUWidth-1);
+        if(xend<x+image_info.m_MCUWidth-1){
+            // need to get rid of some pixels to remove artifacts
+            xend=HRes-1;
+            unsigned char *s=imageblock; 
+            unsigned char *d=imageblock; 
+            for(int yp=0;yp<image_info.m_MCUHeight;yp++){
+                for(int xp=0;xp<image_info.m_MCUWidth;xp++){
+                    if(xp<xend-x+1){
+                        *d++=*s++;
+                        *d++=*s++;
+                        *d++=*s++;
+                    } else {
+                        s+=3;
+                    }
+                }
+            }
+        }
+        DrawBuffer(x,y,xend,yend,imageblock);
+      }
+      if(y>=VRes){ //nothing useful left to process
+        FileClose(jpgfnbr);
+        return;
+      }
+      mcu_x++;
+      if (mcu_x == image_info.m_MCUSPerRow)
+      {
+         mcu_x = 0;
+         mcu_y++;
+      }
+   }
+    FileClose(jpgfnbr);
+}
 
 // search for a volume label, directory or file
 // s$ = DIR$(fspec, DIR|FILE|ALL)       will return the first entry
@@ -621,6 +821,11 @@ void cmd_load(void) {
     p = checkstring(cmdline, "IMAGE");
     if(p) {
         LoadImage(p);
+        return;
+    }
+    p = checkstring(cmdline, "JPG");
+    if(p) {
+        LoadJPGImage(p);
         return;
     }
 
@@ -970,8 +1175,8 @@ void cmd_files(void){
     char pp[FF_MAX_LFN] = {0};
     char q[FF_MAX_LFN]={0};
 	static s_flist *flist=NULL;
-    static DIR djd;
-    static FILINFO fnod;
+    DIR djd;
+    FILINFO fnod;
 	memset(&djd,0,sizeof(DIR));
 	memset(&fnod,0,sizeof(FILINFO));
     fcnt = 0;

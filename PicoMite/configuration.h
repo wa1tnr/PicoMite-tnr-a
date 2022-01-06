@@ -49,7 +49,7 @@ extern "C" {
 #define MAXGOSUB            50                     // each entry uses 4 bytes
 #define MAX_MULTILINE_IF    20                      // each entry uses 8 bytes
 #define MAXTEMPSTRINGS      64                      // each entry takes up 4 bytes
-#define MAXSUBFUN           224                     // each entry takes up 4 bytes
+#define MAXSUBFUN           224               // each entry takes up 4 bytes
 #define MAXSUBHASH          MAXSUBFUN
 // operating characteristics
 #define MAXVARLEN           32                      // maximum length of a variable name

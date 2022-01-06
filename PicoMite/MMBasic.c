@@ -306,9 +306,9 @@ void  InitBasic(void) {
     cmdNEXT= GetCommandValue( (unsigned char *)"Next");
 	cmdIRET = GetCommandValue( (unsigned char *)"IReturn");
     cmdCSUB = GetCommandValue( (unsigned char *)"CSub");
-//        PInt(CommandTableSize);
-//        PIntComma(TokenTableSize);
-//        MMPrintString("\r\n");
+//    SInt(CommandTableSize);
+//    SIntComma(TokenTableSize);
+//    SSPrintString("\r\n");
 
 }
 

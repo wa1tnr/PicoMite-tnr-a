@@ -81,6 +81,9 @@ extern volatile BYTE SDCardStat;
 extern volatile int keyboardseen;
 extern uint64_t TIM12count;
 extern char id_out[12];
+extern void WriteCommand(int cmd);
+extern void WriteData(int data);
+
 uint64_t timeroffset=0;
 void integersort(int64_t *iarray, int n, long long *index, int flags, int startpoint){
     int i, j = n, s = 1;
@@ -1465,6 +1468,16 @@ int checkslice(int pin1,int pin2){
     if(!((PinDef[pin1].slice - PinDef[pin2].slice == 128) || (PinDef[pin2].slice - PinDef[pin1].slice == 128))) error("Pins both same channel");
     return PinDef[pin1].slice & 0xf;
 }
+void setterminal(void){
+	  char sp[20]={0};
+	  strcpy(sp,"\033[8;");
+	  IntToStr(&sp[strlen(sp)],Option.Height,10);
+	  strcat(sp,";");
+	  IntToStr(&sp[strlen(sp)],Option.Width+1,10);
+	  strcat(sp,"t");
+	  SSPrintString(sp);						//
+}
+
 void cmd_update(void){
     uint gpio_mask = 0u;
     reset_usb_boot(gpio_mask, PICO_STDIO_USB_RESET_BOOTSEL_INTERFACE_DISABLE_MASK);
@@ -1740,6 +1753,7 @@ void cmd_option(void) {
         Option.DISPLAY_CONSOLE = true; 
         ResetDisplay();
         if(!CurrentLinePtr) {
+            setterminal();
             SaveOptions();
             ClearScreen(Option.DefaultBC);
         }
@@ -1792,7 +1806,7 @@ void cmd_option(void) {
     tp = checkstring(cmdline,"GUI CONTROLS");
     if(tp) {
         getargs(&tp, 1, ",");
-        Option.MaxCtrls=getint(argv[0],0,500);
+        Option.MaxCtrls=getint(argv[0],0,400);
         SaveOptions();
         _excep_code = RESET_COMMAND;
         SoftReset();
@@ -1802,7 +1816,8 @@ void cmd_option(void) {
         getargs(&tp, 3, ",");
         if(Option.DISPLAY_CONSOLE) error("Cannot change LCD console");
         Option.Height = getint(argv[0], 5, 100);
-        if(argc == 3) Option.Width = getint(argv[2], 37, 132);
+        if(argc == 3) Option.Width = getint(argv[2], 37, 240);
+        setterminal();
         SaveOptions();
         return;
     }
@@ -2242,8 +2257,8 @@ void fun_info(void){
 	tp=checkstring(ep, "FILESIZE");
 	if(tp){
 		int i,j;
-		static DIR djd;
-		static FILINFO fnod;
+		DIR djd;
+		FILINFO fnod;
 		memset(&djd,0,sizeof(DIR));
 		memset(&fnod,0,sizeof(FILINFO));
 		char *p = getCstring(tp);
@@ -2259,8 +2274,8 @@ void fun_info(void){
 	tp=checkstring(ep, "MODIFIED");
 	if(tp){
 		int i,j;
-	    static DIR djd;
-	    static FILINFO fnod;
+	    DIR djd;
+	    FILINFO fnod;
 		memset(&djd,0,sizeof(DIR));
 		memset(&fnod,0,sizeof(FILINFO));
 		char *p = getCstring(tp);
@@ -2521,68 +2536,97 @@ unsigned int GetPokeAddr(unsigned char *p) {
 }
 
 
-
 void cmd_poke(void) {
-    unsigned char *p;
+    unsigned char *p, *q;
     void *pp;
+    if(p = checkstring(cmdline, "DISPLAY")){
+        if(!Option.DISPLAY_TYPE)error("Display not configured");
+        if(q=checkstring(p,"HRES")){ 
+            HRes=getint(q,0,1920);
+        } else if(q=checkstring(p,"VRES")){
+            VRes=getint(q,0,1200);
+#ifndef PICOMITEVGA
+        } else {
+            getargs(&p,(MAX_ARG_COUNT * 2) - 3,",");
+            if(!argc)return;
+            if(Option.DISPLAY_TYPE>=SSDPANEL){
+                WriteCommand(getinteger(argv[0]));
+                for(int i = 2; i < argc; i += 2) {
+                    WriteData(getinteger(argv[i]));
+                }
+                return;
+            } else if(Option.DISPLAY_TYPE>I2C_PANEL && Option.DISPLAY_TYPE<ST7920){
+                spi_write_command(getinteger(argv[0]));
+                for(int i = 2; i < argc; i += 2) {
+                    spi_write_data(getinteger(argv[i]));
+                }
+                return;
+            } else if(Option.DISPLAY_TYPE<=I2C_PANEL){
+                if(argc>1)error("UNsupported command");
+                I2C_Send_Command(getinteger(argv[0]));
+            } else 
+            error("Display not supported");
+#endif
+        } error("Syntax");
+    } else {
+        getargs(&cmdline, 5, ",");
+        if((p = checkstring(argv[0], "BYTE"))) {
+            if(argc != 3) error("Argument count");
+            uint32_t a=GetPokeAddr(p);
+            uint8_t *padd=(uint8_t *)(a);
+            *padd = getinteger(argv[2]);
+            return;
+        }
+        if((p = checkstring(argv[0], "SHORT"))) {
+            if(argc != 3) error("Argument count");
+            uint32_t a=GetPokeAddr(p);
+            if(a % 2)error("Address not divisible by 2");
+            uint16_t *padd=(uint16_t *)(a);
+            *padd = getinteger(argv[2]);
+            return;
+        }
 
-    getargs(&cmdline, 5, ",");
-    if((p = checkstring(argv[0], "BYTE"))) {
-        if(argc != 3) error("Argument count");
-        uint32_t a=GetPokeAddr(p);
-        uint8_t *padd=(uint8_t *)(a);
-        *padd = getinteger(argv[2]);
-        return;
-    }
-    if((p = checkstring(argv[0], "SHORT"))) {
-    	if(argc != 3) error("Argument count");
-    	uint32_t a=GetPokeAddr(p);
-    	if(a % 2)error("Address not divisible by 2");
-    	uint16_t *padd=(uint16_t *)(a);
-        *padd = getinteger(argv[2]);
-        return;
-    }
+        if((p = checkstring(argv[0], "WORD"))) {
+            if(argc != 3) error("Argument count");
+            uint32_t a=GetPokeAddr(p);
+            if(a % 4)error("Address not divisible by 4");
+            uint32_t *padd=(uint32_t *)(a);
+            *padd = getinteger(argv[2]);
+            return;
+        }
 
-    if((p = checkstring(argv[0], "WORD"))) {
-        if(argc != 3) error("Argument count");
-        uint32_t a=GetPokeAddr(p);
-        if(a % 4)error("Address not divisible by 4");
-        uint32_t *padd=(uint32_t *)(a);
-        *padd = getinteger(argv[2]);
-        return;
-    }
+        if((p = checkstring(argv[0], "INTEGER"))) {
+            if(argc != 3) error("Argument count");
+            uint32_t a=GetPokeAddr(p);
+            if(a % 8)error("Address not divisible by 8");
+            uint64_t *padd=(uint64_t *)(a);
+            *padd = getinteger(argv[2]);
+            return;
+        }
+        if((p = checkstring(argv[0], "FLOAT"))) {
+            if(argc != 3) error("Argument count");
+            uint32_t a=GetPokeAddr(p);
+            if(a % 8)error("Address not divisible by 8");
+            MMFLOAT *padd=(MMFLOAT *)(a);
+            *padd = getnumber(argv[2]);
+            return;
+        }
 
-    if((p = checkstring(argv[0], "INTEGER"))) {
-        if(argc != 3) error("Argument count");
-        uint32_t a=GetPokeAddr(p);
-        if(a % 8)error("Address not divisible by 8");
-        uint64_t *padd=(uint64_t *)(a);
-        *padd = getinteger(argv[2]);
-        return;
-    }
-    if((p = checkstring(argv[0], "FLOAT"))) {
-        if(argc != 3) error("Argument count");
-        uint32_t a=GetPokeAddr(p);
-        if(a % 8)error("Address not divisible by 8");
-        MMFLOAT *padd=(MMFLOAT *)(a);
-        *padd = getnumber(argv[2]);
-        return;
-    }
+        if(argc != 5) error("Argument count");
 
-    if(argc != 5) error("Argument count");
-
-    if(checkstring(argv[0], "VARTBL")) {
-        *((char *)vartbl + (unsigned int)getinteger(argv[2])) = getinteger(argv[4]);
-        return;
+        if(checkstring(argv[0], "VARTBL")) {
+            *((char *)vartbl + (unsigned int)getinteger(argv[2])) = getinteger(argv[4]);
+            return;
+        }
+        if((p = checkstring(argv[0], "VAR"))) {
+            pp = findvar(p, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+            if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
+            *((char *)pp + (unsigned int)getinteger(argv[2])) = getinteger(argv[4]);
+            return;
+        }
+        // the default is the old syntax of:   POKE hiaddr, loaddr, byte
+        *(char *)(((int)getinteger(argv[0]) << 16) + (int)getinteger(argv[2])) = getinteger(argv[4]);
     }
-    if((p = checkstring(argv[0], "VAR"))) {
-        pp = findvar(p, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        *((char *)pp + (unsigned int)getinteger(argv[2])) = getinteger(argv[4]);
-        return;
-    }
-    // the default is the old syntax of:   POKE hiaddr, loaddr, byte
-    *(char *)(((int)getinteger(argv[0]) << 16) + (int)getinteger(argv[2])) = getinteger(argv[4]);
 }
 
 

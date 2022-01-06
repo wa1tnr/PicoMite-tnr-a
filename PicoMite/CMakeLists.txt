@@ -36,6 +36,7 @@ add_executable(PicoMite
     CFunction.c
     Keyboard.c
     SSD1963.c
+    picojpeg.c
 )
 Pico_enable_stdio_usb(PicoMite 1)
 pico_enable_stdio_uart(PicoMite 0)

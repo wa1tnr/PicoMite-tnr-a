@@ -245,7 +245,7 @@ void InitDisplaySSD(void) {
 
 
 // Write a command byte to the SSD1963
-static inline void WriteCommand(int cmd) {
+void WriteCommand(int cmd) {
     gpio_put_masked(0b11111111,cmd);
     gpio_put(SSD1963_DC_GPPIN,0);
     gpio_put(SSD1963_WR_GPPIN,0);nop;gpio_put(SSD1963_WR_GPPIN,1);
@@ -254,7 +254,7 @@ static inline void WriteCommand(int cmd) {
 
 
 // Write an 8 bit data word to the SSD1963
-static inline __attribute((always_inline)) void WriteData(int data) {
+void WriteData(int data) {
     gpio_put_masked(0b1111111111,data | 0b1100000000);
     gpio_put(SSD1963_WR_GPPIN,0);nop;gpio_put(SSD1963_WR_GPPIN,1);
 }

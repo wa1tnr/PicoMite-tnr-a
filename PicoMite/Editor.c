@@ -156,6 +156,7 @@ void Scroll(void);
 void ScrollDown(void);
 void MarkMode(unsigned char *cb, unsigned char *buf);
 void PositionCursor(unsigned char *curp);
+extern void setterminal(void);
 
 
 // edit command:
@@ -209,6 +210,7 @@ void cmd_edit(void) {
     if(nbrlines == 0) nbrlines++;
     if(p > EdBuff) --p;
     *p = 0;                                                         // erase the last line terminator
+    setterminal();
 
     MMPrintString("\033[?1000h");                                   // Tera Term turn on mouse click report in VT200 mode
     MMPrintString("\0337\033[2J\033[H");                            // vt100 clear screen and home cursor
