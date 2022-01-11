@@ -117,7 +117,6 @@ int PSize;                                                          // the size 
 int NextData;                                                       // used to track the next item to read in DATA & READ stmts
 unsigned char *NextDataLine;                                                 // used to track the next line to read in DATA & READ stmts
 int OptionBase;                                                     // track the state of OPTION BASE
-int autoOn, autoNext = 10, autoIncr = 10;                           // use by the AUTO command
 //#if defined(MMFAMILY) || defined(DOS)
 //unsigned char *ModuleTable[MAXMODULES];                                      // list of pointers to libraries a(also called modules) loaded in memory;
 //int NbrModules;                                                     // the number of libraries/modules currently loaded
@@ -369,8 +368,8 @@ void __not_in_flash_func(ExecuteProgram)(unsigned char *p) {
                 }
                 if(OptionErrorSkip > 0) OptionErrorSkip--;        // if OPTION ERROR SKIP decrement the count - we do not error if it is greater than zero
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
-                check_interrupt();                                  // check for an MMBasic interrupt or touch event and handle it
                 CheckAbort();
+                check_interrupt();                                  // check for an MMBasic interrupt or touch event and handle it
             }
             p = nextstmt;
         }
@@ -2423,6 +2422,15 @@ void error(char *msg, ...) {
     *p = 0;
     
     if(OptionErrorSkip) longjmp(ErrNext, 1);                       // if OPTION ERROR SKIP/IGNORE is in force
+
+    LoadOptions();                                                  // make sure that the option struct is in a clean state
+
+    if(Option.DISPLAY_CONSOLE) {
+        SetFont(PromptFont);
+        gui_fcolour = PromptFC;
+        gui_bcolour = PromptBC;
+        if(CurrentX != 0) MMPrintString("\r\n");                   // error message should be on a new line
+    }
     if(MMCharPos > 1) MMPrintString("\r\n");
     if(CurrentLinePtr) {
         tp = p = ProgMemory;
@@ -2768,7 +2776,6 @@ void ClearProgram(void) {
     ClearRuntime();
 //    ProgMemory[0] = ProgMemory[1] = ProgMemory[3] = ProgMemory[4] = 0;
     PSize = 0;
-    autoOn = 0; autoNext = 10; autoIncr = 10;                       // use by the AUTO command
     StartEditPoint = NULL;
     StartEditChar= 0;
     ProgramChanged = false;

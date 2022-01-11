@@ -1353,6 +1353,27 @@ void printoptions(void){
         MMPrintString((char *)PinDef[Option.SerialTX].pinname);MMputchar(',',1);
         MMPrintString((char *)PinDef[Option.SerialRX].pinname);PRet();
     }
+    if(Option.SYSTEM_CLK){
+        PO("SYSTEM SPI");
+        MMPrintString((char *)PinDef[Option.SYSTEM_CLK].pinname);MMputchar(',',1);;
+        MMPrintString((char *)PinDef[Option.SYSTEM_MOSI].pinname);MMputchar(',',1);;
+        MMPrintString((char *)PinDef[Option.SYSTEM_MISO].pinname);MMPrintString("\r\n");
+    }
+    if(Option.SYSTEM_I2C_SDA){
+        PO("SYSTEM I2C");
+        MMPrintString((char *)PinDef[Option.SYSTEM_I2C_SDA].pinname);MMputchar(',',1);;
+        MMPrintString((char *)PinDef[Option.SYSTEM_I2C_SCL].pinname);MMPrintString("\r\n");
+    }
+    if(Option.Autorun>0 && Option.Autorun<=MAXFLASHSLOTS) PO2Int("AUTORUN", Option.Autorun);
+    if(Option.Autorun==MAXFLASHSLOTS+1)PO2Str("AUTORUN", "ON");
+    if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
+    if(Option.Invert == true) PO2Str("CONSOLE", "INVERT");
+    if(Option.Invert == 2) PO2Str("CONSOLE", "AUTO");
+    if(Option.ColourCode == true) PO2Str("COLOURCODE", "ON");
+    if(Option.PWM == true) PO2Str("POWER PWM", "ON");
+    if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase]);
+    if(Option.Tab != 2) PO2Int("TAB", Option.Tab);
+    if(Option.KeyboardConfig != NO_KEYBOARD) PO2Str("KEYBOARD", KBrdList[(int)Option.KeyboardConfig]);
 #ifdef PICOMITEVGA
     if(Option.CPU_Speed==252000)PO2Str("CPU", "TURBO ON");
     if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
@@ -1409,16 +1430,6 @@ void printoptions(void){
         }
     }
 #endif
-    if(Option.Autorun>0 && Option.Autorun<=MAXFLASHSLOTS) PO2Int("AUTORUN", Option.Autorun);
-    if(Option.Autorun==MAXFLASHSLOTS+1)PO2Str("AUTORUN", "ON");
-    if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
-    if(Option.Invert == true) PO2Str("CONSOLE", "INVERT");
-    if(Option.Invert == 2) PO2Str("CONSOLE", "AUTO");
-    if(Option.ColourCode == true) PO2Str("COLOURCODE", "ON");
-    if(Option.PWM == true) PO2Str("POWER PWM", "ON");
-    if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase]);
-    if(Option.Tab != 2) PO2Int("TAB", Option.Tab);
-    if(Option.KeyboardConfig != NO_KEYBOARD) PO2Str("KEYBOARD", KBrdList[(int)Option.KeyboardConfig]);
     if(Option.SD_CS){
         PO("SDCARD");
         MMPrintString((char *)PinDef[Option.SD_CS].pinname);
@@ -1428,17 +1439,6 @@ void printoptions(void){
             MMPrintString(", "); MMPrintString((char *)PinDef[Option.SD_MISO_PIN].pinname);
         }
         MMPrintString("\r\n");
-    }
-    if(Option.SYSTEM_CLK){
-        PO("SYSTEM SPI");
-        MMPrintString((char *)PinDef[Option.SYSTEM_CLK].pinname);MMputchar(',',1);;
-        MMPrintString((char *)PinDef[Option.SYSTEM_MOSI].pinname);MMputchar(',',1);;
-        MMPrintString((char *)PinDef[Option.SYSTEM_MISO].pinname);MMPrintString("\r\n");
-    }
-    if(Option.SYSTEM_I2C_SDA){
-        PO("SYSTEM I2C");
-        MMPrintString((char *)PinDef[Option.SYSTEM_I2C_SDA].pinname);MMputchar(',',1);;
-        MMPrintString((char *)PinDef[Option.SYSTEM_I2C_SCL].pinname);MMPrintString("\r\n");
     }
     if(Option.AUDIO_L){
         PO("Audio");
@@ -2543,8 +2543,10 @@ void cmd_poke(void) {
         if(!Option.DISPLAY_TYPE)error("Display not configured");
         if(q=checkstring(p,"HRES")){ 
             HRes=getint(q,0,1920);
+            return;
         } else if(q=checkstring(p,"VRES")){
             VRes=getint(q,0,1200);
+            return;
 #ifndef PICOMITEVGA
         } else {
             getargs(&p,(MAX_ARG_COUNT * 2) - 3,",");
@@ -2564,6 +2566,7 @@ void cmd_poke(void) {
             } else if(Option.DISPLAY_TYPE<=I2C_PANEL){
                 if(argc>1)error("UNsupported command");
                 I2C_Send_Command(getinteger(argv[0]));
+                return;
             } else 
             error("Display not supported");
 #endif

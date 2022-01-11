@@ -2214,7 +2214,8 @@ void cmd_adc(void){
         if(div==96.0)div=0;
         adc_set_clkdiv(div);
         // Set up the DMA to start transferring data as soon as it appears in FIFO
-        dma_chan = dma_claim_unused_channel(true);
+        dma_chan = 4;
+        dma_channel_claim (dma_chan);
         dma_channel_config cfg = dma_channel_get_default_config(dma_chan);
 
         // Reading from constant address, writing to incrementing byte addresses

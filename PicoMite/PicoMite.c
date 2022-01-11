@@ -121,6 +121,12 @@ static uint64_t __not_in_flash_func(uSecFunc)(uint64_t a){
     while(time_us_64()<b){}
     return b;
 }
+union uFileTable {
+    unsigned int com;
+    FIL *fptr;
+};
+extern union uFileTable FileTable[MAXOPENFILES + 1];
+
 static uint64_t __not_in_flash_func(timer)(void){ return time_us_64();}
 static int64_t PinReadFunc(int a){return gpio_get(PinDef[a].GPno);}
 extern void CallExecuteProgram(char *p);
@@ -399,7 +405,7 @@ void MMgetline(int filenbr, char *p) {
 	char *tp;
     while(1) {
         CheckAbort();												// jump right out if CTRL-C
-//        if(FileTable[filenbr].com > MAXCOMPORTS && FileEOF(filenbr)) break;
+        if(FileTable[filenbr].com > MAXCOMPORTS && FileEOF(filenbr)) break;
         c = MMfgetc(filenbr);
         if(c == -1) continue;                                       // keep looping if there are no chars
 
@@ -1314,7 +1320,7 @@ void QVgaDmaInit()
 {
 
 // ==== prepare DMA control channel
-
+    dma_channel_claim (QVGA_DMA_CB);
 	// prepare DMA default config
 	dma_channel_config cfg = dma_channel_get_default_config(QVGA_DMA_CB);
 

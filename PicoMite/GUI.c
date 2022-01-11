@@ -268,7 +268,7 @@ int GetCtrlParams(int type, unsigned char *p) {
             int jh = 0, jv = 0, jo = 0;
             if(!GetJustification(argv[a], &jh, &jv, &jo))
                 if(!GetJustification(getCstring(argv[a]), &jh, &jv, &jo))
-                    error("Justification");;
+                    error("Justification");
             Ctrl[r].x2 = jh | jv << 2 | jo << 4;                    // stuff the justification parameters into the short int
         }
         else
@@ -1236,7 +1236,7 @@ void DrawGauge(int r) {
 
 
 void DrawBarGauge(int r) {
-    int vert, x, y, x2 = 0, y2 = 0, start, end, len, c;
+    int vert, x, y, x2 = 0, y2 = 0, start, end, len;
     int v, ta, tb, tc;
     struct s_GaugeS *GaugeS;                                        // we store extra info in the string allocated to this control
 
@@ -1261,7 +1261,6 @@ void DrawBarGauge(int r) {
     }
 
     GaugeS = (void *)Ctrl[r].s;
-    c = Ctrl[r].fc;
 
     // scale the value of the gauge and the thresholds to pixels within the span of the gauge
     v = ((Ctrl[r].value - Ctrl[r].min) / (Ctrl[r].max - Ctrl[r].min)) * (MMFLOAT)len;
