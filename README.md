@@ -15,6 +15,11 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03RC11
+
+Fixes a bug where ADC START stopped VGA output. 
+Fixes a bug where LINE INPUT would not read the last line in a file if it was not terminated with a CR.
+
 V5.07.03RC10
 
 New command LOAD JPG. 
