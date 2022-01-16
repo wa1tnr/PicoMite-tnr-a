@@ -15,6 +15,28 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.03RC15
+Fixed bug in PWM timings. 
+Bug fixes to CSUB internals. 
+New command: 
+INTERRUPT [myint]. 
+This command triggers a software interrupt. The interrupt is set up using INTERRUPT 'myint'.  
+where 'myint' is the name of a subroutine that will be executed when the interrupt is triggered. 
+Use INTERRUPT 0 to disable the interrupt. 
+Use INTERRUPT without parameters to trigger the interrupt. 
+NB: the interrupt can also be triggered from within a CSUB. 
+Fixes bug which caused edit command to be rejected in certain undefined circumstances. 
+New option for SETPIN pinno,CIN [,change]. 
+change can be 1=rising edge (default if not specified), 2=falling edge, 3=both edges. 
+Change to OPTION KEYBOARD: 
+OPTION KEYBOARD nn [,capslock] [,numlock] [repeatstart] [repeatrate]. 
+The optional parameters capslock and numlock set the initial state of the keyboard (default 0, 1). 
+The repeatstart defines how  how long before a character repeats the first time (valid 0-3 = 250mSec, 500mSec, 750mSec, 1S: default 1=500mSec). 
+The repeat rate defines how fast a character repeats after the first repeat (valid 0-31 = 33mSec to 500mSec: default 12=100mSec). 
+Change to AUTOSAVE: 
+This mode is terminated by entering Control-Z  or F1 which will then cause the received data to be transferred into program memory.  
+overwriting the previous program. Use F2 to exit and immediately run the program. 
+
 V5.07.03RC11
 
 Fixes a bug where ADC START stopped VGA output. 
