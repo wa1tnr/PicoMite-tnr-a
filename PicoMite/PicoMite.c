@@ -126,7 +126,14 @@ union uFileTable {
     FIL *fptr;
 };
 extern union uFileTable FileTable[MAXOPENFILES + 1];
-
+//Vector to CFunction routine called every command (ie, from the BASIC interrupt checker)
+extern unsigned int CFuncInt1;
+//Vector to CFunction routine called by the interrupt 2 handler
+extern unsigned int CFuncInt2;
+extern unsigned int CFuncmSec;
+extern void CallCFuncInt1(void);
+extern void CallCFuncInt2(void);
+extern volatile int CSubComplete;
 static uint64_t __not_in_flash_func(timer)(void){ return time_us_64();}
 static int64_t PinReadFunc(int a){return gpio_get(PinDef[a].GPno);}
 extern void CallExecuteProgram(char *p);
@@ -170,25 +177,25 @@ const void * const CallTable[] __attribute__((section(".text")))  = {	(void *)uS
 																		(void *)&ReadBuffer,	//0x6c
 																		(void *)&FloatToStr,	//0x70
                                                                         (void *)CallExecuteProgram, //0x74
-                                                                        (void *)CallCFuncmSec,	//0x78
+                                                                        (void *)&CFuncmSec, //0x78
                                                                         (void *)CFuncRam,	//0x7c
                                                                         (void *)&ScrollLCD,	//0x80
 																		(void *)IntToFloat, //0x84
 																		(void *)FloatToInt64,	//0x88
 																		(void *)&Option,	//0x8c
-//                                                                        (void *)&CFuncInt1,	//0x90
-//                                                                        (void *)&CFuncInt2,	//0x94
-																		(void *)sin,	//0x98
-																		(void *)DrawCircle,	//0x9c
-																		(void *)DrawTriangle,	//0xa0
-																		(void *)timer,	//0xa4
-                                                                        (void *)FMul,
-                                                                        (void *)FAdd,
-                                                                        (void *)FSub,
-                                                                        (void *)FDiv,
-                                                                        (void *)FCmp,
-                                                                        (void *)&LoadFloat,
-                                                                        (void *)uSecFunc	//0x00
+																		(void *)sin,	//0x90
+																		(void *)DrawCircle,	//0x94
+																		(void *)DrawTriangle,	//0x98
+																		(void *)timer,	//0x9c
+                                                                        (void *)FMul,//0xa0
+                                                                        (void *)FAdd,//0xa4
+                                                                        (void *)FSub,//0xa8
+                                                                        (void *)FDiv,//0xac
+                                                                        (void *)FCmp,//0xb0
+                                                                        (void *)&LoadFloat,//0xb4
+                                                                        (void *)&CFuncInt1,	//0xb8
+                                                                        (void *)&CFuncInt2,	//0xbc
+																		(void *)&CSubComplete,	//0xc0
 									   	   	   	   	   	   	   	   	   	   };
 
 const struct s_PinDef PinDef[NBRPINS + 1]={
@@ -407,7 +414,7 @@ void MMgetline(int filenbr, char *p) {
         CheckAbort();												// jump right out if CTRL-C
         if(FileTable[filenbr].com > MAXCOMPORTS && FileEOF(filenbr)) break;
         c = MMfgetc(filenbr);
-        if(c == -1) continue;                                       // keep looping if there are no chars
+        if(c <= 0) continue;                                       // keep looping if there are no chars
 
         // if this is the console, check for a programmed function key and insert the text
         if(filenbr == 0) {
@@ -796,6 +803,7 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(USBKeepalive)USBKeepalive--;
         if(diskchecktimer && Option.SD_CS)diskchecktimer--;
 	    if(++CursorTimer > CURSOR_OFF + CURSOR_ON) CursorTimer = 0;		// used to control cursor blink rate
+        if(CFuncmSec) CallCFuncmSec();                                  // the 1mS tick for CFunctions (see CFunction.c)
         if(InterruptUsed) {
             int i;
             for(i = 0; i < NBRSETTICKS; i++) if(TickActive[i])TickTimer[i]++;			// used in the interrupt tick

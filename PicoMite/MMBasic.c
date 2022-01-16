@@ -399,7 +399,6 @@ void  PrepareProgram(int ErrAbort) {
     CFunctionFlash = CFunctionLibrary = NULL;
     memset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
     PrepareProgramExt(ProgMemory, NbrFuncts,&CFunctionFlash, ErrAbort);
-    if(!ErrAbort) return;
     
     // check the sub/fun table for duplicates
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
@@ -432,6 +431,8 @@ void  PrepareProgram(int ErrAbort) {
 		memcpy(funtbl[hash].name,printvar,(namelen == MAXVARLEN ? namelen :namelen+1));
     }
     hashlabels(ErrAbort);
+    if(!ErrAbort) return;
+
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
         for(j = i + 1; j < MAXSUBFUN && subfun[j] != NULL; j++) {
             CurrentLinePtr = p1 = subfun[i];

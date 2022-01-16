@@ -49,6 +49,7 @@ void cmd_cpu(void);
 void cmd_cfunction(void);
 void cmd_longString(void);
 void cmd_sort(void);
+void cmd_csubinterrupt(void);
 void fun_timer(void);
 void fun_date(void);
 void fun_time(void);
@@ -93,6 +94,7 @@ void fun_format(void);
     { (unsigned char *)"DefineFont",     T_CMD,				0, cmd_cfunction},
     { (unsigned char *)"End DefineFont", T_CMD,				0, cmd_null 	},
 	{ (unsigned char *)"LongString",		T_CMD,				0, cmd_longString	},
+	{ (unsigned char *)"Interrupt", 	T_CMD,              	0, cmd_csubinterrupt},
 	{ (unsigned char *)"CSub",           T_CMD,              0, cmd_cfunction},
 	{ (unsigned char *)"End CSub",       T_CMD,              0, cmd_null     },
 	{ (unsigned char *)"Update Firmware",       T_CMD,              0, cmd_update     },

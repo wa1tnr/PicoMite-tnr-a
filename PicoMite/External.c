@@ -155,6 +155,13 @@ int dmarunning=0;
 uint dma_chan;
 short *ADCbuffer=NULL;
 void PWMoff(int slice);
+//Vector to CFunction routine called every command (ie, from the BASIC interrupt checker)
+extern unsigned int CFuncInt1;
+//Vector to CFunction routine called by the interrupt 2 handler
+extern unsigned int CFuncInt2;
+extern void CallCFuncInt1(void);
+extern void CallCFuncInt2(void);
+
 uint64_t readusclock(void){
     return time_us_64()-uSecoffset;
 }
@@ -328,7 +335,7 @@ void ClearPin(int pin){
 Configure an I/O pin
 *****************************************************************************************************************************/
 void ExtCfg(int pin, int cfg, int option) {
-  int i, tris, ana, oc;
+  int i, tris, ana, oc, edge;
 
     CheckPin(pin, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
 
@@ -475,14 +482,20 @@ void ExtCfg(int pin, int cfg, int option) {
                                 tris = 1; ana = 0; oc = 0;
                                 break;
 
+        case EXT_CNT_IN:        
         case EXT_FREQ_IN:   // same as counting, so fall through
         case EXT_PER_IN:        // same as counting, so fall through
-        case EXT_CNT_IN:        if(pin == Option.INT1pin) {
+                                    edge = GPIO_IRQ_EDGE_RISE;
+                                    if(cfg==EXT_CNT_IN && option==2)edge = GPIO_IRQ_EDGE_FALL;
+                                    if(cfg==EXT_CNT_IN && option>=3)edge = GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE;
+                                    if(edge==1 || edge==4)gpio_pull_down (PinDef[pin].GPno);
+                                    if(edge==2 || edge==5)gpio_pull_up (PinDef[pin].GPno);
+                                    if(pin == Option.INT1pin) {
                                     if(!CallBackEnabled){
-                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE , true, &gpio_callback);
+                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, edge , true, &gpio_callback);
                                         CallBackEnabled=2;
                                     } else {
-                                        gpio_set_irq_enabled(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE, true);
+                                        gpio_set_irq_enabled(PinDef[pin].GPno, edge, true);
                                         CallBackEnabled|=2;
                                     }
                                     INT1Count = INT1Value = 0;
@@ -493,10 +506,10 @@ void ExtCfg(int pin, int cfg, int option) {
                                 }
                                 if(pin == Option.INT2pin) {
                                     if(!CallBackEnabled){
-                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE , true, &gpio_callback);
+                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, edge , true, &gpio_callback);
                                         CallBackEnabled=4;
                                     } else {
-                                        gpio_set_irq_enabled(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE, true);
+                                        gpio_set_irq_enabled(PinDef[pin].GPno, edge, true);
                                         CallBackEnabled|=4;
                                     }
                                     INT2Count = INT2Value = 0;
@@ -507,10 +520,10 @@ void ExtCfg(int pin, int cfg, int option) {
                                 }
                                 if(pin == Option.INT3pin) {
                                     if(!CallBackEnabled){
-                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE , true, &gpio_callback);
+                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, edge , true, &gpio_callback);
                                         CallBackEnabled=8;
                                     } else {
-                                        gpio_set_irq_enabled(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE, true);
+                                        gpio_set_irq_enabled(PinDef[pin].GPno, edge, true);
                                         CallBackEnabled|=8;
                                     }
                                     INT3Count = INT3Value = 0;
@@ -521,10 +534,10 @@ void ExtCfg(int pin, int cfg, int option) {
                                 }
                                 if(pin == Option.INT4pin) {
                                     if(!CallBackEnabled){
-                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE , true, &gpio_callback);
+                                        gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, edge , true, &gpio_callback);
                                         CallBackEnabled=16;
                                     } else {
-                                        gpio_set_irq_enabled(PinDef[pin].GPno, GPIO_IRQ_EDGE_RISE, true);
+                                        gpio_set_irq_enabled(PinDef[pin].GPno, edge, true);
                                         CallBackEnabled|=16;
                                     }
                                     INT4Count = INT4Value = 0;
@@ -976,6 +989,11 @@ void cmd_setpin(void) {
                             break;
         case EXT_PER_IN:   if(argc == 5)
                                 option = getint((argv[4]), 1, 10000);
+                            else
+                                option = 1;
+                            break;
+        case EXT_CNT_IN:   if(argc == 5)
+                                option = getint((argv[4]), 1, 5);
                             else
                                 option = 1;
                             break;
@@ -1502,6 +1520,7 @@ void cmd_pwm(void){
     int div=1, high1, high2;
     MMFLOAT duty1=-1.0, duty2=-1.0;
     getargs(&cmdline,7,",");
+    int CPU_Speed=frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
     int slice=getint(argv[0],0,7);
     if(slice==BacklightSlice)error("Channel in use for backlight");
     if(tp=checkstring(argv[2],"OFF")){
@@ -1517,7 +1536,7 @@ void cmd_pwm(void){
         return;
     }
     MMFLOAT frequency=getnumber(argv[2]);
-    if(frequency>(MMFLOAT)(Option.CPU_Speed>>2)*1000.0)error("Invalid frequency");
+    if(frequency>(MMFLOAT)(CPU_Speed>>2)*1000.0)error("Invalid frequency");
     if(*argv[4]){
         duty1=getnumber(argv[4]);
         if(duty1>100.0 || duty1<0.0)error("Syntax");
@@ -1526,9 +1545,9 @@ void cmd_pwm(void){
         duty2=getnumber(argv[6]);
         if(duty2>100.0 || duty2<0.0)error("Syntax");
     }
-    int wrap=(Option.CPU_Speed*1000)/frequency;
-    if(duty1>=0.0)high1=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty1*10.0);
-    if(duty2>=0.0)high2=(int)((MMFLOAT)Option.CPU_Speed/frequency*duty2*10.0);
+    int wrap=(CPU_Speed*1000)/frequency;
+    if(duty1>=0.0)high1=(int)((MMFLOAT)CPU_Speed/frequency*duty1*10.0);
+    if(duty2>=0.0)high2=(int)((MMFLOAT)CPU_Speed/frequency*duty2*10.0);
     while(wrap>65535){
         wrap>>=1;
         if(duty1>=0.0)high1>>=1;
@@ -1539,7 +1558,7 @@ void cmd_pwm(void){
     wrap--;
     if(high1)high1--;
     if(high2)high2--;
-    if(div!=1)pwm_set_clkdiv(slice,(float)div);
+    pwm_set_clkdiv(slice,(float)div);
     pwm_set_wrap(slice, wrap);
     if(slice==0 && PWM0Apin==99 && duty1>=0.0)error("Pin not set for PWM");
     if(slice==0 && PWM0Bpin==99 && duty2>=0.0)error("Pin not set for PWM");
@@ -2414,8 +2433,12 @@ void __not_in_flash_func(TM_EXTI_Handler_1)(void) {
             INT1Count = 0;
         }
 	}
-    else 
+    else {
+        if(CFuncInt1)
+            CallCFuncInt1();                                        // Hardware interrupt 2 for a CFunction (see CFunction.c)
+        else
             INT1Count++;
+    }
 }
 
 
@@ -2429,8 +2452,12 @@ void __not_in_flash_func(TM_EXTI_Handler_2)(void) {
             INT2Count = 0;
         }
     }
-    else 
-        INT2Count++;
+    else {
+        if(CFuncInt2)
+            CallCFuncInt2();                                        // Hardware interrupt 2 for a CFunction (see CFunction.c)
+        else
+            INT2Count++;
+    }
 }
 
 

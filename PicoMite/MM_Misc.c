@@ -83,6 +83,8 @@ extern uint64_t TIM12count;
 extern char id_out[12];
 extern void WriteCommand(int cmd);
 extern void WriteData(int data);
+char *CSubInterrupt;
+volatile int CSubComplete=0;
 
 uint64_t timeroffset=0;
 void integersort(int64_t *iarray, int n, long long *index, int flags, int startpoint){
@@ -1373,7 +1375,15 @@ void printoptions(void){
     if(Option.PWM == true) PO2Str("POWER PWM", "ON");
     if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase]);
     if(Option.Tab != 2) PO2Int("TAB", Option.Tab);
-    if(Option.KeyboardConfig != NO_KEYBOARD) PO2Str("KEYBOARD", KBrdList[(int)Option.KeyboardConfig]);
+    if(Option.KeyboardConfig != NO_KEYBOARD){
+        PO("KEYBOARD"); MMPrintString((char *)KBrdList[(int)Option.KeyboardConfig]); 
+        if(Option.capslock || Option.numlock!=1 || Option.repeat!=0b00101100){
+            PIntComma(Option.capslock);PIntComma(Option.numlock);PIntComma(Option.repeat>>5);
+            PIntComma(Option.repeat & 0x1f);
+        }
+        PRet();
+    } 
+
 #ifdef PICOMITEVGA
     if(Option.CPU_Speed==252000)PO2Str("CPU", "TURBO ON");
     if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
@@ -1613,23 +1623,36 @@ void cmd_option(void) {
     	//if(CurrentLinePtr) error("Invalid in a program");
 		if(checkstring(tp, "DISABLE")){
 			Option.KeyboardConfig = NO_KEYBOARD;
+            Option.capslock=0;
+            Option.numlock=0;
             SaveOptions();
             _excep_code = RESET_COMMAND;
             SoftReset();
-		}
+		} else {
+        getargs(&tp,9,",");
         if(ExtCurrentConfig[KEYBOARD_CLOCK] != EXT_NOT_CONFIG && Option.KeyboardConfig == NO_KEYBOARD)  error("Pin % is in use",KEYBOARD_CLOCK);
         if(ExtCurrentConfig[KEYBOARD_DATA] != EXT_NOT_CONFIG && Option.KeyboardConfig == NO_KEYBOARD)  error("Pin % is in use",KEYBOARD_DATA);
-        else if(checkstring(tp, "US"))	Option.KeyboardConfig = CONFIG_US;
-		else if(checkstring(tp, "FR"))	Option.KeyboardConfig = CONFIG_FR;
-		else if(checkstring(tp, "GR"))	Option.KeyboardConfig = CONFIG_GR;
-		else if(checkstring(tp, "IT"))	Option.KeyboardConfig = CONFIG_IT;
-		else if(checkstring(tp, "BE"))	Option.KeyboardConfig = CONFIG_BE;
-		else if(checkstring(tp, "UK"))	Option.KeyboardConfig = CONFIG_UK;
-		else if(checkstring(tp, "ES"))	Option.KeyboardConfig = CONFIG_ES;
+        else if(checkstring(argv[0], "US"))	Option.KeyboardConfig = CONFIG_US;
+		else if(checkstring(argv[0], "FR"))	Option.KeyboardConfig = CONFIG_FR;
+		else if(checkstring(argv[0], "GR"))	Option.KeyboardConfig = CONFIG_GR;
+		else if(checkstring(argv[0], "IT"))	Option.KeyboardConfig = CONFIG_IT;
+		else if(checkstring(argv[0], "BE"))	Option.KeyboardConfig = CONFIG_BE;
+		else if(checkstring(argv[0], "UK"))	Option.KeyboardConfig = CONFIG_UK;
+		else if(checkstring(argv[0], "ES"))	Option.KeyboardConfig = CONFIG_ES;
         else error("Syntax");
+        Option.capslock=0;
+        Option.numlock=1;
+        int rs=0b00100000;
+        int rr=0b00001100;
+        if(argc>=3 && *argv[2])Option.capslock=getint(argv[2],0,1);
+        if(argc>=5 && *argv[4])Option.numlock=getint(argv[4],0,1);
+        if(argc>=7 && *argv[6])rs=getint(argv[6],0,3)<<5;
+        if(argc==9 && *argv[8])rr=getint(argv[8],0,31);
+        Option.repeat = rs | rr;
         SaveOptions();
         _excep_code = RESET_COMMAND;
         SoftReset();
+        }
 	}
 
     tp = checkstring(cmdline, "BAUDRATE");
@@ -2499,7 +2522,19 @@ void cmd_cpu(void) {
          }*/
     } else error("Syntax");
 }
-
+void cmd_csubinterrupt(void){
+    getargs(&cmdline,1,",");
+    if(argc != 0){
+        if(checkstring(argv[0],"0")){
+            CSubInterrupt = NULL;
+            CSubComplete=0;  
+        } else {
+            CSubInterrupt = GetIntAddress(argv[0]); 
+            CSubComplete=0;  
+            InterruptUsed = true;
+        }
+    } else CSubComplete=1;  
+}
 void cmd_cfunction(void) {
     char *p, EndToken;
     EndToken = GetCommandValue("End DefineFont");           // this terminates a DefineFont
@@ -2915,6 +2950,10 @@ int checkdetailinterrupts(void) {
         goto GotAnInterrupt;
     }
 
+    if(CSubInterrupt != NULL && CSubComplete) {
+        intaddr = CSubInterrupt;                                  // set the next stmt to the interrupt location
+        goto GotAnInterrupt;
+    }
     for(i = 0; i < NBRINTERRUPTS; i++) {                            // scan through the interrupt table
         if(inttbl[i].pin != 0) {                                    // if this entry has an interrupt pin set
             v = ExtInp(inttbl[i].pin);                              // get the current value of the pin

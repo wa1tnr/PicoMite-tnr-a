@@ -1416,8 +1416,8 @@ void cmd_autosave(void) {
     ClearProgram();                                                 // clear any leftovers from the previous program
     p = buf = GetMemory(EDIT_BUFFER_SIZE);
     CrunchData(&p, 0);                                              // initialise the crunch data subroutine
-    while((c = (getConsole() & 0x7f)) != 0x1a) {                    // while waiting for the end of text char
-        if(c==127 && count && time_us_64()-timeout>100000) {fflush(stdout);count=0;}
+    while((c = MMInkey()) != 0x1a && c!=F1 && c!=F2) {                    // while waiting for the end of text char
+        if(c==-1 && count && time_us_64()-timeout>100000) {fflush(stdout);count=0;}
         if(p == buf && c == '\n') continue;                         // throw away an initial line feed which can follow the command
         if((p - buf) >= EDIT_BUFFER_SIZE) error("Not enough memory");
         if(isprint(c) || c == '\r' || c == '\n' || c == TAB) {
@@ -1440,6 +1440,12 @@ void cmd_autosave(void) {
 //    ClearSavedVars();                                               // clear any saved variables
     SaveProgramToFlash(buf, true);
     FreeMemory(buf);
+    if(c==F2){
+        ClearVars(0);
+        strcpy(inpbuf,"RUN\r\n");
+        tokenise(true);                                             // turn into executable code
+        ExecuteProgram(tknbuf);                                     // execute the line straight away
+    }
 }
 
 void FileOpen(char *fname, char *fmode, char *ffnbr) {

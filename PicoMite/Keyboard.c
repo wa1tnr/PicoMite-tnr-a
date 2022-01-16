@@ -391,7 +391,7 @@ void initKeyboard(void) {
     // setup Change Notification interrupt
     KBDIntEnable(1);       										// enable interrupt
     PS2State = PS2START;
-    CapsLock = 0;  NumLock = 1;
+    CapsLock = Option.capslock;  NumLock = Option.numlock;
 	  uSec(100000);
 	  setLEDs(CapsLock, NumLock, 0);
  }
@@ -463,6 +463,9 @@ void setLEDs(int caps, int num, int scroll) {
     uSec(50000);
     sendCommand(((caps & 1) << 2) | ((num & 1) << 1) | (scroll & 1));// set the various LEDs
     uSec(50000);
+    sendCommand(0xF3);                                              // Set/Reset Status Indicators Command
+    uSec(50000);
+    sendCommand(Option.repeat);
     KBDIntEnable(1);       								        // re enable interrupt
 }
 

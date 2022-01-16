@@ -9,7 +9,7 @@
 //Vector to CFunction static RAM
 
 //Vector to CFunction routine called every mSec
-unsigned int CFuncmSec = (unsigned int)NULL; 
+unsigned int CFuncmSec = (unsigned int)NULL;
 extern volatile uint64_t uSecTimer;
 extern volatile uint64_t FastTimer;
 //extern TIM_HandleTypeDef htim2;
@@ -90,7 +90,6 @@ long long int CallCFunction(unsigned char *CmdPtr, unsigned char *ArgList, unsig
     CurrentLinePtr = CallersLinePtr;                                // report errors at the caller
     if(*ArgList != ')') {
         getargs(&ArgList, 19, ",");                                 // expand the command line of the caller
-        if(argc % 2 == 0) error("Syntax");
         for(i = 0; i < argc; i += 2) {
             // if this is a straight variable we want to pass a pointer to its value in RAM
             if(isnamestart((uint8_t)*argv[i]) && (*skipvar(argv[i], false) == 0 || *skipvar(argv[i], false) == ')') && !(FindSubFun(argv[i], 1) >= 0 && strchr(argv[i], '(') != NULL)) {
@@ -152,7 +151,7 @@ void CallExecuteProgram(char *p) {
     LocalIndex--;
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
 }
-/*
+
 // If the CFuncmInt1 vector is set then call the CFunction
 void CallCFuncInt1(void){
     typedef void func(void);
@@ -165,6 +164,6 @@ void CallCFuncInt2(void){
     typedef void func(void);
     func* f=(func*)(void *)CFuncInt2;
     f();
-}*/
+}
 
 

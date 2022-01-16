@@ -89,7 +89,8 @@ struct option_s {
     unsigned char TOUCH_CS;
     unsigned char TOUCH_IRQ;
     char TOUCH_SWAPXY; 
-    char dummy[2];//56
+    unsigned char repeat;
+    char dummy;//56
     int  TOUCH_XZERO;
     int  TOUCH_YZERO;
     float TOUCH_XSCALE;
@@ -128,7 +129,8 @@ struct option_s {
     unsigned char SerialConsole;
     unsigned char SerialTX;
     unsigned char SerialRX;
-    char dummy2[2];
+    unsigned char numlock;
+    unsigned char capslock;
     unsigned char F1key[MAXKEYLEN];
     unsigned char F5key[MAXKEYLEN];
     unsigned char F6key[MAXKEYLEN];
