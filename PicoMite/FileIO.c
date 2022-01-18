@@ -1691,7 +1691,7 @@ void ResetOptions(void){
     disable_systemi2c();
     disable_systemspi();
     memset((void *)&Option.Magic,0,sizeof(struct option_s));
-    Option.Magic=0x8468218;
+    Option.Magic=MagicKey;
     Option.Height = SCREENHEIGHT;
     Option.Width = SCREENWIDTH;
     Option.Tab = 2;

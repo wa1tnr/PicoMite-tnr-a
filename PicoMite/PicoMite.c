@@ -1465,7 +1465,7 @@ int main(){
     if(  Option.Baudrate == 0 ||
         !(Option.Tab==2 || Option.Tab==3 || Option.Tab==4 ||Option.Tab==8) ||
         !(Option.Autorun>=0 && Option.Autorun<=MAXFLASHSLOTS+1) ||
-        !(Option.Magic==0x8468218)
+        !(Option.Magic==MagicKey)
         ){
         ResetAllFlash();              // init the options if this is the very first startup
         _excep_code=0;

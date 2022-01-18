@@ -33,7 +33,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 int com1 = 0;														// true if COM1 is enabled
 int com1_buf_size;													// size of the buffer used to receive chars
 int com1_baud = 0;													// determines the baud rate
-char *com1_interrupt, *com1_TX_interrupt;												// pointer to the interrupt routine
+char *com1_interrupt;												// pointer to the interrupt routine
 int com1_ilevel;													// number nbr of chars in the buffer for an interrupt
 int com1_TX_complete = false;
 unsigned char *com1Rx_buf;											// pointer to the buffer for received characters
@@ -50,7 +50,7 @@ extern uint32_t ticks_per_microsecond;
 int com2 = 0;														// true if COM2 is enabled
 int com2_buf_size;													// size of the buffer used to receive chars
 int com2_baud = 0;													// determines the baud rate
-char *com2_interrupt, *com2_TX_interrupt;												// pointer to the interrupt routine
+char *com2_interrupt;												// pointer to the interrupt routine
 int com2_ilevel;													// number nbr of chars in the buffer for an interrupt
 int com2_TX_complete = false;
 unsigned char *com2Rx_buf;											// pointer to the buffer for received characters
@@ -277,8 +277,6 @@ void SerialOpen(unsigned char *spec) {
  		com1_buf_size = bufsize;									// extracted from the comspec above
 		com1_interrupt = interrupt;
 		com1_ilevel	= ilevel;
-//		com1_TX_interrupt = TXinterrupt;
-//		com1_TX_complete = false;
 
 		// setup for receive
 		com1Rx_buf = GetMemory(com1_buf_size);						// setup the buffer

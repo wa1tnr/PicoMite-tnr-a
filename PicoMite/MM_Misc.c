@@ -1385,9 +1385,8 @@ void printoptions(void){
     } 
 
 #ifdef PICOMITEVGA
-    if(Option.CPU_Speed==252000)PO2Str("CPU", "TURBO ON");
+    if(Option.CPU_Speed!=126000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
     if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
-    if(Option.DISPLAY_TYPE==MONOVGA)PO2Str("MONO VGA", "ON");
     if(Option.Height != 40 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
 #else
     if(Option.CPU_Speed!=133000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
@@ -1456,7 +1455,7 @@ void printoptions(void){
         MMPrintString((char *)PinDef[Option.AUDIO_R].pinname);MMPrintString(", on PWM channel ");
         PInt(Option.AUDIO_SLICE);MMPrintString("\r\n");
     }
-    if(Option.RTC)PO2Str("RTC AUTO", "ENABLED");
+    if(Option.RTC)PO2Str("RTC AUTO", "ENABLE");
 
     if(Option.INT1pin!=9 || Option.INT2pin!=10 || Option.INT3pin!=11 || Option.INT4pin!=12){
         PO("COUNT"); MMPrintString((char *)PinDef[Option.INT1pin].pinname);
@@ -1792,18 +1791,15 @@ void cmd_option(void) {
 
 
 #ifdef PICOMITEVGA
-    tp = checkstring(cmdline, "CPU TURBO");
+    tp = checkstring(cmdline, "CPUSPEED");
     if(tp) {
-        if(checkstring(tp, "ON")){
-            Option.CPU_Speed = 252000; 
-        }  
-        else if(checkstring(tp, "OFF")) {
-            Option.CPU_Speed = 126000; 
-        }
-        else error("Syntax");
+        int CPU_Speed=getinteger(tp);
+        if(!(CPU_Speed==126000 || CPU_Speed==252000))error("Speed must be 126000 or 252000");
+        Option.CPU_Speed=CPU_Speed;
         SaveOptions();
         _excep_code = RESET_COMMAND;
         SoftReset();
+        return;
     }
 
     tp = checkstring(cmdline, "COLOUR VGA");
@@ -2845,10 +2841,17 @@ int checkdetailinterrupts(void) {
     static char rti[2];
 
     // check for an  ON KEY loc  interrupt
+    if(KeyInterrupt != NULL && Keycomplete) {
+		Keycomplete=false;
+		intaddr = KeyInterrupt;									    // set the next stmt to the interrupt location
+		goto GotAnInterrupt;
+	}
+
     if(OnKeyGOSUB && kbhitConsole()) {
         intaddr = OnKeyGOSUB;                                       // set the next stmt to the interrupt location
         goto GotAnInterrupt;
     }
+
 #ifndef PICOMITEVGA
     if(Ctrl!=NULL){
         if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
@@ -2920,18 +2923,8 @@ int checkdetailinterrupts(void) {
         intaddr = com1_interrupt;                                   // set the next stmt to the interrupt location
         goto GotAnInterrupt;
     }
-    if(com1_TX_interrupt && com1_TX_complete){
-        intaddr=com1_TX_interrupt;
-        com1_TX_complete=false;
-        goto GotAnInterrupt;
-    }
     if(com2_interrupt != NULL && SerialRxStatus(2) >= com2_ilevel) {// do we need to interrupt?
         intaddr = com2_interrupt;                                   // set the next stmt to the interrupt location
-        goto GotAnInterrupt;
-    }
-    if(com2_TX_interrupt && com2_TX_complete){
-        intaddr=com2_TX_interrupt;
-        com2_TX_complete=false;
         goto GotAnInterrupt;
     }
     if(IrGotMsg && IrInterrupt != NULL) {
@@ -2939,12 +2932,6 @@ int checkdetailinterrupts(void) {
         intaddr = IrInterrupt;                                      // set the next stmt to the interrupt location
         goto GotAnInterrupt;
     }
-    if(KeyInterrupt != NULL && Keycomplete) {
-		Keycomplete=false;
-		intaddr = KeyInterrupt;									    // set the next stmt to the interrupt location
-		goto GotAnInterrupt;
-	}
-
     if(KeypadInterrupt != NULL && KeypadCheck()) {
         intaddr = KeypadInterrupt;                                  // set the next stmt to the interrupt location
         goto GotAnInterrupt;
@@ -2952,8 +2939,10 @@ int checkdetailinterrupts(void) {
 
     if(CSubInterrupt != NULL && CSubComplete) {
         intaddr = CSubInterrupt;                                  // set the next stmt to the interrupt location
+        CSubComplete=0;
         goto GotAnInterrupt;
     }
+
     for(i = 0; i < NBRINTERRUPTS; i++) {                            // scan through the interrupt table
         if(inttbl[i].pin != 0) {                                    // if this entry has an interrupt pin set
             v = ExtInp(inttbl[i].pin);                              // get the current value of the pin

@@ -64,7 +64,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 	extern int com1;														// true if COM1 is enabled
 	extern int com1_buf_size;													// size of the buffer used to receive chars
 	extern int com1_baud;													// determines the baud rate
-	extern char *com1_interrupt, *com1_TX_interrupt;												// pointer to the interrupt routine
+	extern char *com1_interrupt;												// pointer to the interrupt routine
 	extern int com1_TX_complete;
 	extern int com1_ilevel;													// number nbr of chars in the buffer for an interrupt
 	extern unsigned char *com1Rx_buf;											// pointer to the buffer for received characters
