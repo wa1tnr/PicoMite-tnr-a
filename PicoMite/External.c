@@ -488,8 +488,8 @@ void ExtCfg(int pin, int cfg, int option) {
                                     edge = GPIO_IRQ_EDGE_RISE;
                                     if(cfg==EXT_CNT_IN && option==2)edge = GPIO_IRQ_EDGE_FALL;
                                     if(cfg==EXT_CNT_IN && option>=3)edge = GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE;
-                                    if(edge==1 || edge==4)gpio_pull_down (PinDef[pin].GPno);
-                                    if(edge==2 || edge==5)gpio_pull_up (PinDef[pin].GPno);
+                                    if(option==1 || option==4)gpio_pull_down (PinDef[pin].GPno);
+                                    if(option==2 || option==5)gpio_pull_up (PinDef[pin].GPno);
                                     if(pin == Option.INT1pin) {
                                     if(!CallBackEnabled){
                                         gpio_set_irq_enabled_with_callback(PinDef[pin].GPno, edge , true, &gpio_callback);
