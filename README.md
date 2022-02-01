@@ -15,6 +15,11 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.04b1
+
+Fixes bug in datetime$ function. 
+Fixes bug in Play wav
+
 
 V5.07.03
 Release version
