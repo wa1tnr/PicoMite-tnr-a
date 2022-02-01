@@ -27,8 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define FLASH_TARGET_OFFSET (1024 * 1024)
-#define MagicKey 0x54C3F4F8
+#define FLASH_TARGET_OFFSET (1024 * 1024) 
+#define MagicKey 0x9CFC28E7
 #define MMFLOAT double
 #define ALL_MEMORY_SIZE (180*1024) 
 #ifdef PICOMITEVGA

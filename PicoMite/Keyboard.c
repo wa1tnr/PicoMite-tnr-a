@@ -49,6 +49,7 @@ unsigned char KBDBuf;
 int KState, KCount, KParity;
 extern volatile int ConsoleRxBufHead;
 extern volatile int ConsoleRxBufTail;
+int justset=0;
 //extern char ConsoleRxBuf[];
 
 volatile int KeyDownRegister;
@@ -456,8 +457,8 @@ void sendCommand(int cmd) {
 
 // set the keyboard LEDs
 void setLEDs(int caps, int num, int scroll) {
-	setleds=0;
-	KBDIntEnable(0);       								        // disable interrupt while we play
+	  setleds=0;
+	  KBDIntEnable(0);       								        // disable interrupt while we play
     PS2State = PS2START;
     sendCommand(0xED);                                              // Set/Reset Status Indicators Command
     uSec(50000);
@@ -467,6 +468,7 @@ void setLEDs(int caps, int num, int scroll) {
     uSec(50000);
     sendCommand(Option.repeat);
     KBDIntEnable(1);       								        // re enable interrupt
+    justset=1;
 }
 
 
@@ -868,8 +870,10 @@ void CNInterrupt(void) {
                             ConsoleRxBufHead = ConsoleRxBufTail;    // empty the buffer
                             //break;
                         } else {
+                          if(!(justset && c=='3')){
                             ConsoleRxBuf[ConsoleRxBufHead]  = c;        // store the byte in the ring buffer
                             ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;   // advance the head of the queue
+                          } else justset=0;
                         }
 
                         SkipOut:

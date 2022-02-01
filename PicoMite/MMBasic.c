@@ -2687,7 +2687,7 @@ void __not_in_flash_func(ClearVars)(int level) {
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
 			if(((vartbl[i].type & T_STR) || vartbl[i].dims[0] != 0) && !(vartbl[i].type & T_PTR)) {
-				if((uint32_t)vartbl[i].val.s>(uint32_t)MMHeap && (uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE){
+				if((uint32_t)vartbl[i].val.s>(uint32_t)MMHeap && (uint32_t)vartbl[i].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE){
                     FreeMemorySafe((void *)&vartbl[i].val.s);                        // free any memory (if allocated)
                 }
 			}

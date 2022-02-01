@@ -93,7 +93,7 @@ void fun_format(void);
 	{ (unsigned char *)"Sort",			T_CMD,				0, cmd_sort 	},
     { (unsigned char *)"DefineFont",     T_CMD,				0, cmd_cfunction},
     { (unsigned char *)"End DefineFont", T_CMD,				0, cmd_null 	},
-	{ (unsigned char *)"LongString",		T_CMD,				0, cmd_longString	},
+	{ (unsigned char *)"LongString",	T_CMD,				0, cmd_longString	},
 	{ (unsigned char *)"Interrupt", 	T_CMD,              	0, cmd_csubinterrupt},
 	{ (unsigned char *)"CSub",           T_CMD,              0, cmd_cfunction},
 	{ (unsigned char *)"End CSub",       T_CMD,              0, cmd_null     },

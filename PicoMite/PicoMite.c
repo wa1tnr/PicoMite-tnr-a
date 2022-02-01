@@ -686,14 +686,13 @@ void EditInputLine(void) {
                             }
                             MMPrintString(inpbuf);                                          // display the line
                             CharIndex = strlen(inpbuf);                                     // get the current cursor position in the line
-/*                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
+                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
                                 MMputchar(' ',0);                                             // erase the rest of the line
                                 CharIndex++;
                             }
                             while(CharIndex > strlen(inpbuf)) { MMputchar('\b',0); CharIndex--; } // return the cursor to the right position
-*/
+
                             SSPrintString("\033[0K");
-//                            fflush(stdout);
                             break;
 
                 default:    if(buf[0] >= ' ' && buf[0] < 0x7f) {

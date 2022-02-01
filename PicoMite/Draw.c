@@ -2901,9 +2901,8 @@ void DisplayPutC(char c) {
     // handle the standard control chars
     switch(c) {
         case '\b':  CurrentX -= gui_font_width;
-                    if(CurrentX < 0) CurrentX = 0;
-                    DrawRectangle(CurrentX, CurrentY, CurrentX+gui_font_width-1, CurrentY+gui_font_height-1,gui_bcolour);
-                    return;
+            if (CurrentX < 0) CurrentX = 0;
+            return;
         case '\r':  CurrentX = 0;
                     return;
         case '\n':  CurrentY += gui_font_height;

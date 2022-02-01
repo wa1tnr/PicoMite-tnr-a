@@ -1132,9 +1132,9 @@ void wavcallback(char *p){
     ibuff2 = (uint16_t *)sbuff2;
 	mono=(mywav.channels == 1 ? 1 : 0);
     bcount[1]=drwav_read_pcm_frames_s16(&mywav, WAV_BUFFER_SIZE/4, (drwav_int16*)sbuff1) * mywav.channels;
-    bcount[2]=drwav_read_pcm_frames_s16(&mywav, WAV_BUFFER_SIZE/4, (drwav_int16*)sbuff2) * mywav.channels;
+//    bcount[2]=drwav_read_pcm_frames_s16(&mywav, WAV_BUFFER_SIZE/4, (drwav_int16*)sbuff2) * mywav.channels;
     iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
-    iconvert(ibuff2, (int16_t *)sbuff2, bcount[2]);
+//    iconvert(ibuff2, (int16_t *)sbuff2, bcount[2]);
     wav_filesize=bcount[1];
     CurrentlyPlaying = P_WAV;
     swingbuf=1;

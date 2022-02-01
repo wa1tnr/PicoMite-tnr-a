@@ -85,7 +85,6 @@ extern void WriteCommand(int cmd);
 extern void WriteData(int data);
 char *CSubInterrupt;
 volatile int CSubComplete=0;
-
 uint64_t timeroffset=0;
 void integersort(int64_t *iarray, int n, long long *index, int flags, int startpoint){
     int i, j = n, s = 1;
@@ -319,7 +318,8 @@ void fun_datetime(void){
         struct tm  *tm;
         struct tm tma;
         tm=&tma;
-        time_t timestamp = getint(ep, 0x80000000, 0x7FFFFFFF); /* See README.md if your system lacks timegm(). */
+        time_t timestamp = getinteger(ep); /* See README.md if your system lacks timegm(). */
+        if (timestamp < 0)error((char*)"Epoch<0");
         tm=gmtime(&timestamp);
         IntToStrPad(sret, tm->tm_mday, '0', 2, 10);
         sret[2] = '-'; IntToStrPad(sret + 3, tm->tm_mon+1, '0', 2, 10);
@@ -1383,7 +1383,6 @@ void printoptions(void){
         }
         PRet();
     } 
-
 #ifdef PICOMITEVGA
     if(Option.CPU_Speed!=126000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
     if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
@@ -1576,7 +1575,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F5key))error("Maximum 63 characters");
+		if(strlen(p)>=sizeof(Option.F5key))error("Maximum % characters",MAXKEYLEN-1);
 		else strcpy((char *)Option.F5key, p);
 		SaveOptions();
 		return;
@@ -1585,7 +1584,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F6key))error("Maximum 63 characters");
+		if(strlen(p)>=sizeof(Option.F6key))error("Maximum % characters",MAXKEYLEN-1);
 		else strcpy((char *)Option.F6key, p);
 		SaveOptions();
 		return;
@@ -1594,7 +1593,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F7key))error("Maximum 63 characters");
+		if(strlen(p)>=sizeof(Option.F7key))error("Maximum % characters",MAXKEYLEN-1);
 		else strcpy((char *)Option.F7key, p);
 		SaveOptions();
 		return;
@@ -1603,7 +1602,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F8key))error("Maximum 63 characters");
+		if(strlen(p)>=sizeof(Option.F8key))error("Maximum % characters",MAXKEYLEN-1);
 		else strcpy((char *)Option.F8key, p);
 		SaveOptions();
 		return;
@@ -1612,7 +1611,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F9key))error("Maximum 63 characters");
+		if(strlen(p)>=sizeof(Option.F9key))error("Maximum % characters",MAXKEYLEN-1);
 		else strcpy((char *)Option.F9key, p);
 		SaveOptions();
 		return;
@@ -2198,7 +2197,7 @@ void cmd_option(void) {
 }
 
 void fun_device(void){
-  sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command
+    sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command
 #ifdef PICOMITEVGA
     strcpy(sret, "PicoMiteVGA");
 #else
@@ -2932,6 +2931,7 @@ int checkdetailinterrupts(void) {
         intaddr = IrInterrupt;                                      // set the next stmt to the interrupt location
         goto GotAnInterrupt;
     }
+
     if(KeypadInterrupt != NULL && KeypadCheck()) {
         intaddr = KeypadInterrupt;                                  // set the next stmt to the interrupt location
         goto GotAnInterrupt;
