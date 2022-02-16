@@ -1189,7 +1189,7 @@ void cmd_circle(void) {
                     if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                     for(i=0;i<nf;i++){
                         f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                        if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, 0, WHITE);
+                        if(f < 0 || f > WHITE) error("% is invalid (valid is % to %)", (int)f, 0, WHITE);
                     }
                 }
             }
@@ -1361,12 +1361,12 @@ void cmd_box(void) {
         }
         if(argc == 13){
             getargaddress(argv[12], &fptr, &ffptr, &nf); 
-            if(nf == 1) c = getint(argv[12], 0, WHITE);
+            if(nf == 1) f = getint(argv[12], 0, WHITE);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){
                     f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, -1, WHITE);
+                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)f, -1, WHITE);
                 }
             }
         }
@@ -1923,12 +1923,12 @@ void cmd_rbox(void) {
         }
         if(argc == 13){
             getargaddress(argv[12], &fptr, &ffptr, &nf); 
-            if(nf == 1) c = getint(argv[12], 0, WHITE);
+            if(nf == 1) f = getint(argv[12], 0, WHITE);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){
                     f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, -1, WHITE);
+                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)f, -1, WHITE);
                 }
             }
         }
@@ -2040,12 +2040,12 @@ void cmd_triangle(void) {                                           // thanks to
         }
         if(argc == 15){
             getargaddress(argv[14], &fptr, &ffptr, &nf); 
-            if(nf == 1) c = getint(argv[14], -1, WHITE);
+            if(nf == 1) f = getint(argv[14], -1, WHITE);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){
                     f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)c, -1, WHITE);
+                    if(f < -1 || f > WHITE) error("% is invalid (valid is % to %)", (int)f, -1, WHITE);
                 }
             }
         }

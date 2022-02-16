@@ -28,7 +28,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 extern "C" {
 #endif
 #define FLASH_TARGET_OFFSET (1024 * 1024) 
-#define MagicKey 0x9CFC28E7
+#ifdef PICOMITEVGA
+#define MagicKey 0x9CFC28F4
+#else
+#define MagicKey 0x86CF28E7
+#endif
+
 #define MMFLOAT double
 #define ALL_MEMORY_SIZE (180*1024) 
 #ifdef PICOMITEVGA
@@ -67,7 +72,7 @@ extern "C" {
 // define the maximum number of arguments to PRINT, INPUT, WRITE, ON, DIM, ERASE, DATA and READ
 // each entry uses zero bytes.  The number is limited by the length of a command line
 #define MAX_ARG_COUNT       50
-#define STR_AUTO_PRECISION  999
+#define STR_AUTO_PRECISION  999 
 #define STR_SIG_DIGITS 9                            // number of significant digits to use when converting MMFLOAT to a string
 #define NBRSETTICKS         4                       // the number of SETTICK interrupts available
 #define NBRPINS             44

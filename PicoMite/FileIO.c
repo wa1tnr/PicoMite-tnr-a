@@ -1702,8 +1702,10 @@ void ResetOptions(void){
     Option.CPU_Speed=126000;
     Option.DISPLAY_CONSOLE=1;
     Option.DISPLAY_TYPE = MONOVGA;
+    Option.KeyboardConfig = CONFIG_US;
 #else
     Option.CPU_Speed=133000;
+    Option.KeyboardConfig = NO_KEYBOARD;
 #endif
     Option.AUDIO_SLICE=99;
     Option.SDspeed=10;
@@ -1718,7 +1720,6 @@ void ResetOptions(void){
     Option.INT2pin=10;
     Option.INT3pin=11;
     Option.INT4pin=12;
-    Option.KeyboardConfig = NO_KEYBOARD;
     Option.DefaultBrightness=100;
     SaveOptions();
     uSec(250000);
