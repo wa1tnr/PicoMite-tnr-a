@@ -17,7 +17,7 @@ Change list from V5.07.00
 ***********************************************************************************************************************
 V5.07.04b3
 
-Fixes bugs in fill colours drawing commands using arrays as input
+Fixes bugs in fill colours in drawing commands using arrays as input
 
 V5.07.04b2
 
