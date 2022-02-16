@@ -15,6 +15,14 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+V5.07.04b3
+
+Fixes bugs in fill colours drawing commands using arrays as input
+
+V5.07.04b2
+
+Forces an option reset if changing between PicoMitte and PicoMiteVGA firmware
+
 V5.07.04b1
 
 Fixes bug in datetime$ function. 
