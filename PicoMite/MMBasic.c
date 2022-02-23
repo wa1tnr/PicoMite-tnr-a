@@ -100,7 +100,7 @@ void hashlabels(int errabort);
 unsigned char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
 char CurrentSubFunName[MAXVARLEN + 1];                              // the name of the current sub or fun
 char CurrentInterruptName[MAXVARLEN + 1];                           // the name of the current interrupt function
-
+jmp_buf jmprun;
 jmp_buf mark;                                                       // longjump to recover from an error and abort
 jmp_buf ErrNext;                                                    // longjump to recover from an error and continue
 unsigned char inpbuf[STRINGSIZE];                                            // used to store user keystrokes until we have a line
@@ -2398,6 +2398,7 @@ void __not_in_flash_func(makeargs)(unsigned char **p, int maxargs, unsigned char
 void error(char *msg, ...) {
     char *p, *tp, tstr[STRINGSIZE * 2];
     va_list ap;
+    ScrewUpTimer = 0;
     
     // first build the error message in the global string MMErrMsg
     if(MMerrno == 0) MMerrno = 16;                                  // indicate an error
@@ -2735,6 +2736,8 @@ void  ClearStack(void) {
     LocalIndex = 0;
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
     InterruptReturn = NULL;
+    SaveNextDataLine = ProgMemory;
+    SaveNextData = 0;
 }
 
 

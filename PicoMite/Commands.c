@@ -53,7 +53,9 @@ char MMErrMsg[MAXERRMSG];                                           // the error
 char *KeyInterrupt=NULL;
 volatile int Keycomplete=0;
 int keyselect=0;
-
+extern volatile unsigned int ScrewUpTimer;
+unsigned char* SaveNextDataLine = NULL;
+int SaveNextData = 0;
 
 // stack to keep track of nested FOR/NEXT loops
 struct s_forstack forstack[MAXFORLOOPS + 1];
@@ -1410,8 +1412,26 @@ void cmd_read(void) {
     int i, j, k, len, card;
     unsigned char *p, datatoken, *lineptr = NULL, *ptr;
     int vcnt, vidx, num_to_read=0;
-    getargs(&cmdline, (MAX_ARG_COUNT * 2) - 1, ",");                // getargs macro must be the first executable stmt in a block
+	if (checkstring(cmdline, (unsigned char*)"SAVE")) {
+		SaveNextDataLine = NextDataLine;
+		SaveNextData = NextData;
+		return;
+	}
+	if (checkstring(cmdline, (unsigned char*)"RESTORE")) {
+	if(SaveNextDataLine == NULL){
+		SaveNextDataLine = NextDataLine;
+		SaveNextData = NextData;
+	}
+		NextDataLine = SaveNextDataLine;
+		NextData = SaveNextData;
+		return;
+	}
 
+    getargs(&cmdline, (MAX_ARG_COUNT * 2) - 1, ",");                // getargs macro must be the first executable stmt in a block
+	if(SaveNextDataLine == NULL){
+		SaveNextDataLine = NextDataLine;
+		SaveNextData = NextData;
+	}
     if(argc == 0) error("Syntax");
 	// first count the elements and do the syntax checking
     for(vcnt = i = 0; i < argc; i++) {
@@ -2077,6 +2097,60 @@ void flist(int fnbr, int fromnbr, int tonbr) {
 	}
 	if(fnbr != 0) FileClose(fnbr);
 }
-
+void execute(char* mycmd) {
+	//    char *temp_tknbuf;
+	unsigned char* ttp;
+	int i = 0, toggle = 0;
+	//    temp_tknbuf = GetTempStrMemory();
+	//    strcpy(temp_tknbuf, tknbuf);
+		// first save the current token buffer in case we are in immediate mode
+		// we have to fool the tokeniser into thinking that it is processing a program line entered at the console
+	skipspace(mycmd);
+	strcpy((char *)inpbuf, (const char *)getCstring((unsigned char *)mycmd));                                      // then copy the argument
+	if (!(toupper(inpbuf[0]) == 'R' && toupper(inpbuf[1]) == 'U' && toupper(inpbuf[2]) == 'N')) { //convert the string to upper case
+		while (inpbuf[i]) {
+			if (inpbuf[i] == 34) {
+				if (toggle == 0)toggle = 1;
+				else toggle = 0;
+			}
+			if (!toggle) {
+				if (inpbuf[i] == ':')error((char *)"Only single statements allowed");
+				inpbuf[i] = toupper(inpbuf[i]);
+			}
+			i++;
+		}
+		tokenise(true);                                                 // and tokenise it (the result is in tknbuf)
+		memset(inpbuf, 0, STRINGSIZE);
+		tknbuf[strlen((char *)tknbuf)] = 0;
+		tknbuf[strlen((char*)tknbuf) + 1] = 0;
+		ttp = nextstmt;                                                 // save the globals used by commands
+		ScrewUpTimer = 1000;
+		ExecuteProgram(tknbuf);                                              // execute the function's code
+		ScrewUpTimer = 0;
+		// TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
+		nextstmt = ttp;
+		return;
+	}
+	else {
+		unsigned char* p = inpbuf;
+		char* q, * s=NULL;
+		char fn[STRINGSIZE] = { 0 };
+		p[0] = GetCommandValue((unsigned char *)"RUN");
+		memmove(&p[1], &p[4], strlen((char *)p) - 4);
+		if ((q = strchr((char *)p, ':'))) {
+			q--;
+			*q = '0';
+		}
+		p[strlen((char*)p) - 3] = 0;
+//		MMPrintString(fn); PRet();
+//		CloseAudio(1);
+		strcpy((char *)tknbuf, (char*)inpbuf);
+		if (CurrentlyPlaying != P_NOTHING)CloseAudio(1);
+		longjmp(jmprun, 1);
+	}
+}
+void cmd_execute(void) {
+	execute((char*)cmdline);
+}
 
 

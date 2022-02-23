@@ -152,7 +152,7 @@ void cmd_mid(void);
 //	{ (unsigned char *)"Wend",		T_CMD,				0, cmd_loop	},
 	{ (unsigned char *)"While",		T_CMD,				0, cmd_do	},
 	{ (unsigned char *)"Const",		T_CMD,				0, cmd_const	},
-//	{ (unsigned char *)"Execute",	T_CMD,				0, cmd_execute	},
+	{ (unsigned char *)"Execute",	T_CMD,				0, cmd_execute	},
 	{ (unsigned char *)"MID$(",		T_CMD | T_FUN,		0, cmd_mid      },
 
 #endif
@@ -234,4 +234,8 @@ extern unsigned char *OnKeyGOSUB;
 extern unsigned char EchoOption;
 extern unsigned char *GetFileName(unsigned char* CmdLinePtr, unsigned char *LastFilePtr);
 extern void mergefile(unsigned char *fname, unsigned char *MemPtr);
+extern volatile unsigned int ScrewUpTimer;
+extern unsigned char* SaveNextDataLine;
+extern int SaveNextData;
+
 #endif
