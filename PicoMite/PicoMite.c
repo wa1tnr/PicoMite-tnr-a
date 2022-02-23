@@ -82,6 +82,7 @@ volatile unsigned int IntPauseTimer = 0;
 volatile unsigned int Timer1=0, Timer2=0;		                       //1000Hz decrement timer
 volatile unsigned int USBKeepalive=USBKEEPALIVE;
 volatile int ds18b20Timer = -1;
+volatile unsigned int ScrewUpTimer = 0;
 volatile int second = 0;                                            // date/time counters
 volatile int minute = 0;
 volatile int hour = 0;
@@ -810,6 +811,12 @@ bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt)
         if(WDTimer) {
             if(--WDTimer == 0) {
                 _excep_code = WATCHDOG_TIMEOUT;
+                SoftReset();                                            // crude way of implementing a watchdog timer.
+            }
+        }
+        if (ScrewUpTimer) {
+            if (--ScrewUpTimer == 0) {
+                _excep_code = SCREWUP_TIMEOUT;
                 SoftReset();                                            // crude way of implementing a watchdog timer.
             }
         }
@@ -1543,6 +1550,7 @@ int main(){
      ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 	if(setjmp(mark) != 0) {
      // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
+        ScrewUpTimer = 0;
         ProgMemory=(uint8_t *)flash_progmemory;
         ContinuePoint = nextstmt;                               // in case the user wants to use the continue command
 		*tknbuf = 0;											// we do not want to run whatever is in the token buffer
@@ -1623,6 +1631,10 @@ int main(){
 //		  PRet();MMPrintString(inpbuf);PRet();
 	  }
         tokenise(true);                                             // turn into executable code
+        if (setjmp(jmprun) != 0) {
+            PrepareProgram(false);
+            CurrentLinePtr = 0;
+        }
         ExecuteProgram(tknbuf);                                     // execute the line straight away
         memset(inpbuf,0,STRINGSIZE);
 	}

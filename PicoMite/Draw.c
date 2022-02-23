@@ -679,6 +679,7 @@ void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect
 
 
 void ClearTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int ints_per_line, uint32_t *br) {
+        if (x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1) == 0)return;
 
         long a, b, y, last;
         long  dx01,  dy01,  dx02,  dy02, dx12,  dy12,  sa, sb;

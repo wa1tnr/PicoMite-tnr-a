@@ -362,6 +362,7 @@ extern void set_cs(void);
 #define WATCHDOG_TIMEOUT    9998                                // reset caused by the watchdog timer
 #define PIN_RESTART         9997                                // reset caused by entering 0 at the PIN prompt
 #define RESTART_NOAUTORUN   9996                                // reset required after changing the LCD or touch config
+#define SCREWUP_TIMEOUT    	9994                                // reset caused by the execute timer
 
 #define FLASH_SPI_SPEED 20000000
 #define LCD_SPI_SPEED   25000000                                   // the speed of the SPI bus when talking to an SPI LCD display controller

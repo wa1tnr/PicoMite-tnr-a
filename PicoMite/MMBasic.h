@@ -173,7 +173,7 @@ extern int CommandTableSize, TokenTableSize;
 extern volatile int MMAbort;
 extern jmp_buf mark;                            // longjump to recover from an error
 extern unsigned char BreakKey;                           // console break key (defaults to CTRL-C)
-
+extern jmp_buf jmprun;
 extern int ProgMemSize;
 
 extern int NextData;                            // used to track the next item to read in DATA & READ stmts
