@@ -18,7 +18,7 @@ Change list from V5.07.00
 V5.07.04b5
 
 Implements READ SAVE and READ RESTORE.
-Implments EXECUTE command
+Implements EXECUTE command. 
 Allows pins not broken out on the Pico to be assigned to special functions a boot (e.g. SYSTEM I2C)
 
 V5.07.04b3
