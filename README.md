@@ -15,6 +15,9 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+5.07.04b7
+Adds support for 4-bit colour output in 640x480 resolution
+
 V5.07.04b5
 
 Implements READ SAVE and READ RESTORE.
