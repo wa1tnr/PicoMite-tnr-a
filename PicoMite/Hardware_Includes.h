@@ -111,7 +111,7 @@ extern int PulseActive;
 extern volatile int ClickTimer;
 extern int calibrate;
 extern volatile unsigned int InkeyTimer;                            // used to delay on an escape character
-extern int DISPLAY_TYPE;
+extern volatile int DISPLAY_TYPE;
 
 extern volatile char ConsoleRxBuf[CONSOLE_RX_BUF_SIZE];
 extern volatile int ConsoleRxBufHead;
@@ -120,7 +120,11 @@ extern volatile char ConsoleTxBuf[CONSOLE_TX_BUF_SIZE];
 extern volatile int ConsoleTxBufHead;
 extern volatile int ConsoleTxBufTail;
 extern datetime_t rtc_t;
-
+extern uint16_t tilefcols[40*30];
+extern uint16_t tilebcols[40*30];
+extern void __not_in_flash_func(QVgaCore)(void);
+extern uint32_t core1stack[64];
+extern int QVGA_CLKDIV;
 struct s_PinDef {
 	int pin;
 	int GPno;
@@ -168,7 +172,7 @@ extern uint16_t AUDIO_WRAP;
 extern int PromptFont, PromptFC, PromptBC;                             // the font and colours selected at the prompt
 extern const uint8_t *flash_progmemory;
 // console related I/O
-int MMInkey(void);
+int __not_in_flash_func(MMInkey)(void);
 int MMgetchar(void);
 char MMputchar(char c, int flush);
 void SaveProgramToFlash(unsigned char *pm, int msg);

@@ -101,13 +101,23 @@ const uint8_t *flash_option_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGE
 const uint8_t *SavedVarsFlash = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET +  FLASH_ERASE_SIZE);
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE);
 const uint8_t *flash_progmemory = (const uint8_t *) (XIP_BASE + PROGSTART);
+#ifdef PICOMITEVGA
+    uint16_t M_Foreground[16]={
+    0x0000,0x000F,0x00f0,0x00ff,0x0f00,0x0f0F,0x0ff0,0x0fff,0xf000,0xf00F,0xf0f0,0xf0ff,0xff00,0xff0F,0xfff0,0xffff
+    };
+    uint16_t M_Background[16]={
+    0xffff,0xfff0,0xff0f,0xff00,0xf0ff,0xf0f0,0xf00f,0xf000,0x0fff,0x0ff0,0x0f0f,0x0f00,0x00ff,0x00f0,0x000f,0x0000
+    };
+    uint16_t tilefcols[40*30];
+    uint16_t tilebcols[40*30];
+#endif
 int ticks_per_second; 
 int InterruptUsed;
 int calibrate=0;
 char id_out[12];
 MMFLOAT VCC=3.3;
 int PromptFont, PromptFC=0xFFFFFF, PromptBC=0;                             // the font and colours selected at the prompt
-int DISPLAY_TYPE;
+volatile int DISPLAY_TYPE;
 volatile int processtick = 1;
 unsigned char WatchdogSet = false;
 unsigned char IgnorePIN = false;
@@ -340,7 +350,7 @@ int kbhitConsole(void) {
 // check if there is a keystroke waiting in the buffer and, if so, return with the char
 // returns -1 if no char waiting
 // the main work is to check for vt100 escape code sequences and map to Maximite codes
-int MMInkey(void) {
+int __not_in_flash_func(MMInkey)(void) {
     unsigned int c = -1;                                            // default no character
     unsigned int tc = -1;                                           // default no character
     unsigned int ttc = -1;                                          // default no character
@@ -355,57 +365,56 @@ int MMInkey(void) {
     }
 
     c = getConsole();                                               // do discarded chars so get the char
-    if(c == 0x1b) {
-        InkeyTimer = 0;                                             // start the timer
-        while((c = getConsole()) == -1 && InkeyTimer < 30);         // get the second char with a delay of 30mS to allow the next char to arrive
-        if(c == 'O'){   //support for many linux terminal emulators
-            while((c = getConsole()) == -1 && InkeyTimer < 50);        // delay some more to allow the final chars to arrive, even at 1200 baud
-            if(c == 'P') return F1;
-            if(c == 'Q') return F2;
-            if(c == 'R') return F3;
-            if(c == 'S') return F4;
-            if(c == '2'){
-                while((tc = getConsole()) == -1 && InkeyTimer < 70);        // delay some more to allow the final chars to arrive, even at 1200 baud
-                if(tc == 'R') return F3 + 0x20;
-                c1 = 'O'; c2 = c; c3 = tc; return 0x1b;                 // not a valid 4 char code
-            }
-            c1 = 'O'; c2 = c; return 0x1b;                 // not a valid 4 char code
+if(!(c==0x1b))return c;
+    InkeyTimer = 0;                                             // start the timer
+    while((c = getConsole()) == -1 && InkeyTimer < 30);         // get the second char with a delay of 30mS to allow the next char to arrive
+    if(c == 'O'){   //support for many linux terminal emulators
+        while((c = getConsole()) == -1 && InkeyTimer < 50);        // delay some more to allow the final chars to arrive, even at 1200 baud
+        if(c == 'P') return F1;
+        if(c == 'Q') return F2;
+        if(c == 'R') return F3;
+        if(c == 'S') return F4;
+        if(c == '2'){
+            while((tc = getConsole()) == -1 && InkeyTimer < 70);        // delay some more to allow the final chars to arrive, even at 1200 baud
+            if(tc == 'R') return F3 + 0x20;
+            c1 = 'O'; c2 = c; c3 = tc; return 0x1b;                 // not a valid 4 char code
         }
-        if(c != '[') { c1 = c; return 0x1b; }                       // must be a square bracket
-        while((c = getConsole()) == -1 && InkeyTimer < 50);         // get the third char with delay
-        if(c == 'A') return UP;                                     // the arrow keys are three chars
-        if(c == 'B') return DOWN;
-        if(c == 'C') return RIGHT;
-        if(c == 'D') return LEFT;
-        if(c < '1' && c > '6') { c1 = '['; c2 = c; return 0x1b; }   // the 3rd char must be in this range
-        while((tc = getConsole()) == -1 && InkeyTimer < 70);        // delay some more to allow the final chars to arrive, even at 1200 baud
-        if(tc == '~') {                                             // all 4 char codes must be terminated with ~
-            if(c == '1') return HOME;
-            if(c == '2') return INSERT;
-            if(c == '3') return DEL;
-            if(c == '4') return END;
-            if(c == '5') return PUP;
-            if(c == '6') return PDOWN;
-            c1 = '['; c2 = c; c3 = tc; return 0x1b;                 // not a valid 4 char code
-        }
-        while((ttc = getConsole()) == -1 && InkeyTimer < 90);       // get the 5th char with delay
-        if(ttc == '~') {                                            // must be a ~
-            if(c == '1') {
-                if(tc >='1' && tc <= '5') return F1 + (tc - '1');   // F1 to F5
-                if(tc >='7' && tc <= '9') return F6 + (tc - '7');   // F6 to F8
-            }
-            if(c == '2') {
-                if(tc =='0' || tc == '1') return F9 + (tc - '0');   // F9 and F10
-                if(tc =='3' || tc == '4') return F11 + (tc - '3');  // F11 and F12
-                if(tc =='5') return F3 + 0x20;                      // SHIFT-F3
-            }
-        }
-        // nothing worked so bomb out
-        c1 = '['; c2 = c; c3 = tc; c4 = ttc;
-        return 0x1b;
+        c1 = 'O'; c2 = c; return 0x1b;                 // not a valid 4 char code
     }
-    return c;
+    if(c != '[') { c1 = c; return 0x1b; }                       // must be a square bracket
+    while((c = getConsole()) == -1 && InkeyTimer < 50);         // get the third char with delay
+    if(c == 'A') return UP;                                     // the arrow keys are three chars
+    if(c == 'B') return DOWN;
+    if(c == 'C') return RIGHT;
+    if(c == 'D') return LEFT;
+    if(c < '1' && c > '6') { c1 = '['; c2 = c; return 0x1b; }   // the 3rd char must be in this range
+    while((tc = getConsole()) == -1 && InkeyTimer < 70);        // delay some more to allow the final chars to arrive, even at 1200 baud
+    if(tc == '~') {                                             // all 4 char codes must be terminated with ~
+        if(c == '1') return HOME;
+        if(c == '2') return INSERT;
+        if(c == '3') return DEL;
+        if(c == '4') return END;
+        if(c == '5') return PUP;
+        if(c == '6') return PDOWN;
+        c1 = '['; c2 = c; c3 = tc; return 0x1b;                 // not a valid 4 char code
+    }
+    while((ttc = getConsole()) == -1 && InkeyTimer < 90);       // get the 5th char with delay
+    if(ttc == '~') {                                            // must be a ~
+        if(c == '1') {
+            if(tc >='1' && tc <= '5') return F1 + (tc - '1');   // F1 to F5
+            if(tc >='7' && tc <= '9') return F6 + (tc - '7');   // F6 to F8
+        }
+        if(c == '2') {
+            if(tc =='0' || tc == '1') return F9 + (tc - '0');   // F9 and F10
+            if(tc =='3' || tc == '4') return F11 + (tc - '3');  // F11 and F12
+            if(tc =='5') return F3 + 0x20;                      // SHIFT-F3
+        }
+    }
+    // nothing worked so bomb out
+    c1 = '['; c2 = c; c3 = tc; c4 = ttc;
+    return 0x1b;
 }
+
 // get a line from the keyboard or a serial file handle
 // filenbr == 0 means the console input
 void MMgetline(int filenbr, char *p) {
@@ -1089,12 +1098,13 @@ uint32_t* ScanLineCBNext;	// next control buffer
 // handler variables
 volatile int QVgaScanLine; // current processed scan line 0... (next displayed scan line)
 volatile uint32_t QVgaFrame;	// frame counter
+uint16_t fbuff[2][160]={0};
 
 // saved integer divider state
-
 // VGA DMA handler - called on end of every scanline
 void __not_in_flash_func(QVgaLine0)()
 {
+    static int nextbuf=0,nowbuf=1,i,line,bufinx;
 	// Clear the interrupt request for DMA control channel
 	dma_hw->ints0 = (1u << QVGA_DMA_PIO);
 
@@ -1105,7 +1115,7 @@ void __not_in_flash_func(QVgaLine0)()
 //	hw_divider_save_state(&SaveDividerState);
 
 	// switch current buffer index (bufinx = current preparing buffer, MiniVgaBufInx = current running buffer)
-	int bufinx = QVgaBufInx;
+	bufinx = QVgaBufInx;
 	QVgaBufInx = bufinx ^ 1;
 
 	// prepare control buffer to be processed
@@ -1113,7 +1123,7 @@ void __not_in_flash_func(QVgaLine0)()
 	ScanLineCBNext = cb;
 
 	// increment scanline (1..)
-	int line = QVgaScanLine; // current scanline
+	line = QVgaScanLine; // current scanline
 	line++; 		// new current scanline
 	if (line >= QVGA_VTOT) // last scanline?
 	{
@@ -1145,89 +1155,37 @@ void __not_in_flash_func(QVgaLine0)()
 		else
 		{
 			// prepare image line
+            if(DISPLAY_TYPE==MONOVGA){
+            	int ytile=line>>4;
+                for(int i=0,j=0;i<80;i++,j+=2){
+                    int xtile=i>>1;
+                    int low= FrameBuf[line * 80 + i] & 0xF;
+                    int high=FrameBuf[line * 80 + i] >>4;
+                    int pos=ytile*40+xtile;
+                    fbuff[nextbuf][j]=(M_Foreground[low] & tilefcols[pos]) | (M_Background[low] & tilebcols[pos]) ;
+                    fbuff[nextbuf][j+1]=(M_Foreground[high]& tilefcols[pos]) | (M_Background[high] & tilebcols[pos]) ;
+                }
+            } else {
+                line>>=1;
+                for(int i=0;i<160;i++){
+                    int low= FrameBuf[line * 160 + i] & 0xF;
+                    int high=FrameBuf[line * 160 + i] >>4;
+                    fbuff[nextbuf][i]=(low | (low<<4) | (high<<8) | (high<<12));
+                }
+            }
+            if(nextbuf){
+                nextbuf=0;nowbuf=1;
+            } else {
+                nextbuf=1;nowbuf=0;
+            }
 
 			// HSYNC ... back porch ... image command
 			*cb++ = 3;
 			*cb++ = (uint32_t)&ScanLineImg[0];
 
 			// image data
-			*cb++ = 20;
-			*cb++ = (uint32_t)&FrameBuf[line  * 80];
-
-			// front porch
-			*cb++ = 1;
-			*cb++ = (uint32_t)&ScanLineFp;
-		}
-	}
-
-	// end mark
-	*cb++ = 0;
-	*cb = 0;
-
-	// restore integer divider state
-//	hw_divider_restore_state(&SaveDividerState);
-}
-void __not_in_flash_func(QVgaLine1)()
-{
-	// Clear the interrupt request for DMA control channel
-	dma_hw->ints0 = (1u << QVGA_DMA_PIO);
-
-	// update DMA control channel and run it
-	dma_channel_set_read_addr(QVGA_DMA_CB, ScanLineCBNext, true);
-
-	// save integer divider state
-//	hw_divider_save_state(&SaveDividerState);
-
-	// switch current buffer index (bufinx = current preparing buffer, MiniVgaBufInx = current running buffer)
-	int bufinx = QVgaBufInx;
-	QVgaBufInx = bufinx ^ 1;
-
-	// prepare control buffer to be processed
-	uint32_t* cb = &ScanLineCB[bufinx*CB_MAX];
-	ScanLineCBNext = cb;
-
-	// increment scanline (1..)
-	int line = QVgaScanLine; // current scanline
-	line++; 		// new current scanline
-	if (line >= QVGA_VTOT) // last scanline?
-	{
-		QVgaFrame++;	// increment frame counter
-		line = 0; 	// restart scanline
-	}
-	QVgaScanLine = line;	// store new scanline
-
-	// check scanline
-	line -= QVGA_VSYNC;
-	if (line < 0)
-	{
-		// VSYNC
-		*cb++ = 2;
-		*cb++ = (uint32_t)&ScanLineSync[0];
-	}
-	else
-	{
-		// front porch and back porch
-		line -= QVGA_VBACK;
-		if ((line < 0) || (line >= QVGA_VACT))
-		{
-			// dark line
-			*cb++ = 2;
-			*cb++ = (uint32_t)&ScanLineDark[0];
-		}
-
-		// image scanlines
-		else
-		{
-			// prepare image line
-			line >>= 1;
-
-			// HSYNC ... back porch ... image command
-			*cb++ = 3;
-			*cb++ = (uint32_t)&ScanLineImg[0];
-
-			// image data
-			*cb++ = 40;
-			*cb++ = (uint32_t)&FrameBuf[line  * 160];
+			*cb++ = 80;
+			*cb++ = (uint32_t)fbuff[nowbuf];
 
 			// front porch
 			*cb++ = 1;
@@ -1250,10 +1208,6 @@ void QVgaPioInit()
 
 	// load PIO program
 	QVGAOff = pio_add_program(QVGA_PIO, &qvga_program);
-    if(DISPLAY_TYPE==COLOURVGA){
-        QVGA_PIO->instr_mem[QVGAOff+13]=0x6204;
-        QVGA_PIO->instr_mem[QVGAOff+15]=0x6204;
-    }    
 
 
 	// configure GPIOs for use by PIO
@@ -1297,7 +1251,7 @@ void QVgaBufInit()
 	// image scanline data buffer: HSYNC ... back porch ... image command
 	ScanLineImg[0] = QVGACMD(qvga_offset_hsync, QVGA_HSYNC-3); // HSYNC
 	ScanLineImg[1] = QVGACMD(qvga_offset_dark, QVGA_BP-4); // back porch
-	ScanLineImg[2] = QVGACMD(qvga_offset_output, HRes-2); // image
+	ScanLineImg[2] = QVGACMD(qvga_offset_output, 640-2); // image
 
 	// front porch
 	ScanLineFp = QVGACMD(qvga_offset_dark, QVGA_FP-4); // front porch
@@ -1402,9 +1356,7 @@ void QVgaDmaInit()
 	dma_channel_set_irq0_enabled(QVGA_DMA_PIO, true);
 
 	// set DMA IRQ handler
-	if(DISPLAY_TYPE==COLOURVGA)irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine1);
-    else irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine0);
-
+    irq_set_exclusive_handler(DMA_IRQ_0, QVgaLine0);
 	// set highest IRQ priority
 	irq_set_priority(DMA_IRQ_0, 0);
 }
@@ -1493,8 +1445,8 @@ int main(){
     systick_hw->csr = 0x5;
     systick_hw->rvr = 0x00FFFFFF;
     busy_wait_ms(100);
-    if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE == COLOURVGA ? 4	: 2);
-    else QVGA_CLKDIV=(Option.DISPLAY_TYPE  == COLOURVGA ? 2	: 1);
+    if(Option.CPU_Speed==252000)QVGA_CLKDIV=(Option.DISPLAY_TYPE == COLOURVGA ? 2	: 2);
+    else QVGA_CLKDIV=(Option.DISPLAY_TYPE  == COLOURVGA ? 1	: 1);
     ticks_per_second = Option.CPU_Speed*1000;
     // The serial clock won't vary from this point onward, so we can configure
     // the UART etc.
@@ -1530,7 +1482,8 @@ int main(){
     while((i=getConsole())!=-1){}
 #ifdef PICOMITEVGA
     multicore_launch_core1_with_stack(QVgaCore,core1stack,256);
-	memset(FrameBuf, 0, sizeof(FrameBuf));
+	memset(FrameBuf, 0, 38400);
+    if(Option.DISPLAY_TYPE!=MONOVGA)ClearScreen(Option.DefaultBC);
 #endif
     if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == WATCHDOG_TIMEOUT)){
         if(Option.Autorun==0 ){

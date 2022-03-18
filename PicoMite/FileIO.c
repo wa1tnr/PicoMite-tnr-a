@@ -1209,7 +1209,7 @@ void cmd_files(void){
     if(pp[0]==0)strcpy(pp,"*");
     if(CurrentLinePtr) error("Invalid in a program");
     if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
-    if(flist)FreeMemorySafe((void *)&flist);
+    if(flist)FreeMemorySafe((void **)&flist);
     flist=GetMemory(sizeof(s_flist)*MAXFILES);
     fullpath(q);
     MMPrintString("A:");
@@ -1222,7 +1222,7 @@ void cmd_files(void){
     // add the file to the list, search for the next and keep looping until no more files
     while(FSerror == FR_OK && fnod.fname[0]) {
         if(fcnt >= MAXFILES) {
-        		FreeMemorySafe((void *)&flist);
+        		FreeMemorySafe((void **)&flist);
             	f_closedir(&djd);
                 error("Too many files to list");
         }
@@ -1310,7 +1310,7 @@ void cmd_files(void){
 	for(i = dirs = 0; i < fcnt; i++) {
     	routinechecks();
 		if(MMAbort) {
-        	FreeMemorySafe((void *)&flist);
+        	FreeMemorySafe((void **)&flist);
             f_closedir(&djd);
             WDTimer = 0;                                                // turn off the watchdog timer
             memset(inpbuf,0,STRINGSIZE);
@@ -1340,7 +1340,7 @@ void cmd_files(void){
                 ShowCursor(1);
                 routinechecks();
                 if(MMAbort) {
-                    FreeMemorySafe((void *)&flist);
+                    FreeMemorySafe((void **)&flist);
                     f_closedir(&djd);
                     WDTimer = 0;                                                // turn off the watchdog timer
                     memset(inpbuf,0,STRINGSIZE);
@@ -1364,7 +1364,7 @@ void cmd_files(void){
     IntToStr(ts, fcnt - dirs, 10); MMPrintString(ts);
     MMPrintString(" file"); MMPrintString((fcnt-dirs)==1?"":"s");
 	MMPrintString("\r\n");
-	FreeMemorySafe((void *)&flist);
+	FreeMemorySafe((void **)&flist);
     f_closedir(&djd);
     memset(inpbuf,0,STRINGSIZE);
     longjmp(mark, 1);
@@ -1439,6 +1439,7 @@ void cmd_autosave(void) {
     while(getConsole() != -1);                                      // clear any rubbish in the input
 //    ClearSavedVars();                                               // clear any saved variables
     SaveProgramToFlash(buf, true);
+    ClearSavedVars();                                       // clear any saved variables
     FreeMemory(buf);
     if(c==F2){
         ClearVars(0);
@@ -1703,6 +1704,8 @@ void ResetOptions(void){
     Option.DISPLAY_CONSOLE=1;
     Option.DISPLAY_TYPE = MONOVGA;
     Option.KeyboardConfig = CONFIG_US;
+    Option.VGABC=0x0000;
+    Option.VGAFC=0xFFFF;
 #else
     Option.CPU_Speed=133000;
     Option.KeyboardConfig = NO_KEYBOARD;
@@ -1721,6 +1724,8 @@ void ResetOptions(void){
     Option.INT3pin=11;
     Option.INT4pin=12;
     Option.DefaultBrightness=100;
+    Option.numlock=1;
+    Option.repeat=0b101100;
     SaveOptions();
     uSec(250000);
 }
@@ -1728,7 +1733,7 @@ void ResetAllFlash(void) {
     ClearSavedVars();
     ResetOptions();
     disable_interrupts();
-    for(int i=0;i<MAXFLASHSLOTS;i++){
+    for(int i=0;i<MAXFLASHSLOTS+1;i++){
         uint32_t j=FLASH_TARGET_OFFSET + FLASH_ERASE_SIZE + SAVEDVARS_FLASH_SIZE + (i * MAX_PROG_SIZE);
         flash_range_erase(j, MAX_PROG_SIZE);
     }

@@ -74,6 +74,7 @@ struct option_s {
     unsigned int Dummyint;    // used to store the size of the program flash (also start of the LIBRARY code)
     int DefaultFC, DefaultBC;      // the default colours
     int DefaultBrightness;         // default backlight brightness //40
+    uint16_t VGAFC, VGABC;      // the default colours
 //
     // display related
     unsigned char DefaultFont;

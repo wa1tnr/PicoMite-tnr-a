@@ -51,6 +51,8 @@ void cmd_colour(void);
 void cmd_refresh(void);
 void cmd_polygon(void);
 void cmd_gui(void);
+void cmd_tile(void);
+void cmd_mode(void);
 
 void fun_rgb(void);
 void fun_mmhres(void);
@@ -88,6 +90,8 @@ void fun_pixel(void);
 	{ (unsigned char *)"Blit",           T_CMD,                      0, cmd_blit	},
 #ifdef PICOMITEVGA
   	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_guiMX170   },
+  	{ (unsigned char *)"TILE",            T_CMD,                     0, cmd_tile   },
+  	{ (unsigned char *)"MODE",            T_CMD,                     0, cmd_mode   },
 #else
   	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_gui   },
 	{ (unsigned char *)"Refresh",        T_CMD,                      0, cmd_refresh	},

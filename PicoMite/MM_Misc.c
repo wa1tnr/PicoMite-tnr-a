@@ -1385,8 +1385,44 @@ void printoptions(void){
     } 
 #ifdef PICOMITEVGA
     if(Option.CPU_Speed!=126000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
-    if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("COLOUR VGA", "ON");
+    if(Option.DISPLAY_TYPE==COLOURVGA)PO2Str("DEFAULT MODE", "2");
     if(Option.Height != 40 || Option.Width != 80) PO3Int("DISPLAY", Option.Height, Option.Width);
+    if(Option.VGAFC !=0xFFFF || Option.VGABC !=0){
+        PO("DEFAULT COLOURS");
+            if(Option.VGAFC==0xFFFF)MMPrintString("WHITE, ");
+            else if(Option.VGAFC==0xEEEE)MMPrintString("YELLOW,");
+            else if(Option.VGAFC==0xDDDD)MMPrintString("LILAC,");
+            else if(Option.VGAFC==0xCCCC)MMPrintString("BROWN,");
+            else if(Option.VGAFC==0xBBBB)MMPrintString("FUSCHIA,");
+            else if(Option.VGAFC==0xAAAA)MMPrintString("RUST, ");
+            else if(Option.VGAFC==0x9999)MMPrintString("MAGENTA,");
+            else if(Option.VGAFC==0x8888)MMPrintString("RED,");
+            else if(Option.VGAFC==0x7777)MMPrintString("CYAN,");
+            else if(Option.VGAFC==0x6666)MMPrintString("GREEN,");
+            else if(Option.VGAFC==0x5555)MMPrintString("CERULEAN,");
+            else if(Option.VGAFC==0x4444)MMPrintString("MIDGREEN,");
+            else if(Option.VGAFC==0x3333)MMPrintString("COBALT,");
+            else if(Option.VGAFC==0x2222)MMPrintString("MYRTLE,");
+            else if(Option.VGAFC==0x1111)MMPrintString("BLUE,");
+            else if(Option.VGAFC==0x0000)MMPrintString("BLACK,");
+            if(Option.VGABC==0xFFFF)MMPrintString(" WHITE");
+            else if(Option.VGABC==0xEEEE)MMPrintString(" YELLOW");
+            else if(Option.VGABC==0xDDDD)MMPrintString(" LILAC");
+            else if(Option.VGABC==0xCCCC)MMPrintString(" BROWN");
+            else if(Option.VGABC==0xBBBB)MMPrintString(" FUSCHIA");
+            else if(Option.VGABC==0xAAAA)MMPrintString(" RUST");
+            else if(Option.VGABC==0x9999)MMPrintString(" MAGENTA");
+            else if(Option.VGABC==0x8888)MMPrintString(" RED");
+            else if(Option.VGABC==0x7777)MMPrintString(" CYAN");
+            else if(Option.VGABC==0x6666)MMPrintString(" GREEN");
+            else if(Option.VGABC==0x5555)MMPrintString(" CERULEAN");
+            else if(Option.VGABC==0x4444)MMPrintString(" MIDGREEN");
+            else if(Option.VGABC==0x3333)MMPrintString(" COBALT");
+            else if(Option.VGABC==0x2222)MMPrintString(" MYRTLE");
+            else if(Option.VGABC==0x1111)MMPrintString(" BLUE");
+            else if(Option.VGABC==0x0000)MMPrintString(" BLACK");
+        PRet();
+    }
 #else
     if(Option.CPU_Speed!=133000)PO2Int("CPUSPEED (KHz)", Option.CPU_Speed);
     if(Option.DISPLAY_CONSOLE == true) PO2Str("LCDPANEL", "CONSOLE");
@@ -1449,9 +1485,9 @@ void printoptions(void){
         MMPrintString("\r\n");
     }
     if(Option.AUDIO_L){
-        PO("Audio");
+        PO("AUDIO");
         MMPrintString((char *)PinDef[Option.AUDIO_L].pinname);MMputchar(',',1);;
-        MMPrintString((char *)PinDef[Option.AUDIO_R].pinname);MMPrintString(", on PWM channel ");
+        MMPrintString((char *)PinDef[Option.AUDIO_R].pinname);MMPrintString(", ON PWM CHANNEL ");
         PInt(Option.AUDIO_SLICE);MMPrintString("\r\n");
     }
     if(Option.RTC)PO2Str("RTC AUTO", "ENABLE");
@@ -1771,12 +1807,28 @@ void cmd_option(void) {
             pwm_set_wrap(BacklightSlice, wrap);
             pwm_set_chan_level(BacklightSlice, BacklightChannel, high);
         }
+#ifdef PICOMITEVGA
+        int  fcolour = ((Option.DefaultFC & 0x800000)>> 20) | ((Option.DefaultFC & 0xC000)>>13) | ((Option.DefaultFC & 0x80)>>7);
+        fcolour= (fcolour<<12) | (fcolour<<8) | (fcolour<<4) | fcolour;
+        int bcolour = ((Option.DefaultBC & 0x800000)>> 20) | ((Option.DefaultBC & 0xC000)>>13) | ((Option.DefaultBC & 0x80)>>7);
+        bcolour= (bcolour<<12) | (bcolour<<8) | (bcolour<<4) | bcolour;
+        for(int xp=0;xp<40;xp++){
+            for(int yp=0;yp<30;yp++){
+                tilefcols[yp*40+xp]=(uint16_t)fcolour;
+                tilebcols[yp*40+xp]=(uint16_t)bcolour;
+
+            }
+        }
+        Option.VGAFC=fcolour;
+        Option.VGABC=bcolour;
+#endif
         Option.DISPLAY_CONSOLE = true; 
         ResetDisplay();
+        if(Option.DISPLAY_TYPE!=MONOVGA)ClearScreen(Option.DefaultBC);
         if(!CurrentLinePtr) {
             setterminal();
             SaveOptions();
-            ClearScreen(Option.DefaultBC);
+            if(Option.DISPLAY_TYPE!=MONOVGA)ClearScreen(Option.DefaultBC);
         }
         return;
     }
@@ -1801,25 +1853,85 @@ void cmd_option(void) {
         return;
     }
 
-    tp = checkstring(cmdline, "COLOUR VGA");
-    if(tp==NULL)tp = checkstring(cmdline, "COLOR VGA");
+    tp = checkstring(cmdline, "DEFAULT MODE");
     if(tp) {
-        if(checkstring(tp, "ON")){
-            CheckPin(24, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
-            CheckPin(25, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
-            CheckPin(27, CP_IGNORE_INUSE | CP_IGNORE_RESERVED);
+        int mode=getint(tp,1,2);
+        if(mode==2){
             Option.DISPLAY_TYPE=COLOURVGA; 
             Option.DefaultFont=(6<<4) | 1 ;
-        } else if(checkstring(tp, "OFF")) {
+        } else {
             Option.DISPLAY_TYPE=MONOVGA;
             Option.DefaultFont= 1 ;
         }
-        else error("Syntax");
         SaveOptions();
-        _excep_code = RESET_COMMAND;
-        SoftReset();
+        DISPLAY_TYPE= Option.DISPLAY_TYPE;
+	    memset(FrameBuf, 0, 38400);
+        ResetDisplay();
+        CurrentX = CurrentY =0;
+        if(Option.DISPLAY_TYPE!=MONOVGA)ClearScreen(Option.DefaultBC);
+        SetFont(Option.DefaultFont);
+        return;
     }
-
+    tp = checkstring(cmdline, "DEFAULT COLOURS");
+    if(tp==NULL)tp = checkstring(cmdline, "DEFAULT COLORS");
+    if(tp){
+        uint16_t forcol=0xFFFF;
+        uint16_t backcol=0x0000;
+        int DefaultFC=WHITE;
+        int DefaultBC=BLACK;
+        getargs(&tp,3, ",");
+        if(checkstring(argv[0], "WHITE"))        { forcol=0xFFFF; DefaultFC=WHITE;}
+        else if(checkstring(argv[0], "YELLOW"))  { forcol=0xEEEE; DefaultFC=YELLOW;}
+        else if(checkstring(argv[0], "LILAC"))   { forcol=0xDDDD; DefaultFC=LILAC;}
+        else if(checkstring(argv[0], "BROWN"))   { forcol=0xCCCC; DefaultFC=BROWN;}
+        else if(checkstring(argv[0], "FUCHSIA")) { forcol=0xBBBB; DefaultFC=FUCHSIA;}
+        else if(checkstring(argv[0], "RUST"))    { forcol=0xAAAA; DefaultFC=RUST;}
+        else if(checkstring(argv[0], "MAGENTA")) { forcol=0x9999; DefaultFC=MAGENTA;}
+        else if(checkstring(argv[0], "RED"))     { forcol=0x8888; DefaultFC=RED;}
+        else if(checkstring(argv[0], "CYAN"))    { forcol=0x7777; DefaultFC=CYAN;}
+        else if(checkstring(argv[0], "GREEN"))   { forcol=0x6666; DefaultFC=GREEN;}
+        else if(checkstring(argv[0], "CERULEAN")){ forcol=0x5555; DefaultFC=CERULEAN;}
+        else if(checkstring(argv[0], "MIDGREEN")){ forcol=0x4444; DefaultFC=MIDGREEN;}
+        else if(checkstring(argv[0], "COBALT"))  { forcol=0x3333; DefaultFC=COBALT;}
+        else if(checkstring(argv[0], "MYRTLE"))  { forcol=0x2222; DefaultFC=MYRTLE;}
+        else if(checkstring(argv[0], "BLUE"))    { forcol=0x1111; DefaultFC=BLUE;}
+        else if(checkstring(argv[0], "BLACK"))   { forcol=0x0000; DefaultFC=BLACK;}
+        else error("Invalid colour: $", argv[0]); 
+        if(argc==3){
+            if(checkstring(argv[2], "WHITE"))        { backcol=0xFFFF; DefaultBC=WHITE;}
+            else if(checkstring(argv[2], "YELLOW"))  { backcol=0xEEEE; DefaultBC=YELLOW;}
+            else if(checkstring(argv[2], "LILAC"))   { backcol=0xDDDD; DefaultBC=LILAC;}
+            else if(checkstring(argv[2], "BROWN"))   { backcol=0xCCCC; DefaultBC=BROWN;}
+            else if(checkstring(argv[2], "FUCHSIA")) { backcol=0xBBBB; DefaultBC=FUCHSIA;}
+            else if(checkstring(argv[2], "RUST"))    { backcol=0xAAAA; DefaultBC=RUST;}
+            else if(checkstring(argv[2], "MAGENTA")) { backcol=0x9999; DefaultBC=MAGENTA;}
+            else if(checkstring(argv[2], "RED"))     { backcol=0x8888; DefaultBC=RED;}
+            else if(checkstring(argv[2], "CYAN"))    { backcol=0x7777; DefaultBC=CYAN;}
+            else if(checkstring(argv[2], "GREEN"))   { backcol=0x6666; DefaultBC=GREEN;}
+            else if(checkstring(argv[2], "CERULEAN")){ backcol=0x5555; DefaultBC=CERULEAN;}
+            else if(checkstring(argv[2], "MIDGREEN")){ backcol=0x4444; DefaultBC=MIDGREEN;}
+            else if(checkstring(argv[2], "COBALT"))  { backcol=0x3333; DefaultBC=COBALT;}
+            else if(checkstring(argv[2], "MYRTLE"))  { backcol=0x2222; DefaultBC=MYRTLE;}
+            else if(checkstring(argv[2], "BLUE"))    { backcol=0x1111; DefaultBC=BLUE;}
+            else if(checkstring(argv[2], "BLACK"))   { backcol=0x0000; DefaultBC=BLACK;}
+            else error("Invalid colour: $", argv[2]); 
+        }      
+        if(backcol==forcol)error("Foreground and Background colours are the same");
+        Option.VGABC=backcol;
+        Option.VGAFC=forcol;
+        for(int x=0;x<40;x++){
+            for(int y=0;y<30;y++){
+                tilefcols[y*40+x]=Option.VGAFC;
+                tilebcols[y*40+x]=Option.VGABC;
+            }
+        }
+        Option.DefaultBC=DefaultBC;
+        Option.DefaultFC=DefaultFC;
+        SaveOptions();
+        ResetDisplay();
+        if(Option.DISPLAY_TYPE!=MONOVGA)ClearScreen(gui_bcolour);
+        return;
+    }
 #else
     tp = checkstring(cmdline,"GUI CONTROLS");
     if(tp) {

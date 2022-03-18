@@ -739,7 +739,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
         if(argtype[i] & T_PTR) {
             // the argument supplied was a variable so we must setup the local variable as a pointer
             if((vartbl[VarIndex].type & T_STR) && vartbl[VarIndex].val.s != NULL) {
-                FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                            // free up the local variable's memory if it is a pointer to a string
+                FreeMemorySafe((void **)&vartbl[VarIndex].val.s);                            // free up the local variable's memory if it is a pointer to a string
                 }
             vartbl[VarIndex].val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
             vartbl[VarIndex].type |= T_PTR;                                    // set the type to a pointer
@@ -749,7 +749,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
             // the parameter was an expression or a just straight variables with different types (therefore not a pointer))
             if((vartbl[VarIndex].type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
                 Mstrcpy((char *)vartbl[VarIndex].val.s, (char *)argval[i].s);
-                FreeMemorySafe((void *)&argval[i].s);
+                FreeMemorySafe((void **)&argval[i].s);
             } else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
                 vartbl[VarIndex].val.f = argval[i].f;
             else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
@@ -788,7 +788,7 @@ void __not_in_flash_func(DefinedSubFun)(int isfun, unsigned char *cmd, int index
     tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
     FunType = vartbl[VarIndex].type;
     if(FunType & T_STR) {
-        FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                         // free the memory if it is a string
+        FreeMemorySafe((void **)&vartbl[VarIndex].val.s);                         // free the memory if it is a string
         vartbl[VarIndex].type |= T_PTR;
         LocalIndex--;                                               // allocate the memory at the previous level
         vartbl[VarIndex].val.s = tp = GetTempMemory(STRINGSIZE);    // and use our own memory
@@ -1355,7 +1355,7 @@ unsigned char __not_in_flash_func(*doexpr)(unsigned char *p, MMFLOAT *fa, long l
 
 // get a value, either from a constant, function or variable
 // also returns the next operator to the right of the value or E_END if no operator
-unsigned char __not_in_flash_func(*getvalue)(unsigned char *p, MMFLOAT *fa, long long int  *ia, unsigned char **sa, int *oo, int *ta) {
+unsigned char *getvalue(unsigned char *p, MMFLOAT *fa, long long int  *ia, unsigned char **sa, int *oo, int *ta) {
     MMFLOAT f = 0;
     long long int  i64 = 0;
     unsigned char *s = NULL;
@@ -1838,7 +1838,11 @@ routines for storing and manipulating variables
 // storage of the variable's data:
 //      if it is type T_NBR or T_INT the value is held in the variable slot
 //      for T_STR a block of memory of MAXSTRLEN size (or size determined by the LENGTH keyword) will be malloc'ed and the pointer stored in the variable slot.
+#ifdef PICOMITEVGA
+void *findvar(unsigned char *p, int action) {
+#else
 void __not_in_flash_func(*findvar)(unsigned char *p, int action) {
+#endif
     unsigned char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
     unsigned char *s, *x, u;
@@ -2670,7 +2674,7 @@ void __not_in_flash_func(ClearVars)(int level) {
 				hashnext++;
 				hashnext %= MAXVARS/2;
 				if(((vartbl[hashcurrent].type & T_STR) || vartbl[hashcurrent].dims[0] != 0) && !(vartbl[hashcurrent].type & T_PTR) && ((uint32_t)vartbl[hashcurrent].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE)&& ((uint32_t)vartbl[hashcurrent].val.s>(uint32_t)MMHeap)) {
-					FreeMemorySafe((void *)&vartbl[hashcurrent].val.s);
+					FreeMemorySafe((void **)&vartbl[hashcurrent].val.s);
 					// free any memory (if allocated)
 				}
 //				MMPrintString("Deleting ");MMPrintString(vartbl[hashlist[i].hash].name);PIntComma(hashlist[i].level);PIntComma(hashlist[i].hash);PRet();
@@ -2689,7 +2693,7 @@ void __not_in_flash_func(ClearVars)(int level) {
 		for(i = 0; i < MAXVARS; i++) {
 			if(((vartbl[i].type & T_STR) || vartbl[i].dims[0] != 0) && !(vartbl[i].type & T_PTR)) {
 				if((uint32_t)vartbl[i].val.s>(uint32_t)MMHeap && (uint32_t)vartbl[i].val.s<(uint32_t)MMHeap + HEAP_MEMORY_SIZE){
-                    FreeMemorySafe((void *)&vartbl[i].val.s);                        // free any memory (if allocated)
+                    FreeMemorySafe((void **)&vartbl[i].val.s);                        // free any memory (if allocated)
                 }
 			}
 			memset(&vartbl[i],0,sizeof(struct s_vartbl));

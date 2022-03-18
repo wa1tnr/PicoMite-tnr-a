@@ -481,7 +481,7 @@ void __not_in_flash_func(CheckKeyboard)(void){
 /***************************************************************************************************
 change notification interrupt service routine
 ****************************************************************************************************/
-void CNInterrupt(void) {
+void __not_in_flash_func(CNInterrupt)(void) {
     int d;
 	unsigned char c = 0;
 //	unsigned int dly;

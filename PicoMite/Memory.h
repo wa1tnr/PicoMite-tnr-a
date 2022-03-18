@@ -25,6 +25,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 
 #include <stddef.h>
 #include "configuration.h"
+
 /**********************************************************************************
  the C language function associated with commands, functions or operators should be
  declared here

@@ -954,7 +954,7 @@ void fun_tab(void) {
 
 // get a character from the console input queue
 // s$ = INKEY$
-void fun_inkey(void){
+void __not_in_flash_func(fun_inkey)(void){
     int i;
 
 	sret = GetTempMemory(STRINGSIZE);									// this buffer is automatically zeroed so the string is zero size

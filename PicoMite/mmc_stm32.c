@@ -922,19 +922,12 @@ DWORD __not_in_flash_func(get_fattime)(void){
 }
 void InitReservedIO(void) {
 #ifdef PICOMITEVGA
-	if(Option.DISPLAY_TYPE==MONOVGA){
-		ExtCfg(21, EXT_BOOT_RESERVED, 0);
-		ExtCfg(22, EXT_BOOT_RESERVED, 0);
-		ExtCfg(26, EXT_BOOT_RESERVED, 0);
-	}
-	if(Option.DISPLAY_TYPE==COLOURVGA){
 		ExtCfg(21, EXT_BOOT_RESERVED, 0);
 		ExtCfg(22, EXT_BOOT_RESERVED, 0);
 		ExtCfg(24, EXT_BOOT_RESERVED, 0);
 		ExtCfg(25, EXT_BOOT_RESERVED, 0);
 		ExtCfg(26, EXT_BOOT_RESERVED, 0);
 		ExtCfg(27, EXT_BOOT_RESERVED, 0);
-	}
 #else
 	if(Option.DISPLAY_TYPE>=SSDPANEL){
 		ExtCfg(SSD1963_DC_PIN, EXT_BOOT_RESERVED, 0);gpio_init(SSD1963_DC_GPPIN);gpio_put(SSD1963_DC_GPPIN,GPIO_PIN_SET);gpio_set_dir(SSD1963_DC_GPPIN, GPIO_OUT);

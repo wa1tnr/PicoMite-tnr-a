@@ -2347,8 +2347,7 @@ void ClearExternalIO(void) {
     IrGotMsg = false;
 	for(i = 1; i < NBRPINS ; i++) {
 		if(CheckPin(i, CP_NOABORT | CP_IGNORE_INUSE | CP_IGNORE_RESERVED)) {    // don't reset invalid or boot reserved pins
-			gpio_init(PinDef[i].GPno);
-			gpio_set_dir(PinDef[i].GPno, GPIO_IN);
+          ExtCfg(i, EXT_NOT_CONFIG, 0);                                       // all set to unconfigured
 		}
 	}
 	for(i = 0; i < NBRINTERRUPTS; i++) {
@@ -2362,6 +2361,7 @@ void ClearExternalIO(void) {
         gpio_set_dir(PinDef[HEARTBEATpin].GPno, GPIO_OUT);
         ExtCurrentConfig[PinDef[HEARTBEATpin].pin]=EXT_HEARTBEAT;
     }
+    FreeMemorySafe((void **)&ds18b20Timers);
     if(CheckPin(44, CP_NOABORT | CP_IGNORE_INUSE | CP_IGNORE_RESERVED))ExtCfg(44,EXT_ANA_IN,0);
 	InterruptReturn = NULL;
 	InterruptUsed = false;

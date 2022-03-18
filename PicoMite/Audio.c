@@ -1061,12 +1061,12 @@ void CloseAudio(int all){
 	StopAudio();
 	ForceFileClose(WAV_fnbr);
 //	if(was_playing == P_MP3 || was_playing == P_PAUSE_MP3 )drmp3_uninit(&mymp3);
-	FreeMemorySafe((void *)&sbuff1);
-	FreeMemorySafe((void *)&sbuff2);
-//	if(was_playing == P_FLAC || was_playing == P_PAUSE_FLAC )FreeMemorySafe((void *)&myflac);
-//	FreeMemorySafe((void *)&mymp3);
+	FreeMemorySafe((void **)&sbuff1);
+	FreeMemorySafe((void **)&sbuff2);
+//	if(was_playing == P_FLAC || was_playing == P_PAUSE_FLAC )FreeMemorySafe((void **)&myflac);
+//	FreeMemorySafe((void **)&mymp3);
 	if(all){
-		FreeMemorySafe((void *)&alist);
+		FreeMemorySafe((void **)&alist);
 		trackstoplay=0;
 		trackplaying=0;
 	}
@@ -1124,8 +1124,8 @@ void wavcallback(char *p){
 		audiorepeat++;
 	}
 	setrate(actualrate);
-    FreeMemorySafe((void *)&sbuff1);
-    FreeMemorySafe((void *)&sbuff2);
+    FreeMemorySafe((void **)&sbuff1);
+    FreeMemorySafe((void **)&sbuff2);
     sbuff1 = GetMemory(WAV_BUFFER_SIZE);
     sbuff2 = GetMemory(WAV_BUFFER_SIZE);
     ibuff1 = (uint16_t *)sbuff1;
@@ -1449,9 +1449,9 @@ void checkWAVinput(void){
 void audio_checks(void){
     if(playreadcomplete == 1) {
     	if(!(bcount[1] || bcount[2]) ){
-            FreeMemorySafe((void *)&sbuff1);
-            FreeMemorySafe((void *)&sbuff2);
-            FreeMemorySafe((void *)&alist);
+            FreeMemorySafe((void **)&sbuff1);
+            FreeMemorySafe((void **)&sbuff2);
+            FreeMemorySafe((void **)&alist);
             StopAudio();
             FileClose(WAV_fnbr);
             WAVcomplete = true;

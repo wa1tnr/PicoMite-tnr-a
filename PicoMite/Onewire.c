@@ -163,10 +163,8 @@ void Init_ds18b20(int pin, int precision) {
     // set up initial pin status (open drain, output, high)
     ow_pinChk(pin);
     ExtCfg(pin, EXT_NOT_CONFIG, 0);                                 // set pin to unconfigured
-    PinSetBit(pin, LATSET);
-    PinSetBit(pin, ODCSET);
-
     ow_reset(pin);
+	disable_interrupts();
     ow_writeByte(pin, 0xcc);                                        // command skip the ROM
     ow_writeByte(pin, 0x4E);                                        // write to the scratchpad
     ow_writeByte(pin, 0x00);                                        // dummy data to TH
@@ -175,6 +173,7 @@ void Init_ds18b20(int pin, int precision) {
     ow_reset(pin);
     ow_writeByte(pin, 0xcc);                                        // skip the ROM
     ow_writeByte(pin, 0x44);                                        // command start the conversion
+	enable_interrupts();
     PinSetBit(pin, LATSET);
     PinSetBit(pin, ODCCLR);                                         // set strong pullup
     ExtCfg(pin, EXT_DS18B20_RESERVED, 0);
@@ -218,10 +217,12 @@ void fun_ds18b20(void) {
 		fret = 1000.0;
 	} else {
         ow_reset(pin);
+		disable_interrupts();
         ow_writeByte(pin, 0xcc);                                    // skip the ROM (again)
         ow_writeByte(pin, 0xBE);                                    // command read data
         b1  = ow_readByte(pin);
         b2  = ow_readByte(pin);
+		enable_interrupts();
         ow_reset(pin);
         if(b1 == 255 && b2 == 255){
             fret = 1000.0;
@@ -258,6 +259,29 @@ void owReset(unsigned char *p) {
 	ow_reset(pin);
 	return;
 }
+void owWriteCore(int pin, int * buf, int len, int flag){
+	disable_interrupts();
+	for (int i = 0; i < len; i++) {
+		if (flag & 0x04) {
+			if (buf[i]) {
+				// Write '1' bit
+				PinSetBit(pin, LATCLR);										// drive pin low
+				uSec(6);
+				PinSetBit(pin, LATSET);										// release the bus
+				uSec(64);													// wait 64Sec
+			} else {
+				// Write '0' bit
+				PinSetBit(pin, LATCLR);										// drive pin low
+				uSec(60);													// wait 60uSec
+				PinSetBit(pin, LATSET);										// release the bus
+				uSec(10);
+			}
+		} else {
+			ow_writeByte(pin, buf[i]);
+		}
+	}
+	enable_interrupts();
+}
 
 
 // send one wire data
@@ -291,21 +315,34 @@ void owWrite(unsigned char *p) {
 	PinSetBit(pin, ODCSET);
 
 	if (flag & 0x01) ow_reset(pin);
-	for (i = 0; i < len; i++) {
-		if (flag & 0x04) {
-			ow_writeBit(pin, buf[i]);
-		} else {
-			ow_writeByte(pin, buf[i]);
-		}
-	}
+	owWriteCore(pin, buf, len, flag);	
 	if (flag & 0x02) ow_reset(pin);
 
 	if (flag & 0x08) {												// strong pullup required?
-		PinSetBit(pin, ODCCLR);										// set strong pullup
+		PinSetBit(pin, LATSET);
+		PinSetBit(pin, TRISCLR);
 	}
 	return;
 }
 
+void owReadCore(int pin, int * buf, int len, int flag){
+	disable_interrupts();
+	for (int i = 0; i < len; i++) {
+		if (flag & 0x04) {
+			PinSetBit(pin, LATCLR);											// drive pin low
+			uSec(3);
+			PinSetBit(pin, LATSET);											// release the bus
+			PinSetBit(pin, TRISSET);										// set as input
+			uSec(10);
+			buf[i] = PinRead(pin);											// read pin
+			PinSetBit(pin, TRISCLR);										// set as output
+			uSec(53);														// wait 56uSec
+		} else {
+			buf[i] = ow_readByte(pin);
+		}
+	}
+	enable_interrupts();
+}
 
 // read one wire data
 void owRead(unsigned char *p) {
@@ -337,17 +374,12 @@ void owRead(unsigned char *p) {
 	PinSetBit(pin, ODCSET);
 
 	if (flag & 0x01) ow_reset(pin);
-	for (i = 0; i < len; i++) {
-		if (flag & 0x04) {
-			buf[i] = ow_readBit(pin);
-		} else {
-			buf[i] = ow_readByte(pin);
-		}
-	}
+	owReadCore(pin, buf, len, flag);
 	if (flag & 0x02) ow_reset(pin);
 
 	if (flag & 0x08) {												// strong pullup required?
-		PinSetBit(pin, ODCCLR);										// set strong pullup
+		PinSetBit(pin, LATSET);
+		PinSetBit(pin, TRISCLR);
 	}
 
 	for (i = 0; i < len; i++) {
@@ -508,7 +540,7 @@ int ow_reset(int pin) {
 }
 
 
-void ow_writeByte(int pin, int data) {
+void __not_in_flash_func(ow_writeByte)(int pin, int data) {
 	int loop;
 
 	for (loop = 0; loop < 8; loop++) {
@@ -519,7 +551,7 @@ void ow_writeByte(int pin, int data) {
 }
 
 
-int ow_readByte(int pin) {
+int __not_in_flash_func(ow_readByte)(int pin) {
 	int loop, result = 0;
 
 	for (loop = 0; loop < 8; loop++) {
@@ -560,7 +592,7 @@ int ow_touchBit(int pin, int bit) {
 
 // note that the uSec() function will not time short delays at low clock speeds
 // so we directly use the core timer for short delays
-void ow_writeBit(int pin, int bit) {
+void __not_in_flash_func(ow_writeBit)(int pin, int bit) {
 
 	if (bit) {
 		// Write '1' bit
@@ -585,13 +617,13 @@ int ow_readBit(int pin) {
 	int result;
 
 	PinSetBit(pin, LATCLR);											// drive pin low
-    uSec(6);
+    uSec(3);
 	PinSetBit(pin, TRISSET);										// set as input
     PinSetBit(pin, LATSET);											// release the bus
-    uSec(8);
+    uSec(10);
     result = PinRead(pin);											// read pin
 	PinSetBit(pin, TRISCLR);										// set as output
-	uSec(56);														// wait 56uSec
+	uSec(53);														// wait 56uSec
 	return result;
 }
 

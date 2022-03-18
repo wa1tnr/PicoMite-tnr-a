@@ -71,6 +71,7 @@ typedef struct _BMPDECODER
     #include "Inconsola.h"
     #include "ArialNumFontPlus.h"
     #include "Font_8x6.h"
+    #include "arial_bold.h"
 #ifdef PICOMITEVGA
     #include "Include.h"
 #endif
@@ -78,7 +79,11 @@ typedef struct _BMPDECODER
 
     unsigned char *FontTable[FONT_TABLE_SIZE] = {   (unsigned char *)font1,
                                                     (unsigned char *)Misc_12x20_LE,
+#ifdef PICOMITEVGA
+                                                    (unsigned char *)arial_bold,
+#else
                                                     (unsigned char *)Hom_16x24_LE,
+#endif
                                                     (unsigned char *)Fnt_10x16,
                                                     (unsigned char *)Inconsola,
                                                     (unsigned char *)ArialNumFontPlus,
@@ -123,6 +128,8 @@ void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int
 void (*ScrollLCD) (int lines) = (void (*)(int ))DisplayNotSet;
 void (*DrawBuffer)(int x1, int y1, int x2, int y2, unsigned char *c) = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
 void (*ReadBuffer)(int x1, int y1, int x2, int y2, unsigned char *c) = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
+void (*DrawBufferFast)(int x1, int y1, int x2, int y2, unsigned char *c) = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
+void (*ReadBufferFast)(int x1, int y1, int x2, int y2, unsigned char *c) = (void (*)(int , int , int , int , unsigned char * ))DisplayNotSet;
 void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fill);
 // these are the GUI commands that are common to the MX170 and MX470 versions
 // in the case of the MX170 this function is called directly by MMBasic when the GUI command is used
@@ -1042,6 +1049,7 @@ void cmd_text(void) {
     if(argc > 9 && *argv[10]) scale = getint(argv[10], 1, 15);
     if(argc > 11 && *argv[12]) fc = getint(argv[12], 0, WHITE);
     if(argc ==15) bc = getint(argv[14], -1, WHITE);
+    if(DISPLAY_TYPE== MONOVGA && ((fc && bc) || (fc==0 && bc==0)))error("Foreground and Background colours are the same");
     GUIPrintString(x, y, ((font - 1) << 4) | scale, jh, jv, jo, fc, bc, s);
     if(Option.Refresh)Display_Refresh();
 }
@@ -2133,6 +2141,172 @@ void fun_mmvres(void) {
 }
 extern BYTE BDEC_bReadHeader(BMPDECODER *pBmpDec, int fnbr);
 extern BYTE BMP_bDecode_memory(int x, int y, int xlen, int ylen, int fnbr, char *p);
+#ifdef PICOMITEVGA
+void cmd_blit(void) {
+    int x1, y1, x2, y2, w, h, bnbr;
+    unsigned char *buff = NULL;
+    unsigned char *p;
+    if(Option.DISPLAY_TYPE == 0) error("Display not configured");
+    if((p = checkstring(cmdline, "LOAD"))) {
+        int fnbr;
+        int xOrigin, yOrigin, xlen, ylen;
+        BMPDECODER BmpDec;
+        // get the command line arguments
+        getargs(&p, 11, ",");                                            // this MUST be the first executable line in the function
+        if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
+        bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
+        if(argc == 0) error("Argument count");
+        if(!InitSDCard()) return;
+        p = getCstring(argv[2]);                                        // get the file name
+        xOrigin = yOrigin = 0;
+        if(argc >= 5 && *argv[4]) xOrigin = getinteger(argv[4]);                    // get the x origin (optional) argument
+        if(argc >= 7 && *argv[6]) yOrigin = getinteger(argv[6]);                    // get the y origin (optional) argument
+        if(xOrigin<0 || yOrigin<0)error("Coordinates");
+        xlen = ylen =-1;
+        if(argc >= 9 && *argv[8]) xlen = getinteger(argv[8]);                    // get the x length (optional) argument
+        if(argc == 11 ) ylen = getinteger(argv[10]);                    // get the y length (optional) argument
+        // open the file
+        if(strchr(p, '.') == NULL) strcat(p, ".BMP");
+        fnbr = FindFreeFileNbr();
+        if(!BasicFileOpen(p, fnbr, FA_READ)) return;
+        BDEC_bReadHeader(&BmpDec, fnbr);
+        FileClose(fnbr);
+        if(xlen==-1)xlen=BmpDec.lWidth;
+        if(ylen==-1)ylen=BmpDec.lHeight;
+        if(xlen+xOrigin>BmpDec.lWidth || ylen+yOrigin>BmpDec.lHeight)error("Coordinates");
+        char *q=GetTempMemory(xlen * ylen * 3);
+        blitbuffptr[bnbr] = GetMemory(xlen * ylen +4 );
+        memset(q,0xFF,xlen * ylen * 3);
+        fnbr = FindFreeFileNbr();
+        if(!BasicFileOpen(p, fnbr, FA_READ)) return;
+        BMP_bDecode_memory(xOrigin, yOrigin, xlen, ylen, fnbr, q);
+        short *bw=(short *)&blitbuffptr[bnbr][0];
+        short *bh=(short *)&blitbuffptr[bnbr][2];
+        *bw=xlen;
+        *bh=ylen;
+        char *t=&blitbuffptr[bnbr][4];
+        int i=xlen*ylen;
+        while(i--){
+            if(HRes==320)*t = ((q[2] & 0x80)>> 4) | ((q[1] & 0xC0)>>5) | ((q[0] & 0x80)>>7);
+            else *t=(char)(((uint16_t)q[2]+(uint16_t)q[1]+(uint16_t)q[0])<0x180? 0 : 1);
+            t++;
+            q+=3;
+        }
+        FileClose(fnbr);
+        return;
+    }
+    if((p = checkstring(cmdline, "READ"))) {
+        getargs(&p, 9, ",");
+        if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
+        if(argc !=9) error("Syntax");
+        if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
+        bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
+        x1 = getinteger(argv[2]);
+        y1 = getinteger(argv[4]);
+        w = getinteger(argv[6]);
+        h = getinteger(argv[8]);
+        if(w < 1 || h < 1) return;
+        if(x1 < 0) { x2 -= x1; w += x1; x1 = 0; }
+        if(y1 < 0) { y2 -= y1; h += y1; y1 = 0; }
+        if(x1 + w > HRes) w = HRes - x1;
+        if(y1 + h > VRes) h = VRes - y1;
+        if(w < 1 || h < 1 || x1 < 0 || x1 + w > HRes || y1 < 0 || y1 + h > VRes ) return;
+        if(blitbuffptr[bnbr] == NULL){
+            blitbuffptr[bnbr] = GetMemory(w * h + 4);
+            ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, &blitbuffptr[bnbr][4]);
+            short *bw=(short *)&blitbuffptr[bnbr][0];
+            short *bh=(short *)&blitbuffptr[bnbr][2];
+            *bw=w;
+            *bh=h;
+        } else error("Buffer in use");
+    } else if((p = checkstring(cmdline, "WRITE"))) {
+        getargs(&p, 9, ",");
+        if(!(argc == 9 || argc==5)) error("Syntax");
+        if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
+        bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
+        x1 = getinteger(argv[2]);
+        y1 = getinteger(argv[4]);
+        short *bw=(short *)&blitbuffptr[bnbr][0];
+        short *bh=(short *)&blitbuffptr[bnbr][2];
+        w=*bw;
+        h=*bh;
+        if(argc >= 7 && *argv[6])w = getinteger(argv[6]);
+        if(argc >= 9 && *argv[8])h = getinteger(argv[8]);
+        if(w < 1 || h < 1) return;
+        if(x1 < 0) { x2 -= x1; w += x1; x1 = 0; }
+        if(y1 < 0) { y2 -= y1; h += y1; y1 = 0; }
+        if(x1 + w > HRes) w = HRes - x1;
+        if(y1 + h > VRes) h = VRes - y1;
+        if(w < 1 || h < 1 || x1 < 0 || x1 + w > HRes || y1 < 0 || y1 + h > VRes ) return;
+        if(blitbuffptr[bnbr] != NULL){
+            DrawBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, &blitbuffptr[bnbr][4]);
+        } else error("Buffer not in use");
+    } else if((p = checkstring(cmdline, "CLOSE"))) {
+        getargs(&p, 1, ",");
+        if(*argv[0] == '#') argv[0]++;                              // check if the first arg is prefixed with a #
+        bnbr = getint(argv[0], 1, MAXBLITBUF) - 1;                  // get the buffer number
+        if(blitbuffptr[bnbr] != NULL){
+            FreeMemory(blitbuffptr[bnbr]);
+            blitbuffptr[bnbr] = NULL;
+        } else error("Buffer not in use");
+        // get the number
+     } else {
+        int memory, max_x;
+        getargs(&cmdline, 11, ",");
+        if((void *)ReadBuffer == (void *)DisplayNotSet) error("Invalid on this display");
+        if(argc != 11) error("Syntax");
+        x1 = getinteger(argv[0]);
+        y1 = getinteger(argv[2]);
+        x2 = getinteger(argv[4]);
+        y2 = getinteger(argv[6]);
+        w = getinteger(argv[8]);
+        h = getinteger(argv[10]);
+        if(w < 1 || h < 1) return;
+        if(x1 < 0) { x2 -= x1; w += x1; x1 = 0; }
+        if(x2 < 0) { x1 -= x2; w += x2; x2 = 0; }
+        if(y1 < 0) { y2 -= y1; h += y1; y1 = 0; }
+        if(y2 < 0) { y1 -= y2; h += y2; y2 = 0; }
+        if(x1 + w > HRes) w = HRes - x1;
+        if(x2 + w > HRes) w = HRes - x2;
+        if(y1 + h > VRes) h = VRes - y1;
+        if(y2 + h > VRes) h = VRes - y2;
+        if(w < 1 || h < 1 || x1 < 0 || x1 + w > HRes || x2 < 0 || x2 + w > HRes || y1 < 0 || y1 + h > VRes || y2 < 0 || y2 + h > VRes) return;
+        if(x1 >= x2) {
+            max_x = 1;
+            buff = GetMemory(max_x * h);
+            while(w > max_x){
+                ReadBufferFast(x1, y1, x1 + max_x - 1, y1 + h - 1, buff);
+                DrawBufferFast(x2, y2, x2 + max_x - 1, y2 + h - 1, buff);
+                x1 += max_x;
+                x2 += max_x;
+                w -= max_x;
+            }
+            ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, buff);
+            DrawBufferFast(x2, y2, x2 + w - 1, y2 + h - 1, buff);
+            FreeMemory(buff);
+            return;
+        }
+        if(x1 < x2) {
+            int start_x1, start_x2;
+            max_x = 1;
+            buff = GetMemory(max_x * h);
+            start_x1 = x1 + w - max_x;
+            start_x2 = x2 + w - max_x;
+            while(w > max_x){
+                ReadBufferFast(start_x1, y1, start_x1 + max_x - 1, y1 + h - 1, buff);
+                DrawBufferFast(start_x2, y2, start_x2 + max_x - 1, y2 + h - 1, buff);
+                w -= max_x;
+                start_x1 -= max_x;
+                start_x2 -= max_x;
+            }
+            ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, buff);
+            DrawBufferFast(x2, y2, x2 + w - 1, y2 + h - 1, buff);
+            FreeMemory(buff);
+            return;
+        }
+    }
+}
+#else
 void cmd_blit(void) {
     int x1, y1, x2, y2, w, h, bnbr;
     unsigned char *buff = NULL;
@@ -2289,6 +2463,7 @@ void cmd_blit(void) {
     }
 }
 
+#endif
 
 void cmd_font(void) {
     getargs(&cmdline, 3, ",");
@@ -2321,7 +2496,56 @@ void cmd_colour(void) {
         PromptBC = gui_bcolour;
     }
 }
-
+#ifdef PICOMITEVGA
+void cmd_tile(void){
+    uint32_t bcolour=0xFFFFFFFF,fcolour=0xFFFFFFFF;
+    int xlen=1,ylen=1;
+    getargs(&cmdline, 11, ",");
+    if(!(DISPLAY_TYPE==MONOVGA))return;
+    if(argc<5)error("Syntax");
+    int x=getint(argv[0],0,39);
+    int y=getint(argv[2],0,29);
+    int tilebcolour, tilefcolour ;
+    if(*argv[4]){
+        tilefcolour = getColour(argv[4], 0);
+        fcolour = ((tilefcolour & 0x800000)>> 20) | ((tilefcolour & 0xC000)>>13) | ((tilefcolour & 0x80)>>7);
+        fcolour= (fcolour<<12) | (fcolour<<8) | (fcolour<<4) | fcolour;
+    }
+    if(argc>=7 && *argv[6]){
+        tilebcolour = getColour(argv[6], 0);
+        bcolour = ((tilebcolour & 0x800000)>> 20) | ((tilebcolour & 0xC000)>>13) | ((tilebcolour & 0x80)>>7);
+        bcolour= (bcolour<<12) | (bcolour<<8) | (bcolour<<4) | bcolour;
+    }
+    if(argc>=9 && *argv[8]){
+        xlen=getint(argv[8],1,40-x);
+    }
+    if(argc>=11 && *argv[10]){
+        ylen=getint(argv[10],1,30-y);
+    }
+    for(int xp=x;xp<x+xlen;xp++){
+        for(int yp=y;yp<y+ylen;yp++){
+            if(fcolour!=0xFFFFFFFF) tilefcols[yp*40+xp]=(uint16_t)fcolour;
+            if(bcolour!=0xFFFFFFFF) tilebcols[yp*40+xp]=(uint16_t)bcolour;
+        }
+    }
+}
+void cmd_mode(void){
+    int mode =getint(cmdline,1,2);
+    if(mode==2){
+        DISPLAY_TYPE=COLOURVGA; 
+    } else {
+        DISPLAY_TYPE=MONOVGA;
+    }
+    memset(FrameBuf, 0, 38400);
+//    uSec(10000);
+    ResetDisplay();
+    CurrentX = CurrentY =0;
+    if(mode==2){
+        ClearScreen(Option.DefaultBC);
+        SetFont((6<<4) | 1) ;
+    } else SetFont(1) ;
+}
+#endif
 void fun_mmcharwidth(void) {
   if(Option.DISPLAY_TYPE == 0) error("Display not configured");
     iret = FontTable[gui_font >> 4][0] * (gui_font & 0b1111);
@@ -2484,6 +2708,33 @@ void DrawBufferMono(int x1, int y1, int x2, int y2, unsigned char *p){
         }
     }
 }
+void DrawBufferMonoFast(int x1, int y1, int x2, int y2, unsigned char *p){
+	int x,y, t, loc;
+    unsigned char mask;
+    // make sure the coordinates are kept within the display area
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+            loc=(y*(HRes>>3))+(x>>3);
+            mask=1<<(x % 8); //get the bit position for this bit
+            if(*p++){
+            	FrameBuf[loc]|=mask;
+            } else {
+            	FrameBuf[loc]&=(~mask);
+            }
+        }
+    }
+}
+
 void ReadBufferMono(int x1, int y1, int x2, int y2, unsigned char *c){
     int x,y,t,loc;
     uint8_t *pp;
@@ -2510,6 +2761,33 @@ void ReadBufferMono(int x1, int y1, int x2, int y2, unsigned char *c){
             } else {
                 *c++=0x00;
                 *c++=0x00;
+                *c++=0x00;
+            }
+        }
+    }
+}
+void ReadBufferMonoFast(int x1, int y1, int x2, int y2, unsigned char *c){
+    int x,y,t,loc;
+    uint8_t *pp;
+    unsigned char mask;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    int xx1=x1, yy1=y1, xx2=x2, yy2=y2;
+    if(x1 < 0) xx1 = 0;
+    if(x1 >= HRes) xx1 = HRes - 1;
+    if(x2 < 0) xx2 = 0;
+    if(x2 >= HRes) xx2 = HRes - 1;
+    if(y1 < 0) yy1 = 0;
+    if(y1 >= VRes) yy1 = VRes - 1;
+    if(y2 < 0) yy2 = 0;
+    if(y2 >= VRes) yy2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+            loc=(y*(HRes>>3))+(x>>3);
+            mask=1<<(x % 8); //get the bit position for this bit
+            if(FrameBuf[loc]&mask){
+                *c++=0xFF;
+            } else {
                 *c++=0x00;
             }
         }
@@ -2652,6 +2930,39 @@ void DrawBufferColour(int x1, int y1, int x2, int y2, unsigned char *p){
         }
     }
 }
+void DrawBufferColourFast(int x1, int y1, int x2, int y2, unsigned char *p){
+	int x,y, t;
+    union colourmap
+    {
+    char rgbbytes[4];
+    unsigned int rgb;
+    } c;
+    unsigned char fcolour;
+    uint8_t *pp;
+    // make sure the coordinates are kept within the display area
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    if(x1 < 0) x1 = 0;
+    if(x1 >= HRes) x1 = HRes - 1;
+    if(x2 < 0) x2 = 0;
+    if(x2 >= HRes) x2 = HRes - 1;
+    if(y1 < 0) y1 = 0;
+    if(y1 >= VRes) y1 = VRes - 1;
+    if(y2 < 0) y2 = 0;
+    if(y2 >= VRes) y2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+            pp=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+            if(x & 1){
+                *pp &=0x0F;
+                *pp |=((*p++)<<4);
+            } else {
+                *pp &=0xF0;
+                *pp |= *p++;
+            }
+        }
+    }
+}
 void ReadBufferColour(int x1, int y1, int x2, int y2, unsigned char *c){
     int x,y,t;
     uint8_t *pp;
@@ -2679,6 +2990,32 @@ void ReadBufferColour(int x1, int y1, int x2, int y2, unsigned char *c){
             *c++=t>>16;
         }
     }
+}
+void ReadBufferColourFast(int x1, int y1, int x2, int y2, unsigned char *c){
+    int x,y,t,last=0;
+    uint8_t *pp;
+    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
+    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    int xx1=x1, yy1=y1, xx2=x2, yy2=y2;
+    if(x1 < 0) xx1 = 0;
+    if(x1 >= HRes) xx1 = HRes - 1;
+    if(x2 < 0) xx2 = 0;
+    if(x2 >= HRes) xx2 = HRes - 1;
+    if(y1 < 0) yy1 = 0;
+    if(y1 >= VRes) yy1 = VRes - 1;
+    if(y2 < 0) yy2 = 0;
+    if(y2 >= VRes) yy2 = VRes - 1;
+	for(y=y1;y<=y2;y++){
+    	for(x=x1;x<=x2;x++){
+	        pp=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
+            if(!(x & 1)){
+                *c++=((*pp)&0x0F);
+            } else {
+                *c++=((*pp)>>4);
+            }
+        }
+    }
+    if(last)*c++=t;
 }
 #else
 // Draw a filled rectangle
@@ -2797,14 +3134,16 @@ void ResetDisplay(void) {
     PromptFC = Option.DefaultFC;
     PromptBC = Option.DefaultBC;
 #ifdef PICOMITEVGA
-        HRes=Option.DISPLAY_TYPE == COLOURVGA ? 320 : 640;
-        VRes=Option.DISPLAY_TYPE == COLOURVGA ? 240 : 480;
+        HRes=DISPLAY_TYPE == COLOURVGA ? 320 : 640;
+        VRes=DISPLAY_TYPE == COLOURVGA ? 240 : 480;
         if(DISPLAY_TYPE == COLOURVGA){
             DrawRectangle=DrawRectangleColour;
             DrawBitmap= DrawBitmapColour;
             ScrollLCD=ScrollLCDColour;
             DrawBuffer=DrawBufferColour;
             ReadBuffer=ReadBufferColour;
+            DrawBufferFast=DrawBufferColourFast;
+            ReadBufferFast=ReadBufferColourFast;
             DrawPixel=DrawPixelColour;
         } else {
             DrawRectangle=DrawRectangleMono;
@@ -2812,7 +3151,19 @@ void ResetDisplay(void) {
             ScrollLCD=ScrollLCDMono;
             DrawBuffer=DrawBufferMono;
             ReadBuffer=ReadBufferMono;
+            DrawBufferFast=DrawBufferMonoFast;
+            ReadBufferFast=ReadBufferMonoFast;
             DrawPixel=DrawPixelMono;
+            gui_fcolour = WHITE;
+            gui_bcolour = BLACK;
+            PromptFC = gui_fcolour;
+            PromptBC = gui_bcolour;
+        }
+        for(int x=0;x<40;x++){
+            for(int y=0;y<30;y++){
+                tilefcols[y*40+x]=Option.VGAFC;
+                tilebcols[y*40+x]=Option.VGABC;
+            }
         }
 #else
     ResetGUI();
