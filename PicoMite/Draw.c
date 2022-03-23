@@ -122,6 +122,7 @@ const int colourmap[16]={BLACK,BLUE,GREEN,CYAN,RED,MAGENTA,YELLOW,WHITE,MYRTLE,C
 int gui_font_width, gui_font_height, last_bcolour, last_fcolour;
 volatile int CursorTimer=0;               // used to time the flashing cursor
 void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNotSet;
+extern volatile int QVgaScanLine;
 #endif
 void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c) = (void (*)(int , int , int , int , int ))DisplayNotSet;
 void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap) = (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
@@ -2596,8 +2597,9 @@ void DrawPixelMono(int x, int y, int c){
 	else *p &= ~bit;
 }
 void DrawRectangleMono(int x1, int y1, int x2, int y2, int c){
-    int x,y,t, loc;
+    int x,y,x1p, x2p, t;
     unsigned char mask;
+    unsigned char *p;
     if(x1 < 0) x1 = 0;
     if(x1 >= HRes) x1 = HRes - 1;
     if(x2 < 0) x2 = 0;
@@ -2610,18 +2612,56 @@ void DrawRectangleMono(int x1, int y1, int x2, int y2, int c){
     if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
     if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
     if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
-	for(y=y1;y<=y2;y++){
-    	for(x=x1;x<=x2;x++){
-            loc=(y*(HRes>>3))+(x>>3);
-            mask=1<<(x % 8); //get the bit position for this bit
+    if(x1==x2){
+        for(y=y1;y<=y2;y++){
+            p=&FrameBuf[(y*(HRes>>3))+(x1>>3)];
+            mask=1<<(x1 % 8); //get the bit position for this bit
             if(c){
-            	FrameBuf[loc]|=mask;
+                *p|=mask;
             } else {
-            	FrameBuf[loc]&=(~mask);
+                *p&=(~mask);
+            }
+        }
+    } else {
+        for(y=y1;y<=y2;y++){
+            x1p=x1;
+            x2p=x2;
+            if((x1 % 8) !=0){
+                p=&FrameBuf[(y*(HRes>>3))+(x1>>3)];
+                for(x=x1;x<=x2 && (x % 8)!=0;x++){
+                    mask=1<<(x % 8); //get the bit position for this bit
+                    if(c){
+                        *p|=mask;
+                    } else {
+                        *p&=(~mask);
+                    }
+                    x1p++;
+                }
+            }
+            if(x1p-1!=x2 && (x2 % 8)!=7){
+                p=&FrameBuf[(y*(HRes>>3))+(x2p>>3)];
+                for(x=(x2 & 0xFFF8);x<=x2 ;x++){
+                    mask=1<<(x % 8); //get the bit position for this bit
+                    if(c){
+                        *p|=mask;
+                    } else {
+                        *p&=(~mask);
+                    }
+                    x2p--;
+                }
+            }
+            p=&FrameBuf[(y*(HRes>>3))+(x1p>>3)];
+            for(x=x1p;x<x2p;x+=8){
+                if(c){
+                    *p++=0xFF;
+                } else {
+                    *p++=0;
+                }
             }
         }
     }
 }
+
 void DrawBitmapMono(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap){
     int i, j, k, m, x, y, loc;
     unsigned char mask;
@@ -2806,9 +2846,10 @@ void DrawPixelColour(int x, int y, int c){
     }
 }
 void DrawRectangleColour(int x1, int y1, int x2, int y2, int c){
-    int x,y,t, loc;
+    int x,y,x1p,x2p,t, loc;
     unsigned char mask;
     unsigned char colour = ((c & 0x800000)>> 20) | ((c & 0xC000)>>13) | ((c & 0x80)>>7);
+    unsigned char bcolour=(colour<<4) | colour;
     if(x1 < 0) x1 = 0;
     if(x1 >= HRes) x1 = HRes - 1;
     if(x2 < 0) x2 = 0;
@@ -2821,16 +2862,24 @@ void DrawRectangleColour(int x1, int y1, int x2, int y2, int c){
     if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
     if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
     if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
-	for(y=y1;y<=y2;y++){
-    	for(x=x1;x<=x2;x++){
-	        uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x>>1));
-            if(x & 1){
-                *p &=0x0F;
-                *p |=(colour<<4);
-            } else {
-                *p &=0xF0;
-                *p |= colour;
-            }
+    for(y=y1;y<=y2;y++){
+        x1p=x1;
+        x2p=x2;
+        uint8_t *p=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x1>>1));
+        if((x1 % 2) == 1){
+            *p &=0x0F;
+            *p |=(colour<<4);
+            p++;
+            x1p++;
+        }
+        if((x2 % 2) == 0){
+            uint8_t *q=(uint8_t *)(((uint32_t) FrameBuf)+(y*(HRes>>1))+(x2>>1));
+            *q &=0xF0;
+            *q |= colour;
+            x2p--;
+        }
+        for(x=x1p;x<x2p;x+=2){
+            *p++=bcolour;
         }
     }
 }
@@ -3017,6 +3066,10 @@ void ReadBufferColourFast(int x1, int y1, int x2, int y2, unsigned char *c){
     }
     if(last)*c++=t;
 }
+void fun_getscanline(void){
+    iret=QVgaScanLine;
+    targ=T_INT;
+}
 #else
 // Draw a filled rectangle
 // this is the basic drawing primitive used by most drawing routines
@@ -3127,9 +3180,9 @@ void SetFont(int fnt) {
 
 
 void ResetDisplay(void) {
-        SetFont(Option.DefaultFont);
-        gui_fcolour = Option.DefaultFC;
-        gui_bcolour = Option.DefaultBC;
+    SetFont(Option.DefaultFont);
+    gui_fcolour = Option.DefaultFC;
+    gui_bcolour = Option.DefaultBC;
     PromptFont = Option.DefaultFont;
     PromptFC = Option.DefaultFC;
     PromptBC = Option.DefaultBC;
@@ -3279,3 +3332,4 @@ void ShowCursor(int show) {
   visible = newstate;                                               // draw the cursor BELOW the font
     DrawLine(CurrentX, CurrentY + gui_font_height-1, CurrentX + gui_font_width, CurrentY + gui_font_height-1, (gui_font_height<=8 ? 1 : 2), visible ? gui_fcolour : gui_bcolour);
 }
+

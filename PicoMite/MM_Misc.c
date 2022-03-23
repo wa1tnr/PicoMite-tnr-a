@@ -1816,7 +1816,6 @@ void cmd_option(void) {
             for(int yp=0;yp<30;yp++){
                 tilefcols[yp*40+xp]=(uint16_t)fcolour;
                 tilebcols[yp*40+xp]=(uint16_t)bcolour;
-
             }
         }
         Option.VGAFC=fcolour;
@@ -2309,7 +2308,7 @@ void cmd_option(void) {
 }
 
 void fun_device(void){
-    sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command
+  sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command
 #ifdef PICOMITEVGA
     strcpy(sret, "PicoMiteVGA");
 #else

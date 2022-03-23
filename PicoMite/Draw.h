@@ -61,7 +61,7 @@ void fun_mmcharwidth(void);
 void fun_mmcharheight(void);
 void fun_at(void);
 void fun_pixel(void);
-
+void fun_getscanline(void);
 #endif
 
 
@@ -89,7 +89,7 @@ void fun_pixel(void);
 	{ (unsigned char *)"Polygon",        T_CMD,                  	0, cmd_polygon	},
 	{ (unsigned char *)"Blit",           T_CMD,                      0, cmd_blit	},
 #ifdef PICOMITEVGA
-  	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_guiMX170   },
+  	{ (unsigned char *)"GUI",            T_CMD,                      0, cmd_guiMX170  },
   	{ (unsigned char *)"TILE",            T_CMD,                     0, cmd_tile   },
   	{ (unsigned char *)"MODE",            T_CMD,                     0, cmd_mode   },
 #else
@@ -109,6 +109,9 @@ void fun_pixel(void);
 	{ (unsigned char *)"MM.HRes",	    	T_FNA | T_INT,		0, fun_mmhres 	    },
 	{ (unsigned char *)"MM.VRes",	    	T_FNA | T_INT,		0, fun_mmvres 	    },
 	{ (unsigned char *)"@(",				T_FUN | T_STR,		0, fun_at		},
+#ifdef PICOMITEVGA
+	{ (unsigned char *)"GetScanLine",	    	T_FNA | T_INT,		0, fun_getscanline 	    },
+#endif
 //	{ (unsigned char *)"MM.FontWidth",   T_FNA | T_INT,		0, fun_mmcharwidth 	},
 //	{ (unsigned char *)"MM.FontHeight",  T_FNA | T_INT,		0, fun_mmcharheight },
 // the format is:
@@ -205,11 +208,11 @@ extern void (*ReadBuffer)(int x1, int y1, int x2, int y2, unsigned char *c);
 #define FONT_BUILTIN_NBR     8
 #define FONT_TABLE_SIZE      16
 #ifdef PICOMITEVGA
-    extern void (*DrawPixel)(int x1, int y1, int c);
+extern void (*DrawPixel)(int x1, int y1, int c);
 #else
-    extern void DrawPixel(int x, int y, int c);
-    extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
-    extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
+extern void DrawPixel(int x, int y, int c);
+extern void DrawRectangleUser(int x1, int y1, int x2, int y2, int c);
+extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
 #endif
 extern void DisplayPutC(char c);
 extern void GUIPrintString(int x, int y, int fnt, int jh, int jv, int jo, int fc, int bc, char *str);
