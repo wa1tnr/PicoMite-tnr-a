@@ -15,6 +15,10 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+5.07.04RC1
+
+Brings PicoMite up-to-fate with PicoMiteVGA changes
+
 5.07.04b7
 
 Adds support for 4-bit colour output in 640x480 resolution
