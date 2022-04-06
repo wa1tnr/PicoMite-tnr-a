@@ -235,7 +235,11 @@ extern unsigned char EchoOption;
 extern unsigned char *GetFileName(unsigned char* CmdLinePtr, unsigned char *LastFilePtr);
 extern void mergefile(unsigned char *fname, unsigned char *MemPtr);
 extern volatile unsigned int ScrewUpTimer;
-extern unsigned char* SaveNextDataLine;
-extern int SaveNextData;
+struct sa_data{
+    unsigned char* SaveNextDataLine;
+    int SaveNextData;
+};
+extern struct sa_data datastore[MAXRESTORE];
+extern int restorepointer;
 
 #endif

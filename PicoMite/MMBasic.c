@@ -2545,7 +2545,7 @@ void IntToStrPad(char *p, long long int nbr, signed char padch, int maxch, int r
     char sign, buf[IntToStrBufSize];
 
     sign = 0;
-    if((nbr < 0 && radix == 10)|| padch < 0) {                      // if the number is negative or we are forced to use a - symbol
+    if ((nbr < 0 && radix == 10 && nbr!=0x8000000000000000) || padch < 0) {                      // if the number is negative or we are forced to use a - symbol
         sign = '-';                                                 // set the sign
         nbr *= -1;                                                  // convert to a positive nbr
         padch = abs(padch);
@@ -2740,8 +2740,6 @@ void  ClearStack(void) {
     LocalIndex = 0;
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
     InterruptReturn = NULL;
-    SaveNextDataLine = ProgMemory;
-    SaveNextData = 0;
 }
 
 
@@ -2764,6 +2762,8 @@ void ClearRuntime(void) {
     InitHeap();
     m_alloc(M_VAR);
     ClearVars(0);
+    memset(datastore, 0, sizeof(struct sa_data) * MAXRESTORE);
+    restorepointer = 0;
     varcnt = 0;
     CurrentLinePtr = ContinuePoint = NULL;
     for(i = 0;  i < MAXSUBFUN; i++)  subfun[i] = NULL;

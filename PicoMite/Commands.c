@@ -56,6 +56,8 @@ int keyselect=0;
 extern volatile unsigned int ScrewUpTimer;
 unsigned char* SaveNextDataLine = NULL;
 int SaveNextData = 0;
+struct sa_data datastore[MAXRESTORE];
+int restorepointer = 0;
 
 // stack to keep track of nested FOR/NEXT loops
 struct s_forstack forstack[MAXFORLOOPS + 1];
@@ -1413,25 +1415,20 @@ void cmd_read(void) {
     unsigned char *p, datatoken, *lineptr = NULL, *ptr;
     int vcnt, vidx, num_to_read=0;
 	if (checkstring(cmdline, (unsigned char*)"SAVE")) {
-		SaveNextDataLine = NextDataLine;
-		SaveNextData = NextData;
+		if(restorepointer== MAXRESTORE - 1)error((char*)"Too many saves");
+		datastore[restorepointer].SaveNextDataLine = NextDataLine;
+		datastore[restorepointer].SaveNextData = NextData;
+		restorepointer++;
 		return;
 	}
 	if (checkstring(cmdline, (unsigned char*)"RESTORE")) {
-	if(SaveNextDataLine == NULL){
-		SaveNextDataLine = NextDataLine;
-		SaveNextData = NextData;
-	}
-		NextDataLine = SaveNextDataLine;
-		NextData = SaveNextData;
+		if (!restorepointer)error((char*)"Nothing to restore");
+		restorepointer--;
+		NextDataLine = datastore[restorepointer].SaveNextDataLine;
+		NextData = datastore[restorepointer].SaveNextData;
 		return;
 	}
-
     getargs(&cmdline, (MAX_ARG_COUNT * 2) - 1, ",");                // getargs macro must be the first executable stmt in a block
-	if(SaveNextDataLine == NULL){
-		SaveNextDataLine = NextDataLine;
-		SaveNextData = NextData;
-	}
     if(argc == 0) error("Syntax");
 	// first count the elements and do the syntax checking
     for(vcnt = i = 0; i < argc; i++) {
