@@ -3180,9 +3180,9 @@ void SetFont(int fnt) {
 
 
 void ResetDisplay(void) {
-    SetFont(Option.DefaultFont);
-    gui_fcolour = Option.DefaultFC;
-    gui_bcolour = Option.DefaultBC;
+        SetFont(Option.DefaultFont);
+        gui_fcolour = Option.DefaultFC;
+        gui_bcolour = Option.DefaultBC;
     PromptFont = Option.DefaultFont;
     PromptFC = Option.DefaultFC;
     PromptBC = Option.DefaultBC;
@@ -3332,4 +3332,3 @@ void ShowCursor(int show) {
   visible = newstate;                                               // draw the cursor BELOW the font
     DrawLine(CurrentX, CurrentY + gui_font_height-1, CurrentX + gui_font_width, CurrentY + gui_font_height-1, (gui_font_height<=8 ? 1 : 2), visible ? gui_fcolour : gui_bcolour);
 }
-

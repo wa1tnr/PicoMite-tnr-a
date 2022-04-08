@@ -29,9 +29,9 @@ extern "C" {
 #endif
 #define FLASH_TARGET_OFFSET (1024 * 1024) 
 #ifdef PICOMITEVGA
-#define MagicKey 0x672658F4
+#define MagicKey 0x672622F4
 #else
-#define MagicKey 0x867828E7
+#define MagicKey 0x867833E7
 #endif
 
 #define MMFLOAT double
@@ -91,6 +91,7 @@ extern "C" {
 #define FLASH_ERASE_SIZE 4096
 #define MAX_CPU     252000
 #define MAXBLITBUF 32
+#define MAXRESTORE          16
 #define CONFIG_TITLE		0
 #define CONFIG_LOWER		1
 #define CONFIG_UPPER		2

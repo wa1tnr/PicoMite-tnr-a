@@ -67,7 +67,7 @@ static char *I2C2_Rcvbuf_String;										// pointer to the master receive buffe
 static unsigned int I2C2_Addr;										// I2C device address
 static volatile unsigned int I2C2_Sendlen;							// length of the master send buffer
 static volatile unsigned int I2C2_Rcvlen;							// length of the master receive buffer
-static unsigned char I2C2_Send_Buffer[256];                                   // I2C send buffer
+static unsigned char I2C_Send_Buffer[256];                                   // I2C send buffer
 unsigned int I2C2_enabled=0;									// I2C enable marker
 unsigned int I2C2_Timeout;									// master timeout value
 volatile unsigned int I2C2_Status;										// status flags
@@ -376,9 +376,9 @@ void RtcGetTime(void) {
 		I2C2_Sendlen = 1;                                                // send one byte
 		I2C2_Rcvlen = 0;
 		I2C2_Status = 0;
-		I2C2_Send_Buffer[0] = 0;                                           // the first register to read
+		I2C_Send_Buffer[0] = 0;                                           // the first register to read
 		if(!(DS1307 = DoRtcI2C(0x68))) {
-			I2C2_Send_Buffer[0] = 2;                                       // the first register is different for the PCF8563
+			I2C_Send_Buffer[0] = 2;                                       // the first register is different for the PCF8563
 			if(!DoRtcI2C(0x51)) goto error_exit;
 		}
 		I2C2_Rcvbuf_String = buff;                                       // we want a string of bytes
@@ -485,37 +485,37 @@ void cmd_rtc(void) {
 				if(!(p[2] == '/' || p[2] == '-' )|| !(p[11] == ':' || p[13] == ':')) error("Date/time format");
 				if(p[13] == ':')Fulldate=2;
 				if(p[14 + Fulldate] == ':') 
-					I2C2_Send_Buffer[1] = CvtCharsToBCD(p + 15 + Fulldate, 0, 59);  // seconds
+					I2C_Send_Buffer[1] = CvtCharsToBCD(p + 15 + Fulldate, 0, 59);  // seconds
 				else
-					I2C2_Send_Buffer[1] = 0;                             // seconds defaults to zero
-				I2C2_Send_Buffer[2] = CvtCharsToBCD(p + 12 + Fulldate, 0, 59);      // minutes
-				I2C2_Send_Buffer[3] = CvtCharsToBCD(p + 9 + Fulldate, 0, 23);       // hour
-				I2C2_Send_Buffer[5] = CvtCharsToBCD(p, 1, 31);           // day
-				I2C2_Send_Buffer[6] = CvtCharsToBCD(p + 3, 1, 12);       // month
-				I2C2_Send_Buffer[7] = CvtCharsToBCD(p + 6 + Fulldate, 0, 99);       // year
+					I2C_Send_Buffer[1] = 0;                             // seconds defaults to zero
+				I2C_Send_Buffer[2] = CvtCharsToBCD(p + 12 + Fulldate, 0, 59);      // minutes
+				I2C_Send_Buffer[3] = CvtCharsToBCD(p + 9 + Fulldate, 0, 23);       // hour
+				I2C_Send_Buffer[5] = CvtCharsToBCD(p, 1, 31);           // day
+				I2C_Send_Buffer[6] = CvtCharsToBCD(p + 3, 1, 12);       // month
+				I2C_Send_Buffer[7] = CvtCharsToBCD(p + 6 + Fulldate, 0, 99);       // year
 			} else  {
 				// multiple arguments - data should be in the original yy, mm, dd, etc format
 				if(argc != 11) error("Argument count");
-				I2C2_Send_Buffer[1] = CvtToBCD(argv[10], 0, 59);         // seconds
-				I2C2_Send_Buffer[2] = CvtToBCD(argv[8], 0, 59);          // minutes
-				I2C2_Send_Buffer[3] = CvtToBCD(argv[6], 0, 23);          // hour
-				I2C2_Send_Buffer[5] = CvtToBCD(argv[4], 1, 31);          // day
-				I2C2_Send_Buffer[6] = CvtToBCD(argv[2], 1, 12);          // month
-				I2C2_Send_Buffer[7] = CvtToBCD(argv[0], 0, 2099);        // year
+				I2C_Send_Buffer[1] = CvtToBCD(argv[10], 0, 59);         // seconds
+				I2C_Send_Buffer[2] = CvtToBCD(argv[8], 0, 59);          // minutes
+				I2C_Send_Buffer[3] = CvtToBCD(argv[6], 0, 23);          // hour
+				I2C_Send_Buffer[5] = CvtToBCD(argv[4], 1, 31);          // day
+				I2C_Send_Buffer[6] = CvtToBCD(argv[2], 1, 12);          // month
+				I2C_Send_Buffer[7] = CvtToBCD(argv[0], 0, 2099);        // year
 			}
-			I2C2_Send_Buffer[0] = 0;                                     // turn off the square wave
-			I2C2_Send_Buffer[4] = 1;
+			I2C_Send_Buffer[0] = 0;                                     // turn off the square wave
+			I2C_Send_Buffer[4] = 1;
 			I2C2_Rcvlen = 0;
 			I2C2_Sendlen = 9;                                            // send 7 bytes
 			if(!DoRtcI2C(0x68)) {
-				I2C2_Send_Buffer[9] = I2C2_Send_Buffer[7];                // year
-				I2C2_Send_Buffer[8] = I2C2_Send_Buffer[6];                // month
-				I2C2_Send_Buffer[7] = 1;
-				I2C2_Send_Buffer[6] = I2C2_Send_Buffer[5];                // day
-				I2C2_Send_Buffer[5] = I2C2_Send_Buffer[3];                // hour
-				I2C2_Send_Buffer[4] = I2C2_Send_Buffer[2];                // minutes
-				I2C2_Send_Buffer[3] = I2C2_Send_Buffer[1];                // seconds
-				I2C2_Send_Buffer[0] = I2C2_Send_Buffer[1] = I2C2_Send_Buffer[2] = 0;  // set the register pointer to the first register then zero the first two registers
+				I2C_Send_Buffer[9] = I2C_Send_Buffer[7];                // year
+				I2C_Send_Buffer[8] = I2C_Send_Buffer[6];                // month
+				I2C_Send_Buffer[7] = 1;
+				I2C_Send_Buffer[6] = I2C_Send_Buffer[5];                // day
+				I2C_Send_Buffer[5] = I2C_Send_Buffer[3];                // hour
+				I2C_Send_Buffer[4] = I2C_Send_Buffer[2];                // minutes
+				I2C_Send_Buffer[3] = I2C_Send_Buffer[1];                // seconds
+				I2C_Send_Buffer[0] = I2C_Send_Buffer[1] = I2C_Send_Buffer[2] = 0;  // set the register pointer to the first register then zero the first two registers
 				I2C2_Sendlen = 10;                                       // send 10 bytes
 				if(!DoRtcI2C(0x51)) error("RTC not responding");
 			}
@@ -531,7 +531,7 @@ void cmd_rtc(void) {
 		} else {
 			I2C2_Sendlen = 1;                                            // send one byte
 			I2C2_Rcvlen = 0;
-			*I2C2_Send_Buffer = getint(argv[0], 0, 255);                 // the register to read
+			*I2C_Send_Buffer = getint(argv[0], 0, 255);                 // the register to read
 		}
         ptr = findvar(argv[2], V_FIND);
         if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
@@ -568,8 +568,8 @@ void cmd_rtc(void) {
 			I2C_Sendlen = 2;                                            // send 2 bytes
 		} else {
 			I2C2_Rcvlen = 0;
-			I2C2_Send_Buffer[0] = getint(argv[0], 0, 255);               // set the register pointer
-			I2C2_Send_Buffer[1] = getint(argv[2], 0, 255);               // and the data to be written
+			I2C_Send_Buffer[0] = getint(argv[0], 0, 255);               // set the register pointer
+			I2C_Send_Buffer[1] = getint(argv[2], 0, 255);               // and the data to be written
 			I2C2_Sendlen = 2;                                            // send 2 bytes
 		}
         if(!DoRtcI2C(0x68)) {
@@ -689,7 +689,7 @@ void i2cSendSlave(unsigned char *p, int channel) {
 	if(channel==0){
 		bbuff=I2C_Send_Buffer;
 	} else {
-		bbuff=I2C2_Send_Buffer;
+		bbuff=I2C_Send_Buffer;
 	}
 	sendlen = getinteger(argv[0]);
 	if(sendlen < 1 || sendlen > 255) error("Number out of bounds");
@@ -750,7 +750,7 @@ void i2c2Send(unsigned char *p) {
 	if(sendlen == 1 || argc > 7) {		// numeric expressions for data
 		if(sendlen != ((argc - 5) >> 1)) error("Incorrect argument count");
 		for (i = 0; i < sendlen; i++) {
-			I2C2_Send_Buffer[i] = getinteger(argv[i + i + 6]);
+			I2C_Send_Buffer[i] = getinteger(argv[i + i + 6]);
 		}
 	} else {		// an array of MMFLOAT, integer or a string
 		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
@@ -759,14 +759,14 @@ void i2c2Send(unsigned char *p) {
 			cptr = (unsigned char *)ptr;
 			cptr++;																	// skip the length byte in a MMBasic string
 			for (i = 0; i < sendlen; i++) {
-				I2C2_Send_Buffer[i] = (int)(*(cptr + i));
+				I2C_Send_Buffer[i] = (int)(*(cptr + i));
 			}
 		} else if((vartbl[VarIndex].type & T_NBR) && vartbl[VarIndex].dims[0] > 0 && vartbl[VarIndex].dims[1] == 0) {		// numeric array
 			if( (((MMFLOAT *)ptr - vartbl[VarIndex].val.fa) + sendlen) > (vartbl[VarIndex].dims[0] + 1 - OptionBase) ) {
 				error("Insufficient data");
 			} else {
 				for (i = 0; i < sendlen; i++) {
-					I2C2_Send_Buffer[i] = (int)(*((MMFLOAT *)ptr + i));
+					I2C_Send_Buffer[i] = (int)(*((MMFLOAT *)ptr + i));
 				}
 			}
 		} else if((vartbl[VarIndex].type & T_INT) && vartbl[VarIndex].dims[0] > 0 && vartbl[VarIndex].dims[1] == 0) {		// integer array
@@ -774,7 +774,7 @@ void i2c2Send(unsigned char *p) {
 				error("Insufficient data");
 			} else {
 				for (i = 0; i < sendlen; i++) {
-					I2C2_Send_Buffer[i] = (int)(*((long long int *)ptr + i));
+					I2C_Send_Buffer[i] = (int)(*((long long int *)ptr + i));
 				}
 			}
 		} else error("Invalid variable");
@@ -918,7 +918,7 @@ void i2cReceiveSlave(unsigned char *p, int channel) {
 			}
 		}
 	} else {
-		bbuff=I2C2_Send_Buffer;
+		bbuff=I2C_Send_Buffer;
 		i2c_read_raw_blocking(i2c1, bbuff, 1);
 		if(rcvlen>1){
 			I2CTimer=0;
@@ -1136,7 +1136,7 @@ void i2c2_masterCommand(int timer) {
 //	unsigned char start_type,
 	unsigned char i,i2c2addr=I2C2_Addr;
 	if(I2C2_Sendlen){
-		int i2cret=i2c_write_timeout_us(i2c1, (uint8_t)i2c2addr, (uint8_t *)I2C2_Send_Buffer, I2C2_Sendlen,(I2C2_Status == I2C_Status_BusHold ? true:false), I2C2_Timeout*1000);
+		int i2cret=i2c_write_timeout_us(i2c1, (uint8_t)i2c2addr, (uint8_t *)I2C_Send_Buffer, I2C2_Sendlen,(I2C2_Status == I2C_Status_BusHold ? true:false), I2C2_Timeout*1000);
 		mmI2Cvalue=0;
 		if(i2cret==PICO_ERROR_GENERIC)mmI2Cvalue=1;
 		if(i2cret==PICO_ERROR_TIMEOUT)mmI2Cvalue=2;
