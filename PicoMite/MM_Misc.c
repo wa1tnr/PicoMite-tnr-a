@@ -2069,7 +2069,7 @@ void cmd_option(void) {
 
     tp = checkstring(cmdline, "RTC AUTO");
     if(tp) {
-        if(checkstring(tp, "ENABLE"))       { Option.RTC = true; SaveOptions(); RtcGetTime(); return; }
+        if(checkstring(tp, "ENABLE"))       { Option.RTC = true; SaveOptions(); RtcGetTime(0); return; }
         if(checkstring(tp, "DISABLE"))      { Option.RTC = false; SaveOptions(); return;  }
     }
 

@@ -291,7 +291,7 @@ void __not_in_flash_func(routinechecks)(void){
             SSPrintString(alive);
         }
     if(clocktimer==0 && Option.RTC){
-        RtcGetTime();
+        RtcGetTime(0);
         clocktimer=(1000*60*60);
     }
 }
@@ -1498,6 +1498,12 @@ int main(){
     if(_excep_code == WATCHDOG_TIMEOUT) {
         WatchdogSet = true;                                 // remember if it was a watchdog timeout
         MMPrintString("\r\n\nWatchdog timeout\r\n");
+    }
+    if(noRTC){
+        noRTC=0;
+        Option.RTC=0;
+        SaveOptions();
+        MMPrintString("RTC not found, OPTION RTC AUTO disabled\r\n");
     }
  	*tknbuf = 0;
      ContinuePoint = nextstmt;                               // in case the user wants to use the continue command

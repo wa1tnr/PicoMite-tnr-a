@@ -106,7 +106,7 @@ extern unsigned int I2C_Timer;                                      // master ti
 extern char *I2C_IntLine;                                           // pointer to the master interrupt line number
 extern void i2c_disable(void);
 extern void i2c2_disable(void);
-extern void RtcGetTime(void);
+extern void RtcGetTime(int noerror);
 extern void ConfigDisplayI2C(unsigned char *p);
 extern void InitDisplayI2C(int InitOnly);
 extern unsigned int I2C2_enabled;									// I2C enable marker
@@ -115,6 +115,7 @@ extern unsigned int I2C_Timeout;									// master timeout value
 extern unsigned int I2C2_Timeout;									// master timeout value
 extern volatile unsigned int I2C_Status;                            // status flags
 extern volatile unsigned int I2C2_Status;                            // status flags
+extern int noRTC;
 extern char *I2C_Slave_Send_IntLine;                                // pointer to the slave send interrupt line number
 extern char *I2C_Slave_Receive_IntLine;                             // pointer to the slave receive interrupt line number
 extern char *I2C2_Slave_Send_IntLine;                                // pointer to the slave send interrupt line number

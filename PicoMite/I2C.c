@@ -79,6 +79,7 @@ static char I2C2_Rcv_Buffer[256];                                // I2C receive 
 char *I2C2_Slave_Send_IntLine;                                   // pointer to the slave send interrupt line number
 char *I2C2_Slave_Receive_IntLine;                                // pointer to the slave receive interrupt line number
 static unsigned int I2C2_Slave_Addr;                                 // slave address
+int noRTC=0;
 extern void SaveToBuffer(void);
 extern void CompareToBuffer(void);
 extern struct s_vartbl {                               // structure of the variable table
@@ -354,7 +355,7 @@ int DoRtcI2C(int addr) {
 
 
 
-void RtcGetTime(void) {
+void RtcGetTime(int noerror) {
     char *buff=GetTempMemory(STRINGSIZE);                                                   // Received data is stored here
     int DS1307;
 	if(I2C0locked){
@@ -399,6 +400,10 @@ void RtcGetTime(void) {
     return;
 
 error_exit:
+	if(noerror){
+		noRTC=1;
+		return;
+	}
     if(CurrentLinePtr) error("RTC not responding");
     if(Option.RTC){
 		MMPrintString("RTC not responding");
@@ -431,7 +436,7 @@ void cmd_rtc(void) {
     void *ptr = NULL;
 	if(!(I2C0locked || I2C1locked))error("SYSTEM I2C not configured");
     if(checkstring(cmdline, "GETTIME")) {
-        RtcGetTime();
+        RtcGetTime(0);
         return;
     }
     if((p = checkstring(cmdline, "SETTIME")) != NULL) {
@@ -520,7 +525,7 @@ void cmd_rtc(void) {
 				if(!DoRtcI2C(0x51)) error("RTC not responding");
 			}
 		}
-        RtcGetTime();
+        RtcGetTime(0);
     } else if((p = checkstring(cmdline, "GETREG")) != NULL) {
         getargs(&p, 3, ",");
         if(argc != 3) error("Argument count");

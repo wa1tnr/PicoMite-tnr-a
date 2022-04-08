@@ -60,7 +60,6 @@ int SD_SPI_SPEED=SD_SLOW_SPI_SPEED;
 //#define	FCLK_SLOW()		{SD_SPI_SPEED=SD_SLOW_SPI_SPEED;}	/* Set slow clock (100k-400k) */
 //#define	FCLK_FAST()		{SD_SPI_SPEED=SD_FAST_SPI_SPEED;}/* Set fast clock (depends on the CSD) */
 extern volatile BYTE SDCardStat;
-extern void RtcGetTime(void);
 volatile int diskcheckrate=0;
 const uint8_t high[512]={[0 ... 511]=0xFF};
 int CurrentSPISpeed=NONE_SPI_SPEED;
@@ -960,7 +959,7 @@ void InitReservedIO(void) {
 		gpio_init(LCD_Reset_PIN);
 		gpio_put(LCD_Reset_PIN,GPIO_PIN_RESET);
 		gpio_set_dir(LCD_Reset_PIN, GPIO_OUT);
-        if(Option.E_INKbusy) {
+		if(Option.E_INKbusy) {
 			ExtCfg(Option.E_INKbusy, EXT_BOOT_RESERVED, 0);
 			LCD_E_INKbusy=PinDef[Option.E_INKbusy].GPno;
 			gpio_init(LCD_E_INKbusy);
@@ -1139,7 +1138,7 @@ void InitReservedIO(void) {
 			I2C1SCLpin=Option.SYSTEM_I2C_SCL;
 			I2C2_Timeout=100;
 		}
-		if(Option.RTC)RtcGetTime();
+		if(Option.RTC)RtcGetTime(1);
 	}
 	if(Option.SYSTEM_CLK){
 		SPI_CLK_PIN=PinDef[Option.SYSTEM_CLK].GPno;
