@@ -86,6 +86,7 @@ extern void WriteData(int data);
 char *CSubInterrupt;
 volatile int CSubComplete=0;
 uint64_t timeroffset=0;
+int SaveOptionErrorSkip=0;
 void integersort(int64_t *iarray, int n, long long *index, int flags, int startpoint){
     int i, j = n, s = 1;
     int64_t t;
@@ -1291,6 +1292,7 @@ void cmd_ireturn(void){
         DelayedDrawFmtBox = false;
     }
 #endif
+if(SaveOptionErrorSkip>0)OptionErrorSkip=SaveOptionErrorSkip+1;
 }
 
 
@@ -2392,8 +2394,6 @@ void fun_info(void){
 		memset(&djd,0,sizeof(DIR));
 		memset(&fnod,0,sizeof(FILINFO));
 		char *p = getCstring(tp);
-
-		ErrorCheck(0);
 		FSerror = f_stat(p, &fnod);
 		if(FSerror != FR_OK){ iret=-1; targ=T_INT; strcpy(MMErrMsg,FErrorMsg[4]); return;}
 		if((fnod.fattrib & AM_DIR)){ iret=-2; targ=T_INT; strcpy(MMErrMsg,FErrorMsg[4]); return;}
@@ -2409,7 +2409,6 @@ void fun_info(void){
 		memset(&djd,0,sizeof(DIR));
 		memset(&fnod,0,sizeof(FILINFO));
 		char *p = getCstring(tp);
-		ErrorCheck(0);
 		FSerror = f_stat(p, &fnod);
 		if(FSerror != FR_OK){ iret=-1; targ=T_STR; strcpy(MMErrMsg,FErrorMsg[4]); return;}
 //		if((fnod.fattrib & AM_DIR)){ iret=-2; targ=T_INT; strcpy(MMErrMsg,FErrorMsg[4]); return;}
@@ -3084,6 +3083,9 @@ int checkdetailinterrupts(void) {
     // an interrupt was found if we jumped to here
 GotAnInterrupt:
     LocalIndex++;                                                   // IRETURN will decrement this
+    if(OptionErrorSkip>0)SaveOptionErrorSkip=OptionErrorSkip;
+    else SaveOptionErrorSkip = 0;
+    OptionErrorSkip=0;
     InterruptReturn = nextstmt;                                     // for when IRETURN is executed
     // if the interrupt is pointing to a SUB token we need to call a subroutine
     if(*intaddr == cmdSUB) {
