@@ -15,6 +15,11 @@ Compiled version and documentation is available on https://geoffg.net/picomite.h
 
 Change list from V5.07.00
 ***********************************************************************************************************************
+5.07.04RC3
+
+Fixes an interaction between setpin FIN/PIN/CIN and PS2 keyboard. 
+Fixes an interaction between interrupts and error messages.
+
 5.07.04RC2
 
 Fixes bug where the system would lock up on booting if OPTION RTC AUTO was enabled but the RTC was missing. Now a warning will be printed and the option disabled. 
