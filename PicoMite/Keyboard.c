@@ -362,11 +362,11 @@ void KBDIntEnable(int status){
     PinSetBit(KEYBOARD_DATA, CNPUSET);                         // if tris = 1 then it is an input
     if(status){
       if(!CallBackEnabled){
-          gpio_set_irq_enabled_with_callback(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IRQ_EDGE_FALL , true, &gpio_callback);
           CallBackEnabled=32;
+          gpio_set_irq_enabled_with_callback(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IRQ_EDGE_FALL , true, &gpio_callback);
       } else {
-          gpio_set_irq_enabled(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IRQ_EDGE_RISE, true);
           CallBackEnabled|=32;
+          gpio_set_irq_enabled(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IRQ_EDGE_FALL, true);
       }
 	} else {
         if(CallBackEnabled==32) gpio_set_irq_enabled_with_callback(PinDef[KEYBOARD_CLOCK].GPno, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false, &gpio_callback);

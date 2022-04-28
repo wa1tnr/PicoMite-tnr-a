@@ -124,7 +124,7 @@ const int ErrorMap[] = {        0,                                  // 0
 /******************************************************************************************
 Text for the file related error messages reported by MMBasic
 ******************************************************************************************/
-const char *FErrorMsg[] = {	"Succeeded ",
+const char *FErrorMsg[] = {	"",
 		"A hard error occurred in the low level disk I/O layer",
 		"Assertion failed",
 		"SD Card not found",
@@ -683,7 +683,7 @@ void cmd_seek(void) {
     if(fnbr < 1 || fnbr > MAXOPENFILES || FileTable[fnbr].com <= MAXCOMPORTS) error("File number");
     if(FileTable[fnbr].com == 0) error("File number #% is not open", fnbr);
     if(!InitSDCard()) return;
-    idx = getinteger(argv[2]) - 1;
+    idx = getint(argv[2],1,0x7FFFFFFF) - 1;
     if(idx < 0) idx = 0;
     if(fmode[fnbr] & FA_WRITE){
         FSerror = f_lseek(FileTable[fnbr].fptr,idx);

@@ -1077,7 +1077,7 @@ void fun_pin(void) {
                             targ = T_INT;
                             return;
         case EXT_PER_IN:	// if period measurement get the count and average it over the number of cycles
-                            if(pin == Option.INT1pin) fret = (MMFLOAT)ExtInp(pin) / INT1InitTimer;
+                            if(pin == Option.INT1pin) fret = (MMFLOAT)ExtInp(pin) / (MMFLOAT)INT1InitTimer;
                             else if(pin == Option.INT2pin)  fret = (MMFLOAT)ExtInp(pin) / (MMFLOAT)INT2InitTimer;
                             else if(pin == Option.INT3pin)  fret = (MMFLOAT)ExtInp(pin) / (MMFLOAT)INT3InitTimer;
                             else if(pin == Option.INT4pin)  fret = (MMFLOAT)ExtInp(pin) / (MMFLOAT)INT4InitTimer;
@@ -2318,7 +2318,7 @@ void ClearExternalIO(void) {
         gpio_set_irq_enabled(PinDef[Option.INT4pin].GPno, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
         CallBackEnabled &= (~16);
     }
-    CallBackEnabled=0;
+    CallBackEnabled &= (~32);
     for(i=0;i<MAXBLITBUF;i++){
     	blitbuffptr[i] = NULL;
     }
@@ -2561,10 +2561,11 @@ void __not_in_flash_func(IRHandler)(void) {
         }
     }
 void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
-    if(Option.KeyboardConfig |= NO_KEYBOARD && gpio==PinDef[KEYBOARD_CLOCK].GPno) CNInterrupt();
-    if(gpio==PinDef[IRpin].GPno)IRHandler();
-    if(gpio==PinDef[Option.INT1pin].GPno)TM_EXTI_Handler_1();
-    if(gpio==PinDef[Option.INT2pin].GPno)TM_EXTI_Handler_2();
-    if(gpio==PinDef[Option.INT3pin].GPno)TM_EXTI_Handler_3();
-    if(gpio==PinDef[Option.INT4pin].GPno)TM_EXTI_Handler_4();
+    if(gpio==PinDef[IRpin].GPno && (CallBackEnabled & 1))IRHandler();
+    else if(gpio==PinDef[Option.INT1pin].GPno && (CallBackEnabled & 2))TM_EXTI_Handler_1();
+    else if(gpio==PinDef[Option.INT2pin].GPno && (CallBackEnabled & 4))TM_EXTI_Handler_2();
+    else if(gpio==PinDef[Option.INT3pin].GPno && (CallBackEnabled & 8))TM_EXTI_Handler_3();
+    else if(gpio==PinDef[Option.INT4pin].GPno && (CallBackEnabled & 16))TM_EXTI_Handler_4();
+    else if(Option.KeyboardConfig |= NO_KEYBOARD && gpio==PinDef[KEYBOARD_CLOCK].GPno && (CallBackEnabled & 32)) CNInterrupt();
+    else error("Internal error");
 }
