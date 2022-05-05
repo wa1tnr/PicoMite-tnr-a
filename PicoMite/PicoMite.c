@@ -55,6 +55,7 @@ extern "C" {
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
 #define ADDL_MSG_SIGNON "\r\n  four four four four-cee  \r\n"
 #define ADDL_MSG_SIGNON_PIP ". "
+#define ADDL_MSG_TIMESTAMP "\r\n            Thu  5 May 13:03:51 UTC 2022\r\n"
 #endif
 #define USBKEEPALIVE 30000
 int ListCnt;
@@ -1492,10 +1493,11 @@ int main(){
             if(!(_excep_code == RESET_COMMAND))MMPrintString(MES_SIGNON); //MMPrintString(b);                                 // print sign on message
         } else {
             busy_wait_ms(1107); MMPrintString(MES_SIGNON);
-            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
-            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
-            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
-            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(907); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(907); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(907); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(907); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(907); MMPrintString(ADDL_MSG_TIMESTAMP);
             MMPrintString(ADDL_MSG_SIGNON); // won't accept a quoted string here; use a defined string
             if(Option.Autorun!=MAXFLASHSLOTS+1){
                 ProgMemory=(char *)(flash_target_contents+(Option.Autorun-1)*MAX_PROG_SIZE);
