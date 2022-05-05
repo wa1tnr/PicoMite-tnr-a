@@ -50,9 +50,11 @@ extern "C" {
 					"Copyright " YEAR " Geoff Graham\r\n"\
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
 #else
-#define MES_SIGNON  "\rPicoMite MMBasic Version " VERSION "\r\n"\
+#define MES_SIGNON  "\rPicoMite CanYouSee MMBasic Version " VERSION "\r\n"\
 					"Copyright " YEAR " Geoff Graham\r\n"\
 					"Copyright " YEAR2 " Peter Mather\r\n\r\n"
+#define ADDL_MSG_SIGNON "\r\n  four four four four-cee  \r\n"
+#define ADDL_MSG_SIGNON_PIP ". "
 #endif
 #define USBKEEPALIVE 30000
 int ListCnt;
@@ -1489,10 +1491,17 @@ int main(){
         if(Option.Autorun==0 ){
             if(!(_excep_code == RESET_COMMAND))MMPrintString(MES_SIGNON); //MMPrintString(b);                                 // print sign on message
         } else {
+            busy_wait_ms(1107); MMPrintString(MES_SIGNON);
+            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            busy_wait_ms(1407); MMPrintString(ADDL_MSG_SIGNON_PIP);
+            MMPrintString(ADDL_MSG_SIGNON); // won't accept a quoted string here; use a defined string
             if(Option.Autorun!=MAXFLASHSLOTS+1){
                 ProgMemory=(char *)(flash_target_contents+(Option.Autorun-1)*MAX_PROG_SIZE);
             }
-            if(*ProgMemory != 0x01 ) MMPrintString(MES_SIGNON); 
+            // if(*ProgMemory != 0x01 ) MMPrintString(MES_SIGNON);
+            MMPrintString(MES_SIGNON); // was a conditional
         }
     }
     if(_excep_code == WATCHDOG_TIMEOUT) {
